@@ -57,7 +57,7 @@ export default function ProjectPicker() {
   const backdropRef             = useRef(null);
 
   // Resolve the full persona object from the id stored in state
-  const persona = personas.find((p) => p.personaId === selectedPersonaId) ?? null;
+  const persona = personas.find((p) => p.id === selectedPersonaId) ?? null;
 
   // Filter projects by search query
   const filtered = projects.filter((p) =>
@@ -92,7 +92,7 @@ export default function ProjectPicker() {
     setLoading(true);
     setError(null);
     try {
-      await launchAgent(selectedPersonaId, project.projectId);
+      await launchAgent(selectedPersonaId, project.id);
       closePicker();
     } catch (err) {
       setError(err.message ?? 'Launch failed');
@@ -124,7 +124,7 @@ export default function ProjectPicker() {
             <>
               <p className="text-xs uppercase tracking-widest text-gray-500">Launching persona</p>
               <p className="mt-0.5 text-lg font-bold leading-tight text-gray-100">
-                {persona.name}
+                {persona.label}
               </p>
               {persona.domain && (
                 <p className="mt-0.5 text-sm text-gray-400">{persona.domain}</p>
@@ -162,7 +162,7 @@ export default function ProjectPicker() {
             </li>
           )}
           {filtered.map((project) => (
-            <li key={project.projectId}>
+            <li key={project.id}>
               <button
                 disabled={loading}
                 onClick={() => handleSelectProject(project)}

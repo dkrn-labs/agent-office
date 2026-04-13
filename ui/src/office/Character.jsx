@@ -5,7 +5,7 @@
  * each frame 16x32px. We use CSS background-position stepping to animate.
  *
  * Props:
- *   persona   — { personaId, label, domain, characterSprite, ... }
+ *   persona   — { id, label, domain, characterSprite, ... }
  *   session   — { totals, working } or undefined
  *   onSelect  — (persona) => void, called when character is clicked
  */
