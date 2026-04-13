@@ -8,6 +8,7 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const { version } = require('../package.json');
+const Database = require('better-sqlite3');
 
 const CLI = new URL('../bin/agent-office.js', import.meta.url).pathname;
 
@@ -70,6 +71,19 @@ describe('agent-office CLI', () => {
       const configPath = join(dataDir, 'config.json');
       const config = JSON.parse(readFileSync(configPath, 'utf8'));
       assert.equal(config.projectsDir, tmpDir);
+    });
+
+    it('init seeds built-in personas into the database', () => {
+      const dataDir = join(tmpDir, 'data3');
+
+      run(['init', '--data-dir', dataDir, '--projects-dir', tmpDir]);
+
+      const dbPath = join(dataDir, 'agent-office.db');
+      const db = new Database(dbPath, { readonly: true });
+      const { count } = db.prepare('SELECT COUNT(*) AS count FROM persona').get();
+      db.close();
+
+      assert.ok(count > 0, `Expected at least 1 persona in DB, got ${count}`);
     });
   });
 });

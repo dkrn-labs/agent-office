@@ -13,6 +13,8 @@ import { createApp } from '../src/api/server.js';
 import { createWsHub } from '../src/api/ws-hub.js';
 import { createLogger } from '../src/core/logger.js';
 import { scanDirectory } from '../src/skills/project-scanner.js';
+import { createPersonaRegistry } from '../src/agents/persona-registry.js';
+import { seedBuiltInSkills } from '../src/agents/built-in-skills.js';
 
 const require = createRequire(import.meta.url);
 const { version } = require('../package.json');
@@ -74,7 +76,17 @@ program
     }
     log.info('Scanned projects', { found: projects.length, created });
 
-    // 5. Seed 2 default garden rules
+    // 5. Seed built-in personas
+    const personaRegistry = createPersonaRegistry(repo);
+    await personaRegistry.seedBuiltIns();
+    const personaCount = repo.listPersonas().length;
+    log.info('Seeded built-in personas', { count: personaCount });
+
+    // 6. Seed built-in skills
+    const { inserted: skillsInserted } = await seedBuiltInSkills(repo);
+    log.info('Seeded built-in skills', { inserted: skillsInserted });
+
+    // 7. Seed 2 default garden rules
     const rules = [
       {
         scope: 'global',
@@ -95,15 +107,17 @@ program
     }
     log.info('Seeded garden rules', { count: rules.length });
 
-    // 6. Close DB
+    // 8. Close DB
     db.close();
 
-    // 7. Print summary
+    // 9. Print summary
     console.log(`\nagent-office initialized successfully`);
     console.log(`  data dir:     ${dataDir}`);
     console.log(`  database:     ${dbPath}`);
     console.log(`  projects dir: ${config.projectsDir}`);
     console.log(`  projects:     ${created} imported`);
+    console.log(`  personas:     ${personaCount} seeded`);
+    console.log(`  skills:       ${skillsInserted} seeded`);
     console.log(`  garden rules: ${rules.length} seeded`);
     console.log(`\nRun 'agent-office start' to launch the server.`);
   });
@@ -140,7 +154,7 @@ program
     const bus = createEventBus();
 
     // Create Express app
-    const app = createApp({ repo, bus, config, configDir: dataDir });
+    const app = createApp({ repo, bus, config, configDir: dataDir, db, dryRun: false });
 
     // Create HTTP server and attach WS hub
     const server = createServer(app);
