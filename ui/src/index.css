@@ -1,0 +1,226 @@
+@import "tailwindcss";
+
+/* ── Office Scene ─────────────────────────────────────────────────────────── */
+
+.office-scene {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 480px;
+  background-color: #030712; /* gray-950 */
+  background-image:
+    /* subtle warm vignette */
+    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(120, 80, 30, 0.08) 0%, transparent 70%);
+  overflow: hidden;
+  border-radius: 0.5rem;
+  border: 1px solid #1f2937; /* gray-800 */
+}
+
+/* Floor grid */
+.office-floor-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 32px 32px;
+  pointer-events: none;
+}
+
+/* Ceiling lights row */
+.office-ceiling-lights {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-around;
+  padding: 0 8%;
+  pointer-events: none;
+}
+
+.office-light {
+  width: 64px;
+  height: 6px;
+  background: rgba(255, 250, 220, 0.18);
+  border-radius: 0 0 4px 4px;
+  box-shadow: 0 0 24px 8px rgba(255, 240, 180, 0.08);
+}
+
+/* ── Desk Slot ────────────────────────────────────────────────────────────── */
+
+.office-desk-slot {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Desk surface */
+.office-desk {
+  position: relative;
+  width: 80px;
+  height: 32px;
+  background: linear-gradient(180deg, #78532a 0%, #5c3e1e 100%);
+  border-radius: 4px 4px 2px 2px;
+  border-top: 2px solid #a0722a;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 200, 80, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+/* Monitor stand + screen (pixel art style, rendered purely in CSS) */
+.office-monitor {
+  width: 4px;
+  height: 14px;
+  background: #374151;
+  border-radius: 1px;
+}
+
+.office-monitor-screen {
+  width: 26px;
+  height: 18px;
+  background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 50%, #1a2744 100%);
+  border: 1.5px solid #4b5563;
+  border-radius: 2px;
+  box-shadow: 0 0 6px rgba(96, 165, 250, 0.25);
+  position: absolute;
+  top: -22px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.office-keyboard {
+  width: 30px;
+  height: 8px;
+  background: #374151;
+  border-radius: 1px;
+  border: 1px solid #4b5563;
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* Empty seat placeholder */
+.office-empty-seat {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1.5px dashed #374151;
+  opacity: 0.4;
+}
+
+/* ── Character ────────────────────────────────────────────────────────────── */
+
+.character-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  user-select: none;
+  /* lift above desk */
+  margin-top: -4px;
+}
+
+.character-wrapper:hover .character-avatar {
+  filter: brightness(1.2);
+}
+
+/* Avatar: colored square with pixel-art feel */
+.character-avatar {
+  width: 24px;
+  height: 24px;
+  background-color: var(--char-color, #94a3b8);
+  border-radius: 3px; /* slightly rounded square — pixel-art feel */
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  image-rendering: pixelated;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+  position: relative;
+}
+
+/* Idle: gentle vertical float */
+.character-avatar--idle {
+  animation: char-float 3s ease-in-out infinite;
+}
+
+/* Working: faster bob + glow */
+.character-avatar--working {
+  animation: char-work 0.6s ease-in-out infinite;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    0 0 8px 2px var(--char-color, #94a3b8);
+}
+
+@keyframes char-float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-4px); }
+}
+
+@keyframes char-work {
+  0%, 100% { transform: translateY(0px) rotate(-1deg); }
+  25%       { transform: translateY(-3px) rotate(0deg); }
+  75%       { transform: translateY(-1px) rotate(1deg); }
+}
+
+.character-initial {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+  font-family: ui-monospace, monospace;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.character-name {
+  font-size: 9px;
+  font-family: ui-monospace, monospace;
+  color: #9ca3af; /* gray-400 */
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* ── Token Badge ──────────────────────────────────────────────────────────── */
+
+.token-badge {
+  font-size: 9px;
+  font-family: ui-monospace, monospace;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 9999px;
+  line-height: 1.4;
+  white-space: nowrap;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.token-badge--idle {
+  background: #1f2937; /* gray-800 */
+  color: #6b7280;       /* gray-500 */
+  border: 1px solid #374151;
+}
+
+.token-badge--working {
+  background: #052e16; /* green-950 */
+  color: #4ade80;       /* green-400 */
+  border: 1px solid #166534;
+}
+
+.token-badge--pulse {
+  animation: badge-pulse 1s ease-in-out infinite;
+}
+
+@keyframes badge-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+

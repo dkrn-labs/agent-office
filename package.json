@@ -10,6 +10,8 @@
   "scripts": {
     "start": "node bin/agent-office.js start",
     "dev": "node --watch bin/agent-office.js start",
+    "dev:ui": "cd ui && npm run dev",
+    "build:ui": "cd ui && npm run build",
     "test": "node --test 'test/**/*.test.js'",
     "test:watch": "node --test --watch 'test/**/*.test.js'"
   },

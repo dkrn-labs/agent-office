@@ -1,4 +1,7 @@
 import express from 'express';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { healthRoutes } from './routes/health.js';
 import { projectRoutes } from './routes/projects.js';
 import { configRoutes } from './routes/config.js';
@@ -43,6 +46,18 @@ export function createApp({ repo, bus, config, configDir, db, dryRun = true }) {
   app.use(skillRoutes(repo));
   app.use(officeRoutes(launcher));
   app.use(memoryRoutes(memoryEngine, repo, importFromClaudeProjects));
+
+  // Static file serving for production builds.
+  // In dev, Vite's dev server handles assets via proxy instead.
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  const distPath = path.join(__dirname, '../../ui/dist');
+  if (fs.existsSync(distPath)) {
+    app.use(express.static(distPath));
+    // SPA fallback: send index.html for any non-API route
+    app.get('/{*path}', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  }
 
   return app;
 }
