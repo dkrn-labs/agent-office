@@ -23,7 +23,7 @@ export default function OfficeScene() {
   const openPicker = useOfficeStore((s) => s.openPicker);
 
   function handleSelect(persona) {
-    openPicker(persona.id);
+    openPicker(persona.personaId);
   }
 
   return (
@@ -38,7 +38,7 @@ export default function OfficeScene() {
       {/* Desks */}
       {DESK_POSITIONS.map((desk, idx) => {
         const persona = personas[idx] ?? null;
-        const session = persona ? sessions[persona.id] : undefined;
+        const session = persona ? sessions[persona.personaId] : undefined;
 
         return (
           <div
