@@ -11,6 +11,7 @@ import { createEventBus } from '../../src/core/event-bus.js';
 import { SESSION_STARTED } from '../../src/core/events.js';
 import { detectTerminal } from '../../src/agents/terminal-detector.js';
 import { createLauncher } from '../../src/agents/launcher.js';
+import { createMemoryEngine } from '../../src/memory/memory-engine.js';
 
 // ── Shared setup ─────────────────────────────────────────────────────────────
 
@@ -136,6 +137,67 @@ describe('Launcher.prepareLaunch', () => {
     assert.ok(
       contents.includes('Always lazy-load heavy components.'),
       'should include the memory that was added to the project',
+    );
+  });
+
+  it('domain-filters memories: only domains matching the persona appear in memories', async () => {
+    // Seed memories in different domains for the project
+    repo.createMemory({
+      projectId,
+      domain: 'backend',
+      type: 'note',
+      content: 'Backend-only memory that should be excluded.',
+      sourcePersonaId: null,
+    });
+    repo.createMemory({
+      projectId,
+      domain: 'general',
+      type: 'note',
+      content: 'General memory always included.',
+      sourcePersonaId: null,
+    });
+    repo.createMemory({
+      projectId,
+      domain: 'frontend',
+      type: 'note',
+      content: 'Frontend memory that should be included.',
+      sourcePersonaId: null,
+    });
+
+    // The frontend persona has domain 'frontend' and secondaryDomains ['review']
+    const ctx = await launcher.prepareLaunch(personaId, projectId);
+    const domains = ctx.memories.map((m) => m.domain);
+
+    assert.ok(
+      !domains.includes('backend'),
+      'backend domain memories should not appear for a frontend persona',
+    );
+    assert.ok(
+      domains.includes('frontend') || domains.includes('general'),
+      'frontend/general domain memories should be present',
+    );
+  });
+
+  it('formatForContext output appears in the systemPrompt', async () => {
+    // Seed a memory so formatForContext produces non-empty output
+    repo.createMemory({
+      projectId,
+      domain: 'frontend',
+      type: 'tip',
+      content: 'Use CSS modules for scoped styles.',
+      sourcePersonaId: null,
+    });
+
+    const ctx = await launcher.prepareLaunch(personaId, projectId);
+
+    // formatForContext produces markdown sections like "### frontend"
+    assert.ok(
+      ctx.systemPrompt.includes('### frontend'),
+      'systemPrompt should contain formatForContext markdown heading',
+    );
+    assert.ok(
+      ctx.systemPrompt.includes('Use CSS modules for scoped styles.'),
+      'systemPrompt should contain memory content from formatForContext',
     );
   });
 });
