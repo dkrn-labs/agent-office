@@ -1,0 +1,28 @@
+{
+  "name": "agent-office",
+  "version": "0.1.0",
+  "description": "A local developer tool that gives you a team of AI coding agents",
+  "type": "module",
+  "bin": {
+    "agent-office": "./bin/agent-office.js"
+  },
+  "main": "src/api/server.js",
+  "scripts": {
+    "start": "node bin/agent-office.js start",
+    "dev": "node --watch bin/agent-office.js start",
+    "test": "node --test 'test/**/*.test.js'",
+    "test:watch": "node --test --watch 'test/**/*.test.js'"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "better-sqlite3": "^12.9.0",
+    "chokidar": "^5.0.0",
+    "commander": "^14.0.3",
+    "express": "^5.2.1",
+    "node-cron": "^4.2.1",
+    "ws": "^8.20.0"
+  }
+}
