@@ -247,3 +247,66 @@ describe('buildItermScript()', () => {
     );
   });
 });
+
+describe('createLauncher with claudeMem adapter', () => {
+  it('prepends last-session summary and persona observations to systemPrompt', async () => {
+    const claudeMem = {
+      getLastSession: (name) => ({
+        title: `Last work on ${name}`,
+        completed: 'Shipped Phase 4.5',
+        nextSteps: 'Do Phase 5',
+        at: '2026-04-13',
+      }),
+      getObservations: () => [
+        {
+          id: 1,
+          title: 'Fixed click handler',
+          subtitle: 'coord transform',
+          narrative: 'details',
+          type: 'bugfix',
+          filesModified: ['ui/src/office/OfficeCanvas.jsx'],
+          createdAt: '2026-04-13',
+        },
+      ],
+      close: () => {},
+    };
+    const launcherWithMem = createLauncher({ repo, bus, resolver, dryRun: true, claudeMem });
+    const ctx = await launcherWithMem.prepareLaunch(personaId, projectId);
+
+    assert.match(ctx.systemPrompt, /## Last Session/);
+    assert.match(ctx.systemPrompt, /Shipped Phase 4\.5/);
+    assert.match(ctx.systemPrompt, /## Recent Work as Frontend/);
+    assert.match(ctx.systemPrompt, /Fixed click handler/);
+  });
+
+  it('gracefully handles null claudeMem (no adapter)', async () => {
+    const ctx = await launcher.prepareLaunch(personaId, projectId);
+    assert.ok(!ctx.systemPrompt.includes('## Last Session'));
+    assert.ok(!ctx.systemPrompt.includes('## Recent Work as'));
+  });
+});
+
+describe('launcher.preview()', () => {
+  it('returns context without creating a session or emitting events', async () => {
+    let emitted = false;
+    const unsubscribe = bus.on(SESSION_STARTED, () => { emitted = true; });
+
+    const result = await launcher.preview(personaId, projectId);
+    unsubscribe();
+
+    assert.equal(emitted, false, 'preview must NOT emit SESSION_STARTED');
+    assert.ok(result.persona, 'returns persona');
+    assert.ok(result.project, 'returns project');
+    assert.ok(Array.isArray(result.skills), 'returns skills array');
+    assert.ok(Array.isArray(result.memories), 'returns memories array');
+    assert.ok('lastSession' in result, 'returns lastSession field');
+    assert.ok(Array.isArray(result.personaObservations), 'returns personaObservations array');
+  });
+
+  it('throws Persona not found for unknown persona', async () => {
+    await assert.rejects(
+      () => launcher.preview(999999, projectId),
+      /Persona not found/,
+    );
+  });
+});

@@ -15,6 +15,7 @@ import { promisify } from 'node:util';
 import { SESSION_STARTED } from '../core/events.js';
 import { createMemoryEngine } from '../memory/memory-engine.js';
 import { formatForContext } from '../memory/memory-injector.js';
+import { filterObservationsForPersona } from '../memory/persona-filter.js';
 
 const execAsync = promisify(exec);
 
@@ -61,7 +62,34 @@ export async function spawnItermTab({ projectPath, systemPrompt }) {
   await execAsync(`osascript -e ${JSON.stringify(script)}`);
 }
 
-export function createLauncher({ repo, bus, resolver, dryRun = false, memoryEngine: memoryEngineOpt } = {}) {
+function buildClaudeMemSection(last, personaObs, persona) {
+  const parts = [];
+  if (last) {
+    const summary = last.completed ?? last.title ?? '';
+    const nextBit = last.nextSteps ? ` Next: ${last.nextSteps}.` : '';
+    parts.push(`## Last Session\n${summary}.${nextBit}`);
+  }
+  if (personaObs.length > 0) {
+    const bullets = personaObs
+      .map((o) => {
+        const files = o.filesModified.slice(0, 3).join(', ');
+        const filesPart = files ? ` (${files})` : '';
+        return `- ${o.title}${o.subtitle ? ` — ${o.subtitle}` : ''}${filesPart}`;
+      })
+      .join('\n');
+    parts.push(`## Recent Work as ${persona.label}\n${bullets}`);
+  }
+  return parts.join('\n\n');
+}
+
+export function createLauncher({
+  repo,
+  bus,
+  resolver,
+  dryRun = false,
+  memoryEngine: memoryEngineOpt,
+  claudeMem = null,
+} = {}) {
   const memoryEngine = memoryEngineOpt ?? createMemoryEngine(repo);
   /**
    * Assemble all context for a launch without spawning a terminal.
@@ -85,13 +113,25 @@ export function createLauncher({ repo, bus, resolver, dryRun = false, memoryEngi
     // 4. Query memories for relevant domains via memory engine
     const memories = memoryEngine.queryForPersona(projectId, persona);
 
+    // 4b. Pull claude-mem context (last session + persona-filtered observations)
+    let claudeMemSection = '';
+    if (claudeMem) {
+      const last = claudeMem.getLastSession(project.name);
+      const allObs = claudeMem.getObservations(project.name, { limit: 50 });
+      const personaObs = filterObservationsForPersona(allObs, persona, { limit: 10 });
+      claudeMemSection = buildClaudeMemSection(last, personaObs, persona);
+    }
+
     // 5. Hydrate system prompt template
     const template = persona.systemPromptTemplate ?? '';
-    const systemPrompt = template
+    const baseSystemPrompt = template
       .replace('{{project}}', project.name ?? '')
       .replace('{{techStack}}', (project.techStack ?? []).join(', '))
       .replace('{{skills}}', skills.map((s) => s.content).join('\n\n'))
       .replace('{{memories}}', formatForContext(memories));
+    const systemPrompt = claudeMemSection
+      ? `${claudeMemSection}\n\n${baseSystemPrompt}`
+      : baseSystemPrompt;
 
     // 6. Create session record
     const sessionId = repo.createSession({ projectId, personaId });
@@ -128,5 +168,32 @@ export function createLauncher({ repo, bus, resolver, dryRun = false, memoryEngi
     return ctx;
   }
 
-  return { prepareLaunch, launch };
+  async function preview(personaId, projectId) {
+    const persona = repo.getPersona(personaId);
+    if (!persona) throw new Error(`Persona not found: ${personaId}`);
+    const project = repo.getProject(projectId);
+    if (!project) throw new Error(`Project not found: ${projectId}`);
+
+    const skills = resolver.resolve(persona, project);
+    const memories = memoryEngine.queryForPersona(projectId, persona);
+
+    let lastSession = null;
+    let personaObservations = [];
+    if (claudeMem) {
+      lastSession = claudeMem.getLastSession(project.name);
+      const allObs = claudeMem.getObservations(project.name, { limit: 50 });
+      personaObservations = filterObservationsForPersona(allObs, persona, { limit: 10 });
+    }
+
+    return {
+      persona: { id: persona.id, label: persona.label, domain: persona.domain },
+      project: { id: project.id, name: project.name, path: project.path, techStack: project.techStack ?? [] },
+      skills: skills.map((s) => ({ id: s.id, name: s.name, domain: s.domain })),
+      memories: memories.map((m) => ({ id: m.id, domain: m.domain, content: m.content })),
+      lastSession,
+      personaObservations,
+    };
+  }
+
+  return { prepareLaunch, launch, preview };
 }
