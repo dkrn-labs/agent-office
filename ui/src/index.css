@@ -242,3 +242,228 @@
   z-index: 10;
 }
 
+/* ─── Dashboard Layout ────────────────────────────────────────── */
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #0a0a14;
+  color: #e5e7eb;
+  font-family: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
+}
+
+.dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  border-bottom: 1px solid #1f2937;
+  background: #0a0a14;
+  flex-shrink: 0;
+}
+
+.dashboard-title {
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.1em;
+}
+
+.dashboard-subtitle {
+  color: #6b7280;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+}
+
+.dashboard-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+}
+
+.status-dot--connected {
+  background: #4ade80;
+}
+
+.status-label {
+  font-size: 10px;
+  color: #6b7280;
+}
+
+.dashboard-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.dashboard-center {
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ─── Sidebars ────────────────────────────────────────────────── */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  background: #0d0d18;
+}
+
+.sidebar--left {
+  width: 200px;
+  border-right: 1px solid #1f2937;
+}
+
+.sidebar--right {
+  width: 240px;
+  border-left: 1px solid #1f2937;
+}
+
+.sidebar-section {
+  padding: 12px;
+  border-bottom: 1px solid #111827;
+}
+
+.sidebar-section--grow {
+  flex: 1;
+}
+
+.sidebar-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: #6b7280;
+  letter-spacing: 0.08em;
+  margin: 0 0 8px 0;
+}
+
+/* ─── Project List ────────────────────────────────────────────── */
+.project-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.project-item {
+  padding: 5px 8px;
+  font-size: 11px;
+  color: #9ca3af;
+  cursor: pointer;
+  border-left: 2px solid transparent;
+}
+
+.project-item:hover {
+  color: #e5e7eb;
+  background: #1a1a2e;
+}
+
+.sidebar-link {
+  background: none;
+  border: none;
+  color: #60a5fa;
+  font-size: 10px;
+  cursor: pointer;
+  padding: 4px 0;
+  margin-top: 8px;
+  font-family: inherit;
+}
+
+/* ─── Tabs ────────────────────────────────────────────────────── */
+.tab-bar {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.tab-button {
+  background: #1f2937;
+  border: none;
+  color: #6b7280;
+  font-size: 9px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.tab-button--active {
+  background: #374151;
+  color: #e5e7eb;
+}
+
+/* ─── Checklist ───────────────────────────────────────────────── */
+.checklist-item {
+  font-size: 10px;
+  color: #9ca3af;
+  padding: 3px 0;
+}
+
+/* ─── Metric Cards ────────────────────────────────────────────── */
+.metric-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.metric-card {
+  background: #111827;
+  padding: 6px;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.metric-label {
+  display: block;
+  font-size: 8px;
+  color: #6b7280;
+  text-transform: uppercase;
+}
+
+.metric-value {
+  display: block;
+  font-size: 18px;
+  font-weight: 700;
+  color: #e5e7eb;
+  margin-top: 2px;
+}
+
+/* ─── Pulse Chart ─────────────────────────────────────────────── */
+.pulse-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 60px;
+  background: #111827;
+  border-radius: 4px;
+  padding: 6px;
+}
+
+.pulse-bar {
+  flex: 1;
+  background: #ef4444;
+  border-radius: 2px;
+  min-height: 4px;
+}
+
+/* ─── Placeholders ────────────────────────────────────────────── */
+.panel-placeholder {
+  background: #111827;
+  border-radius: 4px;
+  padding: 12px;
+  text-align: center;
+  color: #374151;
+  font-size: 11px;
+}
+
+.panel-placeholder--tall {
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
