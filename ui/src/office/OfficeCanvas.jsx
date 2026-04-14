@@ -26,12 +26,15 @@ const BOSS_JOKES = [
 const BOSS_AGENT_ID = 0;
 
 // Persona-to-agent mapping. Persona IDs come from the backend API (1-5).
+// Maps persona API ids → engine agent ids + character palette + zone seat.
+// Palette index corresponds to char_N.png (Frontend persona uses char_1.png → palette 1).
+// seatId must match a chair's `uid` in default-layout.json — see scripts/build-default-layout.js.
 const PERSONA_AGENT_MAP = [
-  { personaId: 1, agentId: 1, palette: 0 },
-  { personaId: 2, agentId: 2, palette: 1 },
-  { personaId: 3, agentId: 3, palette: 2 },
-  { personaId: 4, agentId: 4, palette: 3 },
-  { personaId: 5, agentId: 5, palette: 4 },
+  { personaId: 1, agentId: 1, palette: 1, seatId: 'frontend_chair' },
+  { personaId: 2, agentId: 2, palette: 2, seatId: 'backend_chair' },
+  { personaId: 3, agentId: 3, palette: 3, seatId: 'debug_chair' },
+  { personaId: 4, agentId: 4, palette: 4, seatId: 'reviewer_chair' },
+  { personaId: 5, agentId: 5, palette: 5, seatId: 'devops_chair' },
 ];
 
 // Zone labels — placed at the horizontal center of each zone's top edge (in tile coords).
@@ -120,10 +123,11 @@ export default function OfficeCanvas() {
       const office = new OfficeState(layout);
       officeRef.current = office;
 
-      for (const { agentId, palette } of PERSONA_AGENT_MAP) {
-        office.addAgent(agentId, palette, 0, undefined, true);
+      for (const { agentId, palette, seatId } of PERSONA_AGENT_MAP) {
+        office.addAgent(agentId, palette, 0, seatId, true);
       }
-      office.addAgent(BOSS_AGENT_ID, 5, 0, undefined, true);
+      // Boss sits in the Boss Corner and wanders from there.
+      office.addAgent(BOSS_AGENT_ID, 0, 0, 'boss_chair', true);
 
       const canvas = canvasRef.current;
       if (!canvas) return;

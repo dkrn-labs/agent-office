@@ -2336,13 +2336,13 @@
       "uid": "boss_desk",
       "type": "TABLE_FRONT",
       "col": 2,
-      "row": 2
+      "row": 1
     },
     {
       "uid": "boss_chair",
       "type": "CUSHIONED_CHAIR_FRONT",
       "col": 3,
-      "row": 4
+      "row": 5
     },
     {
       "uid": "boss_painting",

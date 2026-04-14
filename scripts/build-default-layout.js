@@ -64,9 +64,9 @@ for (let row = 0; row < ROWS; row++) {
 
 // Furniture placements (per design)
 const furniture = [
-  // Boss Corner
-  { uid: 'boss_desk',     type: 'TABLE_FRONT',           col: 2, row: 2 },
-  { uid: 'boss_chair',    type: 'CUSHIONED_CHAIR_FRONT', col: 3, row: 4 },
+  // Boss Corner — TABLE_FRONT is 3x4 (cols 2-4, rows 2-5), chair must be south of it
+  { uid: 'boss_desk',     type: 'TABLE_FRONT',           col: 2, row: 1 },
+  { uid: 'boss_chair',    type: 'CUSHIONED_CHAIR_FRONT', col: 3, row: 5 },
   { uid: 'boss_painting', type: 'LARGE_PAINTING',        col: 5, row: 1 },
   { uid: 'boss_pot',      type: 'POT',                   col: 6, row: 3 },
 
