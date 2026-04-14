@@ -13,6 +13,7 @@ import { createLauncher } from '../agents/launcher.js';
 import { createMemoryEngine } from '../memory/memory-engine.js';
 import { importFromClaudeProjects } from '../memory/claude-importer.js';
 import { memoryRoutes } from './routes/memories.js';
+import { createClaudeMemAdapter, defaultClaudeMemPath } from '../memory/claude-mem-adapter.js';
 
 /**
  * Creates and configures the Express application.
@@ -36,7 +37,13 @@ export function createApp({ repo, bus, config, configDir, db, dryRun = true }) {
   // (createSkillResolver's param is named db but only calls .listSkills())
   const resolver = createSkillResolver(repo);
   const memoryEngine = createMemoryEngine(repo);
-  const launcher = createLauncher({ repo, bus, resolver, dryRun, memoryEngine });
+
+  const claudeMem = createClaudeMemAdapter(defaultClaudeMemPath());
+  if (claudeMem) {
+    console.log('[server] claude-mem adapter connected');
+  }
+
+  const launcher = createLauncher({ repo, bus, resolver, dryRun, memoryEngine, claudeMem });
 
   // Mount route modules
   app.use(healthRoutes());

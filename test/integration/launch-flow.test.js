@@ -133,6 +133,7 @@ describe('agent-office full persona launch flow', () => {
       CLI, 'start',
       '--data-dir', dataDir,
       '--port', String(port),
+      '--dry-run',
     ], { stdio: 'pipe' });
 
     serverProcess.on('error', (err) => {

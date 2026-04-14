@@ -201,3 +201,133 @@ describe('Launcher.prepareLaunch', () => {
     );
   });
 });
+
+// ── buildItermScript / buildLaunchBashScript tests ──────────────────────────
+
+import { buildItermScript, buildLaunchBashScript } from '../../src/agents/launcher.js';
+
+describe('buildItermScript()', () => {
+  it('defaults to Terminal.app and uses do script', () => {
+    const script = buildItermScript({ scriptPath: '/tmp/agent-office-launch-123.sh' });
+    assert.ok(script.includes('tell application "Terminal"'));
+    assert.ok(script.includes('do script'));
+    assert.ok(
+      script.includes(String.raw`bash \"/tmp/agent-office-launch-123.sh\"`),
+      `expected bash invocation of script path, got: ${script}`,
+    );
+  });
+
+  it('uses iTerm syntax when terminal is iTerm', () => {
+    const script = buildItermScript({ scriptPath: '/tmp/x.sh', terminal: 'iTerm' });
+    assert.ok(script.includes('tell application "iTerm"'));
+    assert.ok(script.includes('create window with default profile'));
+    assert.ok(script.includes('create tab with default profile'));
+    assert.ok(script.includes('if (count of windows) is 0 then'));
+  });
+
+  it('uses iTerm2 syntax when terminal is iTerm2', () => {
+    const script = buildItermScript({ scriptPath: '/tmp/x.sh', terminal: 'iTerm2' });
+    assert.ok(script.includes('tell application "iTerm2"'));
+  });
+
+  it('escapes double quotes in script paths', () => {
+    const script = buildItermScript({ scriptPath: '/tmp/weird "path".sh' });
+    // Two layers of escaping: (1) inner `bash "..."` turns quotes into \",
+    // (2) AppleScript escape of the whole cmd string doubles backslashes and
+    // escapes quotes. Final: \\\" (three backslashes + quote) around "path".
+    assert.ok(
+      script.includes(String.raw`weird \\\"path\\\".sh`),
+      `expected twice-escaped quotes in script path, got: ${script}`,
+    );
+  });
+});
+
+describe('buildLaunchBashScript()', () => {
+  it('cds to project, reads prompt from file, self-deletes, and execs claude', () => {
+    const bash = buildLaunchBashScript({
+      projectPath: '/Users/alice/web',
+      scriptPath: '/tmp/launch-1.sh',
+      promptPath: '/tmp/prompt-1.txt',
+    });
+    assert.ok(bash.startsWith('#!/bin/bash'));
+    assert.ok(bash.includes('cd "/Users/alice/web"'));
+    assert.ok(bash.includes('PROMPT="$(cat "/tmp/prompt-1.txt")"'));
+    assert.ok(bash.includes('rm -f "/tmp/prompt-1.txt" "/tmp/launch-1.sh"'));
+    assert.ok(bash.includes('exec claude --append-system-prompt "$PROMPT"'));
+  });
+
+  it('safely quotes paths with spaces and double quotes', () => {
+    const bash = buildLaunchBashScript({
+      projectPath: '/Users/alice/my "cool" project',
+      scriptPath: '/tmp/with space.sh',
+      promptPath: '/tmp/with space.txt',
+    });
+    // JSON.stringify escapes the inner quotes and produces a valid shell
+    // double-quoted string. The final bash retains the \" sequences.
+    assert.ok(bash.includes(`cd "/Users/alice/my \\"cool\\" project"`));
+    assert.ok(bash.includes(`cat "/tmp/with space.txt"`));
+  });
+});
+
+describe('createLauncher with claudeMem adapter', () => {
+  it('prepends last-session summary and persona observations to systemPrompt', async () => {
+    const claudeMem = {
+      getLastSession: (name) => ({
+        title: `Last work on ${name}`,
+        completed: 'Shipped Phase 4.5',
+        nextSteps: 'Do Phase 5',
+        at: '2026-04-13',
+      }),
+      getObservations: () => [
+        {
+          id: 1,
+          title: 'Fixed click handler',
+          subtitle: 'coord transform',
+          narrative: 'details',
+          type: 'bugfix',
+          filesModified: ['ui/src/office/OfficeCanvas.jsx'],
+          createdAt: '2026-04-13',
+        },
+      ],
+      close: () => {},
+    };
+    const launcherWithMem = createLauncher({ repo, bus, resolver, dryRun: true, claudeMem });
+    const ctx = await launcherWithMem.prepareLaunch(personaId, projectId);
+
+    assert.match(ctx.systemPrompt, /## Last Session/);
+    assert.match(ctx.systemPrompt, /Shipped Phase 4\.5/);
+    assert.match(ctx.systemPrompt, /## Recent Work as Frontend/);
+    assert.match(ctx.systemPrompt, /Fixed click handler/);
+  });
+
+  it('gracefully handles null claudeMem (no adapter)', async () => {
+    const ctx = await launcher.prepareLaunch(personaId, projectId);
+    assert.ok(!ctx.systemPrompt.includes('## Last Session'));
+    assert.ok(!ctx.systemPrompt.includes('## Recent Work as'));
+  });
+});
+
+describe('launcher.preview()', () => {
+  it('returns context without creating a session or emitting events', async () => {
+    let emitted = false;
+    const unsubscribe = bus.on(SESSION_STARTED, () => { emitted = true; });
+
+    const result = await launcher.preview(personaId, projectId);
+    unsubscribe();
+
+    assert.equal(emitted, false, 'preview must NOT emit SESSION_STARTED');
+    assert.ok(result.persona, 'returns persona');
+    assert.ok(result.project, 'returns project');
+    assert.ok(Array.isArray(result.skills), 'returns skills array');
+    assert.ok(Array.isArray(result.memories), 'returns memories array');
+    assert.ok('lastSession' in result, 'returns lastSession field');
+    assert.ok(Array.isArray(result.personaObservations), 'returns personaObservations array');
+  });
+
+  it('throws Persona not found for unknown persona', async () => {
+    await assert.rejects(
+      () => launcher.preview(999999, projectId),
+      /Persona not found/,
+    );
+  });
+});

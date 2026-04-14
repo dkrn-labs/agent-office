@@ -1,165 +1,5 @@
 @import "tailwindcss";
 
-/* ── Office Scene ─────────────────────────────────────────────────────────── */
-
-.office-scene {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  min-height: 480px;
-  background-color: #030712; /* gray-950 */
-  background-image:
-    /* subtle warm vignette */
-    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(120, 80, 30, 0.08) 0%, transparent 70%);
-  overflow: hidden;
-  border-radius: 0.5rem;
-  border: 1px solid #1f2937; /* gray-800 */
-}
-
-/* Floor grid */
-.office-floor-grid {
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-  background-size: 32px 32px;
-  pointer-events: none;
-}
-
-/* Ceiling lights row */
-.office-ceiling-lights {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: space-around;
-  padding: 0 8%;
-  pointer-events: none;
-}
-
-.office-light {
-  width: 64px;
-  height: 6px;
-  background: rgba(255, 250, 220, 0.18);
-  border-radius: 0 0 4px 4px;
-  box-shadow: 0 0 24px 8px rgba(255, 240, 180, 0.08);
-}
-
-/* ── Desk Slot ────────────────────────────────────────────────────────────── */
-
-.office-desk-slot {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-/* Desk surface */
-.office-desk {
-  position: relative;
-  width: 80px;
-  height: 32px;
-  background: linear-gradient(180deg, #78532a 0%, #5c3e1e 100%);
-  border-radius: 4px 4px 2px 2px;
-  border-top: 2px solid #a0722a;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 200, 80, 0.1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-
-/* Monitor stand + screen (pixel art style, rendered purely in CSS) */
-.office-monitor {
-  width: 4px;
-  height: 14px;
-  background: #374151;
-  border-radius: 1px;
-}
-
-.office-monitor-screen {
-  width: 26px;
-  height: 18px;
-  background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 50%, #1a2744 100%);
-  border: 1.5px solid #4b5563;
-  border-radius: 2px;
-  box-shadow: 0 0 6px rgba(96, 165, 250, 0.25);
-  position: absolute;
-  top: -22px;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.office-keyboard {
-  width: 30px;
-  height: 8px;
-  background: #374151;
-  border-radius: 1px;
-  border: 1px solid #4b5563;
-  position: absolute;
-  bottom: 4px;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-/* Empty seat placeholder */
-.office-empty-seat {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  border: 1.5px dashed #374151;
-  opacity: 0.4;
-}
-
-/* ── Character ────────────────────────────────────────────────────────────── */
-
-.character-wrapper {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  cursor: pointer;
-  user-select: none;
-  margin-top: -28px; /* lift sprite above desk */
-}
-
-.character-wrapper:hover .character-sprite {
-  filter: brightness(1.3);
-}
-
-/* Pixel-art sprite from sprite sheet */
-.character-sprite {
-  image-rendering: pixelated;
-  background-repeat: no-repeat;
-  transition: filter 0.15s ease;
-}
-
-/* Working glow effect */
-.character-sprite--working {
-  filter: drop-shadow(0 0 6px var(--char-color, #94a3b8));
-}
-
-/* Domain color indicator dot */
-.character-domain-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  margin-top: -2px;
-}
-
-.character-name {
-  font-size: 9px;
-  font-family: ui-monospace, monospace;
-  color: #9ca3af; /* gray-400 */
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
 /* ── Token Badge ──────────────────────────────────────────────────────────── */
 
 .token-badge {
@@ -193,5 +33,277 @@
 @keyframes badge-pulse {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.6; }
+}
+
+/* ─── Office Canvas ───────────────────────────────────────────── */
+.office-canvas-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: #030712;
+  overflow: hidden;
+}
+
+.office-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  image-rendering: pixelated;
+  cursor: default;
+}
+
+.office-canvas:active {
+  cursor: grabbing;
+}
+
+.office-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+  font-size: 14px;
+  font-family: ui-monospace, monospace;
+}
+
+.office-toast {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1f2937;
+  color: #e5e7eb;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: ui-monospace, monospace;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* ─── Dashboard Layout ────────────────────────────────────────── */
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #0a0a14;
+  color: #e5e7eb;
+  font-family: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
+}
+
+.dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  border-bottom: 1px solid #1f2937;
+  background: #0a0a14;
+  flex-shrink: 0;
+}
+
+.dashboard-title {
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.1em;
+}
+
+.dashboard-subtitle {
+  color: #6b7280;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+}
+
+.dashboard-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+}
+
+.status-dot--connected {
+  background: #4ade80;
+}
+
+.status-label {
+  font-size: 10px;
+  color: #6b7280;
+}
+
+.dashboard-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.dashboard-center {
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ─── Sidebars ────────────────────────────────────────────────── */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  background: #0d0d18;
+}
+
+.sidebar--left {
+  width: 200px;
+  border-right: 1px solid #1f2937;
+}
+
+.sidebar--right {
+  width: 240px;
+  border-left: 1px solid #1f2937;
+}
+
+.sidebar-section {
+  padding: 12px;
+  border-bottom: 1px solid #111827;
+}
+
+.sidebar-section--grow {
+  flex: 1;
+}
+
+.sidebar-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: #6b7280;
+  letter-spacing: 0.08em;
+  margin: 0 0 8px 0;
+}
+
+/* ─── Project List ────────────────────────────────────────────── */
+.project-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.project-item {
+  padding: 5px 8px;
+  font-size: 11px;
+  color: #9ca3af;
+  cursor: pointer;
+  border-left: 2px solid transparent;
+}
+
+.project-item:hover {
+  color: #e5e7eb;
+  background: #1a1a2e;
+}
+
+.sidebar-link {
+  background: none;
+  border: none;
+  color: #60a5fa;
+  font-size: 10px;
+  cursor: pointer;
+  padding: 4px 0;
+  margin-top: 8px;
+  font-family: inherit;
+}
+
+/* ─── Tabs ────────────────────────────────────────────────────── */
+.tab-bar {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.tab-button {
+  background: #1f2937;
+  border: none;
+  color: #6b7280;
+  font-size: 9px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.tab-button--active {
+  background: #374151;
+  color: #e5e7eb;
+}
+
+/* ─── Checklist ───────────────────────────────────────────────── */
+.checklist-item {
+  font-size: 10px;
+  color: #9ca3af;
+  padding: 3px 0;
+}
+
+/* ─── Metric Cards ────────────────────────────────────────────── */
+.metric-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.metric-card {
+  background: #111827;
+  padding: 6px;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.metric-label {
+  display: block;
+  font-size: 8px;
+  color: #6b7280;
+  text-transform: uppercase;
+}
+
+.metric-value {
+  display: block;
+  font-size: 18px;
+  font-weight: 700;
+  color: #e5e7eb;
+  margin-top: 2px;
+}
+
+/* ─── Pulse Chart ─────────────────────────────────────────────── */
+.pulse-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 60px;
+  background: #111827;
+  border-radius: 4px;
+  padding: 6px;
+}
+
+.pulse-bar {
+  flex: 1;
+  background: #ef4444;
+  border-radius: 2px;
+  min-height: 4px;
+}
+
+/* ─── Placeholders ────────────────────────────────────────────── */
+.panel-placeholder {
+  background: #111827;
+  border-radius: 4px;
+  padding: 12px;
+  text-align: center;
+  color: #374151;
+  font-size: 11px;
+}
+
+.panel-placeholder--tall {
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
