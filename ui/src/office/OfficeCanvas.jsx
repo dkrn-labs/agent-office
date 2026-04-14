@@ -34,6 +34,53 @@ const PERSONA_AGENT_MAP = [
   { personaId: 5, agentId: 5, palette: 4 },
 ];
 
+// Zone labels — placed at the horizontal center of each zone's top edge (in tile coords).
+// Colors match the domain color scheme used elsewhere in the UI.
+const ZONE_LABELS = [
+  { name: 'BOSS',     col: 4,  row: 0,  color: '#fbbf24' },
+  { name: 'BREAK',    col: 20, row: 0,  color: '#86efac' },
+  { name: 'FRONTEND', col: 4,  row: 7,  color: '#60a5fa' },
+  { name: 'BACKEND',  col: 12, row: 7,  color: '#34d399' },
+  { name: 'DEBUG',    col: 20, row: 7,  color: '#fb923c' },
+  { name: 'DEVOPS',   col: 6,  row: 13, color: '#f472b6' },
+  { name: 'REVIEWER', col: 20, row: 13, color: '#a78bfa' },
+];
+
+const TILE_SIZE = 16;
+
+function drawZoneLabels(ctx, canvasWidth, canvasHeight, zoom, panX, panY, cols, rows) {
+  const mapW = cols * TILE_SIZE * zoom;
+  const mapH = rows * TILE_SIZE * zoom;
+  const offsetX = Math.floor((canvasWidth - mapW) / 2) + Math.round(panX);
+  const offsetY = Math.floor((canvasHeight - mapH) / 2) + Math.round(panY);
+
+  ctx.save();
+  ctx.font = `bold ${10 * zoom}px ui-monospace, monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+
+  for (const label of ZONE_LABELS) {
+    const screenX = offsetX + label.col * TILE_SIZE * zoom;
+    const screenY = offsetY + label.row * TILE_SIZE * zoom + 2 * zoom;
+
+    // Dark background pill behind text for readability
+    const textW = ctx.measureText(label.name).width;
+    const padX = 4 * zoom;
+    const padY = 2 * zoom;
+    ctx.fillStyle = 'rgba(10, 10, 20, 0.75)';
+    ctx.fillRect(
+      screenX - textW / 2 - padX,
+      screenY - padY,
+      textW + padX * 2,
+      10 * zoom + padY * 2,
+    );
+
+    ctx.fillStyle = label.color;
+    ctx.fillText(label.name, screenX, screenY);
+  }
+  ctx.restore();
+}
+
 export default function OfficeCanvas() {
   const canvasRef = useRef(null);
   const officeRef = useRef(null);
@@ -106,6 +153,16 @@ export default function OfficeCanvas() {
             office.layout.cols,
             office.layout.rows,
           );
+          drawZoneLabels(
+            ctx,
+            canvas.width,
+            canvas.height,
+            zoomRef.current,
+            panRef.current.x,
+            panRef.current.y,
+            office.layout.cols,
+            office.layout.rows,
+          );
         },
       });
 
@@ -166,7 +223,6 @@ export default function OfficeCanvas() {
     //   offsetX = (canvasW - mapW) / 2 + panX  (map is centered in viewport + pan)
     //   screenX = offsetX + worldX * zoom
     // So: worldX = (screenX - offsetX) / zoom
-    const TILE_SIZE = 16;
     const zoom = zoomRef.current;
     const mapW = office.layout.cols * TILE_SIZE * zoom;
     const mapH = office.layout.rows * TILE_SIZE * zoom;
