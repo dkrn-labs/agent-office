@@ -201,3 +201,49 @@ describe('Launcher.prepareLaunch', () => {
     );
   });
 });
+
+// ── buildItermScript tests ───────────────────────────────────────────────────
+
+import { buildItermScript } from '../../src/agents/launcher.js';
+
+describe('buildItermScript()', () => {
+  it('produces AppleScript that cds and runs claude with system prompt', () => {
+    const script = buildItermScript({
+      projectPath: '/Users/alice/Projects/web',
+      systemPrompt: 'You are a Frontend Engineer.',
+    });
+    assert.ok(script.includes('tell application "iTerm"'));
+    assert.ok(script.includes('create tab with default profile'));
+    // AppleScript escape turns " into \" — so the cd quotes appear as \" in the script.
+    assert.ok(script.includes(String.raw`cd \"/Users/alice/Projects/web\"`));
+    assert.ok(script.includes('claude --system-prompt'));
+    assert.ok(script.includes('You are a Frontend Engineer.'));
+  });
+
+  it('escapes double quotes and backslashes in project paths', () => {
+    const script = buildItermScript({
+      projectPath: '/tmp/weird "path"',
+      systemPrompt: 'hello',
+    });
+    // JSON.stringify turns " into \" (one backslash + quote).
+    // The AppleScript escape step then doubles each backslash and escapes
+    // each remaining quote → \\\" in the final string (3 backslashes + quote).
+    assert.ok(
+      script.includes(String.raw`\\\"path\\\"`),
+      `expected triple-escaped quotes, got: ${script}`,
+    );
+  });
+
+  it('escapes single quotes in the system prompt via shell quoting', () => {
+    const script = buildItermScript({
+      projectPath: '/tmp/p',
+      systemPrompt: "it's a test",
+    });
+    // Shell single-quote escape: ' becomes '\''. AppleScript then doubles the
+    // backslash, yielding '\\''  in the final script.
+    assert.ok(
+      script.includes(String.raw`it'\\''s a test`),
+      `expected shell-escaped single quote, got: ${script}`,
+    );
+  });
+});

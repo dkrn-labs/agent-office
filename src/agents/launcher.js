@@ -10,9 +10,56 @@
  * @param {{ repo: ReturnType<import('../db/repository.js').createRepository>, bus: ReturnType<import('../core/event-bus.js').createEventBus>, resolver: ReturnType<import('./skill-resolver.js').createSkillResolver>, dryRun?: boolean }} opts
  */
 
+import { exec } from 'node:child_process';
+import { promisify } from 'node:util';
 import { SESSION_STARTED } from '../core/events.js';
 import { createMemoryEngine } from '../memory/memory-engine.js';
 import { formatForContext } from '../memory/memory-injector.js';
+
+const execAsync = promisify(exec);
+
+/**
+ * Build the AppleScript that opens a new iTerm2 tab in the given project dir
+ * and runs `claude --system-prompt <prompt>`.
+ *
+ * Exposed separately for unit testing without shelling out to osascript.
+ *
+ * @param {{ projectPath: string, systemPrompt: string }} opts
+ * @returns {string} AppleScript source
+ */
+export function buildItermScript({ projectPath, systemPrompt }) {
+  // AppleScript string escaping: backslashes and double quotes.
+  const escape = (s) => s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  // Pass the system prompt through a single-quoted shell arg so iTerm's
+  // `write text` doesn't interpret its contents. Single quotes survive the
+  // AppleScript escape above.
+  const shellPrompt = "'" + systemPrompt.replace(/'/g, `'\\''`) + "'";
+  const cmd = `cd ${JSON.stringify(projectPath)} && clear && claude --system-prompt ${shellPrompt}`;
+  return `
+tell application "iTerm"
+  activate
+  tell current window
+    create tab with default profile
+    tell current session
+      write text "${escape(cmd)}"
+    end tell
+  end tell
+end tell
+`.trim();
+}
+
+/**
+ * Spawn Claude Code in a new iTerm2 tab. macOS-only; throws on other platforms.
+ *
+ * @param {{ projectPath: string, systemPrompt: string }} opts
+ */
+export async function spawnItermTab({ projectPath, systemPrompt }) {
+  if (process.platform !== 'darwin') {
+    throw new Error(`Terminal spawn not supported on ${process.platform} yet`);
+  }
+  const script = buildItermScript({ projectPath, systemPrompt });
+  await execAsync(`osascript -e ${JSON.stringify(script)}`);
+}
 
 export function createLauncher({ repo, bus, resolver, dryRun = false, memoryEngine: memoryEngineOpt } = {}) {
   const memoryEngine = memoryEngineOpt ?? createMemoryEngine(repo);
@@ -72,10 +119,10 @@ export function createLauncher({ repo, bus, resolver, dryRun = false, memoryEngi
     const ctx = await prepareLaunch(personaId, projectId);
 
     if (!dryRun) {
-      // Terminal spawn would go here; log intent for now.
-      console.log(
-        `[launcher] Would spawn terminal for session ${ctx.sessionId} at ${ctx.projectPath}`,
-      );
+      await spawnItermTab({
+        projectPath: ctx.projectPath,
+        systemPrompt: ctx.systemPrompt,
+      });
     }
 
     return ctx;
