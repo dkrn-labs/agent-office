@@ -2486,25 +2486,25 @@
       "uid": "devops_desk",
       "type": "DESK_FRONT",
       "col": 2,
-      "row": 15
+      "row": 14
     },
     {
       "uid": "devops_chair",
       "type": "WOODEN_CHAIR_FRONT",
       "col": 3,
-      "row": 17
+      "row": 16
     },
     {
       "uid": "devops_pc_1",
       "type": "PC_FRONT_ON_1",
       "col": 3,
-      "row": 15
+      "row": 14
     },
     {
       "uid": "devops_pc_2",
       "type": "PC_FRONT_ON_2",
       "col": 5,
-      "row": 15
+      "row": 14
     },
     {
       "uid": "devops_rack_1",
@@ -2522,19 +2522,19 @@
       "uid": "reviewer_desk",
       "type": "DESK_FRONT",
       "col": 18,
-      "row": 15
+      "row": 14
     },
     {
       "uid": "reviewer_chair",
       "type": "WOODEN_CHAIR_FRONT",
       "col": 19,
-      "row": 17
+      "row": 16
     },
     {
       "uid": "reviewer_pc",
       "type": "PC_FRONT_ON_1",
       "col": 19,
-      "row": 15
+      "row": 14
     },
     {
       "uid": "reviewer_shelf_1",
@@ -2546,13 +2546,13 @@
       "uid": "reviewer_shelf_2",
       "type": "BOOKSHELF",
       "col": 22,
-      "row": 18
+      "row": 17
     },
     {
       "uid": "reviewer_cactus",
       "type": "CACTUS",
       "col": 17,
-      "row": 16
+      "row": 15
     }
   ]
 }

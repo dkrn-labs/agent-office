@@ -99,21 +99,22 @@ const furniture = [
   { uid: 'debug_pc_3',  type: 'PC_FRONT_ON_3',      col: 22, row: 11 },
   { uid: 'debug_bin',   type: 'BIN',                col: 17, row: 12 },
 
-  // DevOps Dark Corner
-  { uid: 'devops_desk',   type: 'DESK_FRONT',         col: 2, row: 15 },
-  { uid: 'devops_chair',  type: 'WOODEN_CHAIR_FRONT', col: 3, row: 17 },
-  { uid: 'devops_pc_1',   type: 'PC_FRONT_ON_1',      col: 3, row: 15 },
-  { uid: 'devops_pc_2',   type: 'PC_FRONT_ON_2',      col: 5, row: 15 },
+  // DevOps Dark Corner — shifted up 1 row so the south wall cap doesn't cover
+  // the seated character (wall sprite extends 16px above its tile row).
+  { uid: 'devops_desk',   type: 'DESK_FRONT',         col: 2, row: 14 },
+  { uid: 'devops_chair',  type: 'WOODEN_CHAIR_FRONT', col: 3, row: 16 },
+  { uid: 'devops_pc_1',   type: 'PC_FRONT_ON_1',      col: 3, row: 14 },
+  { uid: 'devops_pc_2',   type: 'PC_FRONT_ON_2',      col: 5, row: 14 },
   { uid: 'devops_rack_1', type: 'DOUBLE_BOOKSHELF',   col: 8, row: 14 },
   { uid: 'devops_rack_2', type: 'DOUBLE_BOOKSHELF',   col: 10, row: 14 },
 
   // Reviewer's Study
-  { uid: 'reviewer_desk',    type: 'DESK_FRONT',         col: 18, row: 15 },
-  { uid: 'reviewer_chair',   type: 'WOODEN_CHAIR_FRONT', col: 19, row: 17 },
-  { uid: 'reviewer_pc',      type: 'PC_FRONT_ON_1',      col: 19, row: 15 },
+  { uid: 'reviewer_desk',    type: 'DESK_FRONT',         col: 18, row: 14 },
+  { uid: 'reviewer_chair',   type: 'WOODEN_CHAIR_FRONT', col: 19, row: 16 },
+  { uid: 'reviewer_pc',      type: 'PC_FRONT_ON_1',      col: 19, row: 14 },
   { uid: 'reviewer_shelf_1', type: 'DOUBLE_BOOKSHELF',   col: 21, row: 14 },
-  { uid: 'reviewer_shelf_2', type: 'BOOKSHELF',          col: 22, row: 18 },
-  { uid: 'reviewer_cactus',  type: 'CACTUS',             col: 17, row: 16 },
+  { uid: 'reviewer_shelf_2', type: 'BOOKSHELF',          col: 22, row: 17 },
+  { uid: 'reviewer_cactus',  type: 'CACTUS',             col: 17, row: 15 },
 ];
 
 const layout = {
