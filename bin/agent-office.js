@@ -129,6 +129,7 @@ program
   .description('Start the agent-office server')
   .option('--data-dir <path>', 'data directory', join(os.homedir(), '.agent-office'))
   .option('--port <number>', 'HTTP port (overrides config)', (v) => parseInt(v, 10))
+  .option('--dry-run', 'skip iTerm spawn (useful for testing)', false)
   .action(async (opts) => {
     const dataDir = resolve(opts.dataDir);
     const configPath = join(dataDir, 'config.json');
@@ -154,7 +155,7 @@ program
     const bus = createEventBus();
 
     // Create Express app
-    const app = createApp({ repo, bus, config, configDir: dataDir, db, dryRun: false });
+    const app = createApp({ repo, bus, config, configDir: dataDir, db, dryRun: opts.dryRun ?? false });
 
     // Create HTTP server and attach WS hub
     const server = createServer(app);
