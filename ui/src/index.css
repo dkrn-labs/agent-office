@@ -195,3 +195,50 @@
   50%       { opacity: 0.6; }
 }
 
+/* ─── Office Canvas ───────────────────────────────────────────── */
+.office-canvas-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: #030712;
+  overflow: hidden;
+}
+
+.office-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  image-rendering: pixelated;
+  cursor: default;
+}
+
+.office-canvas:active {
+  cursor: grabbing;
+}
+
+.office-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+  font-size: 14px;
+  font-family: ui-monospace, monospace;
+}
+
+.office-toast {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1f2937;
+  color: #e5e7eb;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: ui-monospace, monospace;
+  pointer-events: none;
+  z-index: 10;
+}
+
