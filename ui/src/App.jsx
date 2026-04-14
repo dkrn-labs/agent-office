@@ -4,6 +4,7 @@ import { createWsClient } from './lib/ws-client.js';
 import DashboardLayout from './layout/DashboardLayout.jsx';
 import OfficeCanvas from './office/OfficeCanvas.jsx';
 import ProjectPicker from './office/ProjectPicker.jsx';
+import LaunchPreview from './office/LaunchPreview.jsx';
 
 export default function App() {
   const fetchPersonas = useOfficeStore((s) => s.fetchPersonas);
@@ -23,6 +24,7 @@ export default function App() {
         <OfficeCanvas />
       </DashboardLayout>
       <ProjectPicker />
+      <LaunchPreview />
     </>
   );
 }

@@ -46,7 +46,7 @@ export default function ProjectPicker() {
     selectedPersona: selectedPersonaId,
     personas,
     projects,
-    launchAgent,
+    previewLaunch,
     closePicker,
   } = useOfficeStore();
 
@@ -92,10 +92,10 @@ export default function ProjectPicker() {
     setLoading(true);
     setError(null);
     try {
-      await launchAgent(selectedPersonaId, project.id);
+      await previewLaunch(selectedPersonaId, project);
       closePicker();
     } catch (err) {
-      setError(err.message ?? 'Launch failed');
+      setError(err.message ?? 'Preview failed');
       setLoading(false);
     }
   }
