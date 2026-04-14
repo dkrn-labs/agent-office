@@ -162,8 +162,18 @@ export default function OfficeCanvas() {
     const x = (e.clientX - rect.left) * dpr;
     const y = (e.clientY - rect.top) * dpr;
 
-    const worldX = (x - canvas.width / 2) / zoomRef.current - panRef.current.x;
-    const worldY = (y - canvas.height / 2) / zoomRef.current - panRef.current.y;
+    // Match the renderer's coordinate transform:
+    //   offsetX = (canvasW - mapW) / 2 + panX  (map is centered in viewport + pan)
+    //   screenX = offsetX + worldX * zoom
+    // So: worldX = (screenX - offsetX) / zoom
+    const TILE_SIZE = 16;
+    const zoom = zoomRef.current;
+    const mapW = office.layout.cols * TILE_SIZE * zoom;
+    const mapH = office.layout.rows * TILE_SIZE * zoom;
+    const offsetX = Math.floor((canvas.width - mapW) / 2) + Math.round(panRef.current.x);
+    const offsetY = Math.floor((canvas.height - mapH) / 2) + Math.round(panRef.current.y);
+    const worldX = (x - offsetX) / zoom;
+    const worldY = (y - offsetY) / zoom;
 
     const agentId = office.getCharacterAt(worldX, worldY);
     if (agentId === null) return;
