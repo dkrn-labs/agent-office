@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { fetchJSON, postJSON } from '../lib/api.js';
+import { fetchJSON, postJSON, fetchJSONWithQuery } from '../lib/api.js';
 
 /**
  * Central store for the Agent Office panel.
@@ -21,6 +21,13 @@ export const useOfficeStore = create((set, get) => ({
   pickerOpen: false,
   connected: false,
 
+  // Preview flow (Phase 4.6)
+  previewOpen:    false,     // true when showing the preview card
+  previewLoading: false,
+  previewData:    null,      // server response from /api/office/preview
+  previewError:   null,
+  previewProject: null,      // the project the user clicked (for display while loading)
+
   // ── async actions ───────────────────────────────────────────────────────────
 
   async fetchPersonas() {
@@ -31,6 +38,35 @@ export const useOfficeStore = create((set, get) => ({
   async fetchProjects() {
     const projects = await fetchJSON('/api/projects/active');
     set({ projects });
+  },
+
+  async previewLaunch(personaId, project) {
+    set({
+      previewOpen:    true,
+      previewLoading: true,
+      previewError:   null,
+      previewData:    null,
+      previewProject: project,
+    });
+    try {
+      const data = await fetchJSONWithQuery('/api/office/preview', {
+        personaId,
+        projectId: project.id,
+      });
+      set({ previewData: data, previewLoading: false });
+    } catch (err) {
+      set({ previewError: err.message ?? 'Failed to load preview', previewLoading: false });
+    }
+  },
+
+  closePreview() {
+    set({
+      previewOpen:    false,
+      previewLoading: false,
+      previewData:    null,
+      previewError:   null,
+      previewProject: null,
+    });
   },
 
   async launchAgent(personaId, projectId) {
