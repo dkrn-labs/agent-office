@@ -11,7 +11,7 @@ const ASSET_PATHS = {
   floors: '/assets/floors',
   walls: '/assets/walls',
   furnitureManifest: '/assets/furniture-manifest.json',
-  furnitureSprites: '/assets/furniture',
+  furniture: '/assets/furniture',
 };
 
 const BOSS_JOKES = [
