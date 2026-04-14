@@ -202,49 +202,70 @@ describe('Launcher.prepareLaunch', () => {
   });
 });
 
-// ── buildItermScript tests ───────────────────────────────────────────────────
+// ── buildItermScript / buildLaunchBashScript tests ──────────────────────────
 
-import { buildItermScript } from '../../src/agents/launcher.js';
+import { buildItermScript, buildLaunchBashScript } from '../../src/agents/launcher.js';
 
 describe('buildItermScript()', () => {
-  it('produces AppleScript that cds and runs claude with system prompt', () => {
-    const script = buildItermScript({
-      projectPath: '/Users/alice/Projects/web',
-      systemPrompt: 'You are a Frontend Engineer.',
-    });
+  it('defaults to Terminal.app and uses do script', () => {
+    const script = buildItermScript({ scriptPath: '/tmp/agent-office-launch-123.sh' });
+    assert.ok(script.includes('tell application "Terminal"'));
+    assert.ok(script.includes('do script'));
+    assert.ok(
+      script.includes(String.raw`bash \"/tmp/agent-office-launch-123.sh\"`),
+      `expected bash invocation of script path, got: ${script}`,
+    );
+  });
+
+  it('uses iTerm syntax when terminal is iTerm', () => {
+    const script = buildItermScript({ scriptPath: '/tmp/x.sh', terminal: 'iTerm' });
     assert.ok(script.includes('tell application "iTerm"'));
+    assert.ok(script.includes('create window with default profile'));
     assert.ok(script.includes('create tab with default profile'));
-    // AppleScript escape turns " into \" — so the cd quotes appear as \" in the script.
-    assert.ok(script.includes(String.raw`cd \"/Users/alice/Projects/web\"`));
-    assert.ok(script.includes('claude --system-prompt'));
-    assert.ok(script.includes('You are a Frontend Engineer.'));
+    assert.ok(script.includes('if (count of windows) is 0 then'));
   });
 
-  it('escapes double quotes and backslashes in project paths', () => {
-    const script = buildItermScript({
-      projectPath: '/tmp/weird "path"',
-      systemPrompt: 'hello',
-    });
-    // JSON.stringify turns " into \" (one backslash + quote).
-    // The AppleScript escape step then doubles each backslash and escapes
-    // each remaining quote → \\\" in the final string (3 backslashes + quote).
-    assert.ok(
-      script.includes(String.raw`\\\"path\\\"`),
-      `expected triple-escaped quotes, got: ${script}`,
-    );
+  it('uses iTerm2 syntax when terminal is iTerm2', () => {
+    const script = buildItermScript({ scriptPath: '/tmp/x.sh', terminal: 'iTerm2' });
+    assert.ok(script.includes('tell application "iTerm2"'));
   });
 
-  it('escapes single quotes in the system prompt via shell quoting', () => {
-    const script = buildItermScript({
-      projectPath: '/tmp/p',
-      systemPrompt: "it's a test",
-    });
-    // Shell single-quote escape: ' becomes '\''. AppleScript then doubles the
-    // backslash, yielding '\\''  in the final script.
+  it('escapes double quotes in script paths', () => {
+    const script = buildItermScript({ scriptPath: '/tmp/weird "path".sh' });
+    // Two layers of escaping: (1) inner `bash "..."` turns quotes into \",
+    // (2) AppleScript escape of the whole cmd string doubles backslashes and
+    // escapes quotes. Final: \\\" (three backslashes + quote) around "path".
     assert.ok(
-      script.includes(String.raw`it'\\''s a test`),
-      `expected shell-escaped single quote, got: ${script}`,
+      script.includes(String.raw`weird \\\"path\\\".sh`),
+      `expected twice-escaped quotes in script path, got: ${script}`,
     );
+  });
+});
+
+describe('buildLaunchBashScript()', () => {
+  it('cds to project, reads prompt from file, self-deletes, and execs claude', () => {
+    const bash = buildLaunchBashScript({
+      projectPath: '/Users/alice/web',
+      scriptPath: '/tmp/launch-1.sh',
+      promptPath: '/tmp/prompt-1.txt',
+    });
+    assert.ok(bash.startsWith('#!/bin/bash'));
+    assert.ok(bash.includes('cd "/Users/alice/web"'));
+    assert.ok(bash.includes('PROMPT="$(cat "/tmp/prompt-1.txt")"'));
+    assert.ok(bash.includes('rm -f "/tmp/prompt-1.txt" "/tmp/launch-1.sh"'));
+    assert.ok(bash.includes('exec claude --append-system-prompt "$PROMPT"'));
+  });
+
+  it('safely quotes paths with spaces and double quotes', () => {
+    const bash = buildLaunchBashScript({
+      projectPath: '/Users/alice/my "cool" project',
+      scriptPath: '/tmp/with space.sh',
+      promptPath: '/tmp/with space.txt',
+    });
+    // JSON.stringify escapes the inner quotes and produces a valid shell
+    // double-quoted string. The final bash retains the \" sequences.
+    assert.ok(bash.includes(`cd "/Users/alice/my \\"cool\\" project"`));
+    assert.ok(bash.includes(`cat "/tmp/with space.txt"`));
   });
 });
 
