@@ -61,7 +61,7 @@ export const useOfficeStore = create((set, get) => ({
           sessionId,
           totals: payload.totals ?? { input_tokens: 0, output_tokens: 0, cost_usd: 0 },
           lastActivity: payload.timestamp ?? Date.now(),
-          working: false,
+          working: true,
         },
       },
     }));
