@@ -29,7 +29,12 @@ export function formatTokens(n) {
 export default function TokenBadge({ totals, working }) {
   if (!totals) return null;
 
-  const total = (totals.input_tokens ?? 0) + (totals.output_tokens ?? 0);
+  const total =
+    totals.total ??
+    (totals.tokensIn ?? totals.input_tokens ?? 0) +
+      (totals.tokensOut ?? totals.output_tokens ?? 0) +
+      (totals.cacheRead ?? 0) +
+      (totals.cacheWrite ?? 0);
   if (total === 0) return null;
 
   const label = formatTokens(total);

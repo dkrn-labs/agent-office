@@ -49,8 +49,14 @@ export function createWsClient(store) {
         case 'session:update':
           state.onSessionUpdate(payload);
           break;
+        case 'session:idle':
+          state.onSessionIdle(payload);
+          break;
         case 'session:ended':
           state.onSessionEnded(payload);
+          break;
+        case 'activity:tick':
+          state.onActivityTick(payload);
           break;
         default:
           // unknown event — ignore

@@ -4,6 +4,19 @@ const TABS = ['EVOLVE', 'RESEARCH', 'SKILLS', 'HELP', 'CREATE'];
 
 export default function LeftSidebar() {
   const projects = useOfficeStore((s) => s.projects);
+  const activeView = useOfficeStore((s) => s.activeView);
+  const setActiveView = useOfficeStore((s) => s.setActiveView);
+
+  function tabView(tab) {
+    if (tab === 'SKILLS') return 'office';
+    if (tab === 'HISTORY') return 'history';
+    return 'coming-soon';
+  }
+
+  function isTabActive(tab) {
+    const view = tabView(tab);
+    return activeView === view;
+  }
 
   return (
     <aside className="sidebar sidebar--left">
@@ -21,10 +34,11 @@ export default function LeftSidebar() {
 
       <div className="sidebar-section">
         <div className="tab-bar">
-          {TABS.map((tab) => (
+          {['SKILLS', 'HISTORY', ...TABS.filter((tab) => tab !== 'SKILLS')].map((tab) => (
             <button
               key={tab}
-              className={`tab-button ${tab === 'SKILLS' ? 'tab-button--active' : ''}`}
+              className={`tab-button ${isTabActive(tab) ? 'tab-button--active' : ''}`}
+              onClick={() => setActiveView(tabView(tab))}
             >
               {tab}
             </button>
