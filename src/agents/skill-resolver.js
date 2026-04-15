@@ -1,21 +1,81 @@
+function dedupeSkills(skills) {
+  const precedence = { user: 0, local: 1, builtin: 2, 'built-in': 2 };
+  const byName = new Map();
+
+  for (const skill of skills) {
+    const existing = byName.get(skill.name);
+    if (!existing) {
+      byName.set(skill.name, skill);
+      continue;
+    }
+    const existingRank = precedence[existing.source] ?? 99;
+    const nextRank = precedence[skill.source] ?? 99;
+    if (nextRank < existingRank) {
+      byName.set(skill.name, skill);
+    }
+  }
+
+  return Array.from(byName.values());
+}
+
+function sortSkills(a, b) {
+  const aIsUser = a.source === 'user' ? 0 : 1;
+  const bIsUser = b.source === 'user' ? 0 : 1;
+  if (aIsUser !== bIsUser) return aIsUser - bIsUser;
+  if (a.lastUsedAt === b.lastUsedAt) return a.name.localeCompare(b.name);
+  if (a.lastUsedAt === null) return 1;
+  if (b.lastUsedAt === null) return -1;
+  return b.lastUsedAt < a.lastUsedAt ? -1 : 1;
+}
+
+function keywordMatch(skill, project) {
+  const haystack = [
+    skill.name,
+    skill.description,
+    skill.path,
+    ...(skill.applicableStacks ?? []),
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  return (project.techStack ?? []).filter((tech) => haystack.includes(String(tech).toLowerCase()));
+}
+
+function explainSkill(skill, persona, project) {
+  const reasons = [];
+  if (skill.domain === persona.domain) {
+    reasons.push({ type: 'persona-domain', label: `${persona.domain} persona match` });
+  } else if (skill.domain === 'general') {
+    reasons.push({ type: 'general-domain', label: 'general-purpose skill' });
+  }
+
+  const matchingStacks = (skill.applicableStacks ?? []).filter((stack) =>
+    (project.techStack ?? []).includes(stack),
+  );
+  if (matchingStacks.length > 0) {
+    reasons.push({ type: 'project-stack', label: `matches ${matchingStacks.join(', ')}` });
+  }
+
+  const keywordStacks = keywordMatch(skill, project).filter((stack) =>
+    !matchingStacks.includes(stack),
+  );
+  if (keywordStacks.length > 0) {
+    reasons.push({ type: 'project-context', label: `suggested by ${keywordStacks.join(', ')}` });
+  }
+
+  return reasons;
+}
+
 /**
- * Skill Resolver — selects and ranks skills for a given persona + project.
- *
- * Algorithm (spec section 3.3):
- *   1. Get all skills from DB
- *   2. Stack filter: keep skills where applicableStacks is empty (universal)
- *      OR any element of applicableStacks is in project.techStack
- *   3. Domain filter: keep skills where domain IN (persona.domain, 'general')
- *   4. Dedup by name: if user-defined and built-in share the same name,
- *      keep user-defined only
- *   5. Sort: user source first, then by lastUsedAt DESC (nulls last)
- *   6. Cap at 20
- *
- * Note: secondaryDomains are NOT used here — only primary domain + 'general'.
- *
  * @param {ReturnType<import('../db/repository.js').createRepository>} db
+ * @param {{ localSkillInventory?: object[] }} [options]
  */
-export function createSkillResolver(db) {
+export function createSkillResolver(db, { localSkillInventory = [] } = {}) {
+  function listInstalledSkills() {
+    return dedupeSkills([...db.listSkills(), ...localSkillInventory]).sort(sortSkills);
+  }
+
   /**
    * Resolve applicable skills for a persona working on a project.
    *
@@ -40,37 +100,37 @@ export function createSkillResolver(db) {
     );
 
     // Step 4: Dedup by name — user-defined wins over built-in
-    const byName = new Map();
-    for (const skill of domainFiltered) {
-      if (!byName.has(skill.name)) {
-        byName.set(skill.name, skill);
-      } else {
-        const existing = byName.get(skill.name);
-        // Replace if the new entry is user-defined and existing is not
-        if (skill.source === 'user' && existing.source !== 'user') {
-          byName.set(skill.name, skill);
-        }
-      }
-    }
+    const deduped = dedupeSkills(domainFiltered);
 
     // Step 5: Sort — user source first, then by lastUsedAt DESC (nulls last)
-    const deduped = Array.from(byName.values());
-    deduped.sort((a, b) => {
-      // Primary: user before built-in
-      const aIsUser = a.source === 'user' ? 0 : 1;
-      const bIsUser = b.source === 'user' ? 0 : 1;
-      if (aIsUser !== bIsUser) return aIsUser - bIsUser;
-
-      // Secondary: lastUsedAt DESC, nulls last
-      if (a.lastUsedAt === b.lastUsedAt) return 0;
-      if (a.lastUsedAt === null) return 1;
-      if (b.lastUsedAt === null) return -1;
-      return b.lastUsedAt < a.lastUsedAt ? -1 : 1;
-    });
+    deduped.sort(sortSkills);
 
     // Step 6: Cap at 20
     return deduped.slice(0, 20);
   }
 
-  return { resolve };
+  function inventoryForLaunch(persona, project) {
+    const resolved = resolve(persona, project).map((skill) => ({
+      ...skill,
+      reasons: explainSkill(skill, persona, project),
+    }));
+    const resolvedNames = new Set(resolved.map((skill) => skill.name));
+    const installed = listInstalledSkills();
+    const recommended = installed
+      .filter((skill) => !resolvedNames.has(skill.name))
+      .map((skill) => ({ ...skill, reasons: explainSkill(skill, persona, project) }))
+      .filter((skill) =>
+        skill.reasons.some((reason) => reason.type !== 'general-domain'),
+      )
+      .sort((a, b) => b.reasons.length - a.reasons.length || a.name.localeCompare(b.name))
+      .slice(0, 6);
+
+    return {
+      installed,
+      resolved,
+      recommended,
+    };
+  }
+
+  return { resolve, listInstalledSkills, inventoryForLaunch };
 }

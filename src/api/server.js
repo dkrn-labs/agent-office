@@ -20,6 +20,7 @@ import { computeCostUsd } from '../telemetry/pricing.js';
 import { inferOutcome } from '../telemetry/outcome-inference.js';
 import { sessionRoutes } from './routes/sessions.js';
 import { SESSION_ENDED, SESSION_IDLE, SESSION_UPDATE } from '../core/events.js';
+import { scanLocalSkills } from '../skills/local-skill-index.js';
 
 /**
  * Creates and configures the Express application.
@@ -56,8 +57,9 @@ export function createApp({
 
   // Skill resolver uses repo.listSkills() — pass repo as the "db" argument
   // (createSkillResolver's param is named db but only calls .listSkills())
-  const resolver = createSkillResolver(repo);
   const memoryEngine = createMemoryEngine(repo);
+  const localSkillInventory = scanLocalSkills(config.skillRoots);
+  const resolver = createSkillResolver(repo, { localSkillInventory });
 
   const claudeMem = createClaudeMemAdapter(defaultClaudeMemPath());
   if (claudeMem) {
@@ -179,7 +181,7 @@ export function createApp({
   app.use(projectRoutes(repo));
   app.use(configRoutes(configDir));
   app.use(personaRoutes(repo));
-  app.use(skillRoutes(repo));
+  app.use(skillRoutes(repo, resolver));
   app.use(officeRoutes(launcher));
   app.use(sessionRoutes({ repo, watcher, aggregator }));
   app.use(memoryRoutes(memoryEngine, repo, importFromClaudeProjects));

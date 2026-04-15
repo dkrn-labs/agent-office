@@ -1,6 +1,6 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -14,13 +14,32 @@ let db;
 let dir;
 let repo;
 let resolver;
+let localSkillRoot;
 
 before(async () => {
   dir = mkdtempSync(join(tmpdir(), 'agent-office-skill-resolver-test-'));
   db = openDatabase(join(dir, 'test.db'));
   await runMigrations(db);
   repo = createRepository(db);
-  resolver = createSkillResolver(repo);
+  localSkillRoot = join(dir, 'skills');
+  mkdirSync(join(localSkillRoot, 'react-auditor'), { recursive: true });
+  writeFileSync(
+    join(localSkillRoot, 'react-auditor', 'SKILL.md'),
+    '# React Auditor\n\nChecks React component quality for UI projects.\n',
+    'utf8',
+  );
+  resolver = createSkillResolver(repo, {
+    localSkillInventory: [
+      {
+        id: 'local:react-auditor',
+        name: 'React Auditor',
+        description: 'Checks React component quality for UI projects.',
+        path: join(localSkillRoot, 'react-auditor'),
+        domain: 'local',
+        source: 'local',
+      },
+    ],
+  });
 });
 
 after(() => {
@@ -170,5 +189,30 @@ describe('SkillResolver.resolve', () => {
       isoDb?.close();
       rmSync(isoDir, { recursive: true, force: true });
     }
+  });
+
+  it('builds installed/resolved/recommended inventory with reasons', () => {
+    repo.createSkill({
+      name: 'Frontend Guard Rails',
+      domain: 'frontend',
+      applicableStacks: ['react'],
+      content: 'Keep components small and predictable.',
+      source: 'built-in',
+    });
+
+    const inventory = resolver.inventoryForLaunch(
+      makePersona('frontend'),
+      makeProject(['react']),
+    );
+
+    assert.ok(inventory.installed.some((skill) => skill.name === 'React Auditor'));
+    assert.ok(inventory.resolved.some((skill) => skill.name === 'Frontend Guard Rails'));
+    assert.ok(inventory.resolved[0].reasons.length > 0);
+    assert.ok(inventory.recommended.some((skill) => skill.name === 'React Auditor'));
+    assert.ok(
+      inventory.recommended.find((skill) => skill.name === 'React Auditor').reasons.some((reason) =>
+        reason.label.includes('react'),
+      ),
+    );
   });
 });

@@ -29,6 +29,10 @@ describe('config', () => {
       assert.equal(getDefault().port, 3333);
     });
 
+    it('returns ~/.agents/skills as the default skill root', () => {
+      assert.deepEqual(getDefault().skillRoots, [join(os.homedir(), '.agents', 'skills')]);
+    });
+
     it('returns expected garden sub-keys', () => {
       const { garden } = getDefault();
       assert.equal(garden.memorySchedule, '0 2 * * 0');
@@ -57,11 +61,13 @@ describe('config', () => {
       const config = getDefault();
       config.port = 4444;
       config.personaPrompts = { engineer: 'Be concise.' };
+      config.skillRoots = ['/tmp/skills-a', '/tmp/skills-b'];
       saveConfig(config, tmpDir);
 
       const loaded = loadConfig(tmpDir);
       assert.equal(loaded.port, 4444);
       assert.deepEqual(loaded.personaPrompts, { engineer: 'Be concise.' });
+      assert.deepEqual(loaded.skillRoots, ['/tmp/skills-a', '/tmp/skills-b']);
       assert.equal(loaded.version, 1);
       assert.equal(loaded.garden.defaultMaxTokens, 200000);
     });

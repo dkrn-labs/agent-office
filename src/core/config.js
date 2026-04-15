@@ -13,6 +13,7 @@ export function getDefault() {
     version: 1,
     projectsDir: join(os.homedir(), 'Projects'),
     port: 3333,
+    skillRoots: [join(os.homedir(), '.agents', 'skills')],
     garden: {
       memorySchedule: '0 2 * * 0',
       claudeMdSchedule: '0 3 * * 0',
@@ -43,6 +44,9 @@ export function loadConfig(configDir) {
   return {
     ...defaults,
     ...fromFile,
+    skillRoots: Array.isArray(fromFile.skillRoots) && fromFile.skillRoots.length > 0
+      ? fromFile.skillRoots
+      : defaults.skillRoots,
     garden: {
       ...defaults.garden,
       ...(fromFile.garden ?? {}),
