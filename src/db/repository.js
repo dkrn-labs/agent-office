@@ -387,10 +387,14 @@ export function createRepository(db) {
       providerId: row.provider_id,
       startedAt: row.started_at ?? null,
       endedAt: row.ended_at ?? null,
+      providerSessionId: row.provider_session_id ?? null,
+      systemPrompt: row.system_prompt ?? null,
+      lastModel: row.last_model ?? null,
       tokensIn: row.tokens_in,
       tokensOut: row.tokens_out,
       tokensCacheRead: row.tokens_cache_read,
       tokensCacheWrite: row.tokens_cache_write,
+      costUsd: row.cost_usd ?? null,
       commitsProduced: row.commits_produced,
       diffExists: row.diff_exists === 1,
       outcome: row.outcome,
@@ -400,34 +404,141 @@ export function createRepository(db) {
 
   const sessionStmts = {
     insert: db.prepare(`
-      INSERT INTO session (project_id, persona_id, provider_id)
-      VALUES (@projectId, @personaId, @providerId)
+      INSERT INTO session (
+        project_id, persona_id, provider_id, started_at, system_prompt
+      )
+      VALUES (
+        @projectId, @personaId, @providerId, @startedAt, @systemPrompt
+      )
     `),
     getById: db.prepare(`SELECT * FROM session WHERE session_id = ?`),
+    getWithJoins: db.prepare(`
+      SELECT
+        s.*,
+        p.name AS project_name,
+        p.path AS project_path,
+        pe.label AS persona_label,
+        pe.domain AS persona_domain
+      FROM session s
+      JOIN project p ON p.project_id = s.project_id
+      JOIN persona pe ON pe.persona_id = s.persona_id
+      WHERE s.session_id = ?
+    `),
+    listActive: db.prepare(`
+      SELECT
+        s.*,
+        p.name AS project_name,
+        p.path AS project_path,
+        pe.label AS persona_label,
+        pe.domain AS persona_domain
+      FROM session s
+      JOIN project p ON p.project_id = s.project_id
+      JOIN persona pe ON pe.persona_id = s.persona_id
+      WHERE s.ended_at IS NULL
+      ORDER BY COALESCE(s.started_at, '') DESC, s.session_id DESC
+    `),
     update: db.prepare(`UPDATE session SET
       started_at = COALESCE(@startedAt, started_at),
       ended_at = COALESCE(@endedAt, ended_at),
+      provider_session_id = COALESCE(@providerSessionId, provider_session_id),
+      system_prompt = COALESCE(@systemPrompt, system_prompt),
+      last_model = COALESCE(@lastModel, last_model),
       tokens_in = COALESCE(@tokensIn, tokens_in),
       tokens_out = COALESCE(@tokensOut, tokens_out),
       tokens_cache_read = COALESCE(@tokensCacheRead, tokens_cache_read),
       tokens_cache_write = COALESCE(@tokensCacheWrite, tokens_cache_write),
+      cost_usd = COALESCE(@costUsd, cost_usd),
       commits_produced = COALESCE(@commitsProduced, commits_produced),
       diff_exists = COALESCE(@diffExists, diff_exists),
       outcome = COALESCE(@outcome, outcome),
       error = COALESCE(@error, error)
       WHERE session_id = @id
     `),
+    countSince: db.prepare(`
+      SELECT COUNT(*) AS count
+      FROM session
+      WHERE started_at IS NOT NULL AND started_at >= ?
+    `),
+    sumTokensSince: db.prepare(`
+      SELECT COALESCE(SUM(tokens_in + tokens_out + tokens_cache_read + tokens_cache_write), 0) AS total
+      FROM session
+      WHERE started_at IS NOT NULL AND started_at >= ?
+    `),
+    sumCommitsSince: db.prepare(`
+      SELECT COALESCE(SUM(commits_produced), 0) AS total
+      FROM session
+      WHERE ended_at IS NOT NULL AND ended_at >= ?
+    `),
+    pulseSince: db.prepare(`
+      SELECT
+        strftime('%Y-%m-%dT%H:00:00.000Z', COALESCE(ended_at, started_at)) AS hour_start,
+        COALESCE(SUM(tokens_in + tokens_out + tokens_cache_read + tokens_cache_write), 0) AS tokens
+      FROM session
+      WHERE COALESCE(ended_at, started_at) IS NOT NULL
+        AND COALESCE(ended_at, started_at) >= ?
+      GROUP BY hour_start
+      ORDER BY hour_start ASC
+    `),
   };
+
+  function buildSessionFilters({ personaId, projectId, outcome } = {}) {
+    const clauses = [];
+    const params = {};
+    if (personaId != null) {
+      clauses.push('s.persona_id = @personaId');
+      params.personaId = Number(personaId);
+    }
+    if (projectId != null) {
+      clauses.push('s.project_id = @projectId');
+      params.projectId = Number(projectId);
+    }
+    if (outcome != null) {
+      clauses.push('s.outcome = @outcome');
+      params.outcome = String(outcome);
+    }
+    return {
+      where: clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '',
+      params,
+    };
+  }
+
+  function rowToSessionSummary(row) {
+    if (!row) return null;
+    const base = rowToSession(row);
+    return {
+      ...base,
+      projectName: row.project_name ?? null,
+      projectPath: row.project_path ?? null,
+      personaLabel: row.persona_label ?? null,
+      personaDomain: row.persona_domain ?? null,
+      totalTokens:
+        (base.tokensIn ?? 0) +
+        (base.tokensOut ?? 0) +
+        (base.tokensCacheRead ?? 0) +
+        (base.tokensCacheWrite ?? 0),
+      durationSec:
+        base.startedAt && base.endedAt
+          ? Math.max(
+              0,
+              Math.round(
+                (new Date(base.endedAt).getTime() - new Date(base.startedAt).getTime()) / 1000,
+              ),
+            )
+          : null,
+    };
+  }
 
   /**
    * @param {{ projectId: number, personaId: number, providerId?: string }} fields
    * @returns {number} session_id
    */
-  function createSession({ projectId, personaId, providerId }) {
+  function createSession({ projectId, personaId, providerId, startedAt, systemPrompt }) {
     const result = sessionStmts.insert.run({
       projectId,
       personaId,
       providerId: providerId ?? 'claude-code',
+      startedAt: startedAt ?? new Date().toISOString(),
+      systemPrompt: systemPrompt ?? null,
     });
     return result.lastInsertRowid;
   }
@@ -449,16 +560,85 @@ export function createRepository(db) {
       id,
       startedAt: fields.startedAt ?? null,
       endedAt: fields.endedAt ?? null,
+      providerSessionId: fields.providerSessionId ?? null,
+      systemPrompt: fields.systemPrompt ?? null,
+      lastModel: fields.lastModel ?? null,
       tokensIn: fields.tokensIn ?? null,
       tokensOut: fields.tokensOut ?? null,
       tokensCacheRead: fields.tokensCacheRead ?? null,
       tokensCacheWrite: fields.tokensCacheWrite ?? null,
+      costUsd: fields.costUsd ?? null,
       commitsProduced: fields.commitsProduced ?? null,
       diffExists:
         fields.diffExists !== undefined ? (fields.diffExists ? 1 : 0) : null,
       outcome: fields.outcome ?? null,
       error: fields.error ?? null,
     });
+  }
+
+  function getSessionDetail(id) {
+    return rowToSessionSummary(sessionStmts.getWithJoins.get(id));
+  }
+
+  function getActiveSessions() {
+    return sessionStmts.listActive.all().map(rowToSessionSummary);
+  }
+
+  function listSessionsPage({ page = 1, pageSize = 20, personaId, projectId, outcome } = {}) {
+    const safePage = Math.max(1, Number(page) || 1);
+    const safePageSize = Math.min(100, Math.max(1, Number(pageSize) || 20));
+    const offset = (safePage - 1) * safePageSize;
+    const { where, params } = buildSessionFilters({ personaId, projectId, outcome });
+
+    const totalItems = db.prepare(`
+      SELECT COUNT(*) AS count
+      FROM session s
+      ${where}
+    `).get(params).count;
+
+    const items = db.prepare(`
+      SELECT
+        s.*,
+        p.name AS project_name,
+        p.path AS project_path,
+        pe.label AS persona_label,
+        pe.domain AS persona_domain
+      FROM session s
+      JOIN project p ON p.project_id = s.project_id
+      JOIN persona pe ON pe.persona_id = s.persona_id
+      ${where}
+      ORDER BY COALESCE(s.ended_at, s.started_at) DESC, s.session_id DESC
+      LIMIT @limit OFFSET @offset
+    `)
+      .all({ ...params, limit: safePageSize, offset })
+      .map(rowToSessionSummary);
+
+    return {
+      page: safePage,
+      pageSize: safePageSize,
+      totalItems,
+      totalPages: Math.max(1, Math.ceil(totalItems / safePageSize)),
+      items,
+    };
+  }
+
+  function countSessionsSince(isoTimestamp) {
+    return sessionStmts.countSince.get(isoTimestamp).count;
+  }
+
+  function sumTokensSince(isoTimestamp) {
+    return sessionStmts.sumTokensSince.get(isoTimestamp).total;
+  }
+
+  function sumCommitsSince(isoTimestamp) {
+    return sessionStmts.sumCommitsSince.get(isoTimestamp).total;
+  }
+
+  function getPulseBucketsSince(isoTimestamp) {
+    return sessionStmts.pulseSince.all(isoTimestamp).map((row) => ({
+      hourStart: row.hour_start,
+      tokens: row.tokens,
+    }));
   }
 
   // ── GardenLog ────────────────────────────────────────────────────────────────
@@ -604,7 +784,14 @@ export function createRepository(db) {
     // Sessions
     createSession,
     getSession,
+    getSessionDetail,
     updateSession,
+    getActiveSessions,
+    listSessionsPage,
+    countSessionsSince,
+    sumTokensSince,
+    sumCommitsSince,
+    getPulseBucketsSince,
 
     // GardenLogs
     createGardenLog,

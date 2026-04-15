@@ -5,6 +5,7 @@ import { OfficeState } from './engine/officeState.ts';
 import { renderFrame } from './engine/renderer.ts';
 import { startGameLoop } from './engine/gameLoop.ts';
 import { deserializeLayout } from './layout/layoutSerializer.ts';
+import TokenBadge from './TokenBadge.jsx';
 
 const ASSET_PATHS = {
   characters: '/assets/characters',
@@ -93,6 +94,7 @@ export default function OfficeCanvas() {
   const lastMouseRef = useRef({ x: 0, y: 0 });
   const [loaded, setLoaded] = useState(false);
   const [toast, setToast] = useState(null);
+  const [badgePositions, setBadgePositions] = useState([]);
 
   const openPicker = useOfficeStore((s) => s.openPicker);
   const sessions = useOfficeStore((s) => s.sessions);
@@ -190,6 +192,43 @@ export default function OfficeCanvas() {
       const isWorking = session?.working ?? false;
       office.setAgentActive(agentId, isWorking);
     }
+  }, [sessions]);
+
+  useEffect(() => {
+    let frame = 0;
+
+    function projectBadges() {
+      const office = officeRef.current;
+      const canvas = canvasRef.current;
+      if (office && canvas) {
+        const rect = canvas.getBoundingClientRect();
+        const zoom = zoomRef.current;
+        const mapW = office.layout.cols * TILE_SIZE * zoom;
+        const mapH = office.layout.rows * TILE_SIZE * zoom;
+        const offsetX = Math.floor((canvas.width - mapW) / 2) + Math.round(panRef.current.x);
+        const offsetY = Math.floor((canvas.height - mapH) / 2) + Math.round(panRef.current.y);
+        const next = PERSONA_AGENT_MAP.map(({ personaId, agentId }) => {
+          const session = sessions[personaId];
+          if (!session || !session.totals) return null;
+          const character = office.getCharacters().find((item) => item.id === agentId);
+          if (!character) return null;
+          const left = rect.left + ((offsetX + character.x * zoom) / canvas.width) * rect.width;
+          const top = rect.top + ((offsetY + (character.y - 28) * zoom) / canvas.height) * rect.height;
+          return {
+            personaId,
+            left: left - rect.left,
+            top: top - rect.top,
+            totals: session.totals,
+            working: session.working,
+          };
+        }).filter(Boolean);
+        setBadgePositions(next);
+      }
+      frame = requestAnimationFrame(projectBadges);
+    }
+
+    frame = requestAnimationFrame(projectBadges);
+    return () => cancelAnimationFrame(frame);
   }, [sessions]);
 
   // ─── Canvas DPR-aware resize ──────────────────────────────────────
@@ -290,6 +329,17 @@ export default function OfficeCanvas() {
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
       />
+      <div className="office-badge-layer">
+        {badgePositions.map((badge) => (
+          <div
+            key={badge.personaId}
+            className="office-badge-anchor"
+            style={{ left: `${badge.left}px`, top: `${badge.top}px` }}
+          >
+            <TokenBadge totals={badge.totals} working={badge.working} />
+          </div>
+        ))}
+      </div>
       {!loaded && (
         <div className="office-loading">Loading office...</div>
       )}

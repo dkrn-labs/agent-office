@@ -150,6 +150,7 @@ export function createLauncher({
   dryRun = false,
   memoryEngine: memoryEngineOpt,
   claudeMem = null,
+  watcher = null,
 } = {}) {
   const memoryEngine = memoryEngineOpt ?? createMemoryEngine(repo);
   /**
@@ -195,10 +196,21 @@ export function createLauncher({
       : baseSystemPrompt;
 
     // 6. Create session record
-    const sessionId = repo.createSession({ projectId, personaId });
+    const startedAt = new Date().toISOString();
+    const sessionId = repo.createSession({
+      projectId,
+      personaId,
+      startedAt,
+      systemPrompt,
+    });
 
     // 7. Emit SESSION_STARTED
-    bus.emit(SESSION_STARTED, { sessionId: Number(sessionId), projectId, personaId });
+    bus.emit(SESSION_STARTED, {
+      sessionId: Number(sessionId),
+      projectId,
+      personaId,
+      startedAt,
+    });
 
     return {
       sessionId: Number(sessionId),
@@ -206,6 +218,7 @@ export function createLauncher({
       systemPrompt,
       skills,
       memories,
+      startedAt,
     };
   }
 
@@ -218,6 +231,14 @@ export function createLauncher({
    */
   async function launch(personaId, projectId) {
     const ctx = await prepareLaunch(personaId, projectId);
+
+    watcher?.registerLaunch?.({
+      projectPath: ctx.projectPath,
+      sessionId: ctx.sessionId,
+      personaId,
+      projectId,
+      launchedAt: ctx.startedAt,
+    });
 
     if (!dryRun) {
       await spawnItermTab({

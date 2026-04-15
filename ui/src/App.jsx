@@ -9,14 +9,32 @@ import LaunchPreview from './office/LaunchPreview.jsx';
 export default function App() {
   const fetchPersonas = useOfficeStore((s) => s.fetchPersonas);
   const fetchProjects = useOfficeStore((s) => s.fetchProjects);
+  const fetchActiveSessions = useOfficeStore((s) => s.fetchActiveSessions);
+  const fetchActivityStats = useOfficeStore((s) => s.fetchActivityStats);
+  const fetchPulse = useOfficeStore((s) => s.fetchPulse);
+  const fetchRecentSessions = useOfficeStore((s) => s.fetchRecentSessions);
+  const fetchTerrainSessions = useOfficeStore((s) => s.fetchTerrainSessions);
   const wsClientRef = useRef(null);
 
   useEffect(() => {
     fetchPersonas();
     fetchProjects();
+    fetchActiveSessions();
+    fetchActivityStats();
+    fetchPulse();
+    fetchRecentSessions();
+    fetchTerrainSessions();
     wsClientRef.current = createWsClient(useOfficeStore);
     return () => wsClientRef.current?.close();
-  }, [fetchPersonas, fetchProjects]);
+  }, [
+    fetchPersonas,
+    fetchProjects,
+    fetchActiveSessions,
+    fetchActivityStats,
+    fetchPulse,
+    fetchRecentSessions,
+    fetchTerrainSessions,
+  ]);
 
   return (
     <>

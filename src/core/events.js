@@ -4,8 +4,10 @@ export const PROJECT_REMOVED = 'project:removed';
 
 export const SESSION_STARTED = 'session:started';
 export const SESSION_UPDATE = 'session:update';
+export const SESSION_IDLE = 'session:idle';
 export const SESSION_ENDED = 'session:ended';
 export const SESSION_ERROR = 'session:error';
+export const ACTIVITY_TICK = 'activity:tick';
 
 export const MEMORY_CREATED = 'memory:created';
 export const MEMORY_UPDATED = 'memory:updated';

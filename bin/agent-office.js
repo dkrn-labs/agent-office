@@ -155,7 +155,15 @@ program
     const bus = createEventBus();
 
     // Create Express app
-    const app = createApp({ repo, bus, config, configDir: dataDir, db, dryRun: opts.dryRun ?? false });
+    const app = createApp({
+      repo,
+      bus,
+      config,
+      configDir: dataDir,
+      db,
+      dryRun: opts.dryRun ?? false,
+      telemetry: true,
+    });
 
     // Create HTTP server and attach WS hub
     const server = createServer(app);
@@ -176,6 +184,7 @@ program
     process.on('SIGINT', () => {
       log.info('Shutting down...');
       server.close(() => {
+        app.locals.stopTelemetry?.();
         db.close();
         log.info('Shutdown complete');
         process.exit(0);

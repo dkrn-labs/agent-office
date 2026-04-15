@@ -202,6 +202,26 @@ describe('Launcher.prepareLaunch', () => {
   });
 });
 
+describe('Launcher.launch telemetry registration', () => {
+  it('registers the launched session with the watcher', async () => {
+    let registered = null;
+    const watcher = {
+      registerLaunch(payload) {
+        registered = payload;
+      },
+    };
+    const telemetryLauncher = createLauncher({ repo, bus, resolver, dryRun: true, watcher });
+
+    const ctx = await telemetryLauncher.launch(personaId, projectId);
+
+    assert.ok(registered);
+    assert.equal(registered.sessionId, ctx.sessionId);
+    assert.equal(registered.personaId, personaId);
+    assert.equal(registered.projectId, projectId);
+    assert.equal(registered.projectPath, '/tmp/test-project');
+  });
+});
+
 // ── buildItermScript / buildLaunchBashScript tests ──────────────────────────
 
 import { buildItermScript, buildLaunchBashScript } from '../../src/agents/launcher.js';
