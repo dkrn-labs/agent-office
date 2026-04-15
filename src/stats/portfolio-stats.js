@@ -19,7 +19,7 @@ const SKIP_DIRS = new Set([
 const WINDOW_DEFS = {
   today: {
     start(now = new Date()) {
-      return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      return new Date(now.toISOString().split('T')[0]);
     },
   },
   '7d': {
