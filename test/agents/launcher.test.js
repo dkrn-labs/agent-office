@@ -1,6 +1,6 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -21,6 +21,7 @@ let repo;
 let resolver;
 let bus;
 let launcher;
+let localSkillRoot;
 
 // Fixtures
 let projectId;
@@ -31,9 +32,29 @@ before(async () => {
   db = openDatabase(join(dir, 'test.db'));
   await runMigrations(db);
   repo = createRepository(db);
-  resolver = createSkillResolver(repo);
   bus = createEventBus();
-  launcher = createLauncher({ repo, bus, resolver, dryRun: true });
+  localSkillRoot = join(dir, 'skills');
+  mkdirSync(join(localSkillRoot, 'code-reviewer'), { recursive: true });
+  writeFileSync(
+    join(localSkillRoot, 'code-reviewer', 'SKILL.md'),
+    '# Code Reviewer\n\nReviews patches before launch.\n',
+    'utf8',
+  );
+  resolver = createSkillResolver(repo, {
+    localSkillInventory: [
+      {
+        id: 'local:code-reviewer',
+        name: 'Code Reviewer',
+        description: 'Reviews patches before launch.',
+        path: join(localSkillRoot, 'code-reviewer'),
+        domain: 'local',
+        source: 'local',
+        lastUsedAt: null,
+        applicableStacks: [],
+      },
+    ],
+  });
+  launcher = createLauncher({ repo, bus, resolver, dryRun: true, skillRoots: [localSkillRoot] });
 
   // Seed a project
   projectId = Number(
@@ -91,11 +112,16 @@ describe('Launcher.prepareLaunch', () => {
   });
 
   it('creates a session record accessible via repo.getSession', async () => {
-    const ctx = await launcher.prepareLaunch(personaId, projectId);
+    const ctx = await launcher.prepareLaunch(personaId, projectId, {
+      providerId: 'codex',
+      model: 'gpt-5.4',
+    });
     const session = repo.getSession(ctx.sessionId);
     assert.ok(session, 'session should exist in the database');
     assert.equal(Number(session.projectId), projectId);
     assert.equal(Number(session.personaId), personaId);
+    assert.equal(session.providerId, 'codex');
+    assert.equal(session.lastModel, 'gpt-5.4');
   });
 
   it('emits SESSION_STARTED event with sessionId, projectId, personaId', async () => {
@@ -119,6 +145,24 @@ describe('Launcher.prepareLaunch', () => {
     assert.ok(ctx.skills.length > 0, 'skills array should contain at least one resolved skill');
     const names = ctx.skills.map((s) => s.name);
     assert.ok(names.includes('React Component Patterns'), 'should include the seeded skill');
+  });
+
+  it('preview exposes installed local skills and exact system prompt', async () => {
+    const preview = await launcher.preview(personaId, projectId, {
+      providerId: 'gemini-cli',
+      model: 'gemini-2.5-flash',
+    });
+
+    assert.ok(Array.isArray(preview.installedSkills));
+    assert.ok(preview.installedSkills.some((skill) => skill.name === 'Code Reviewer'));
+    assert.ok(Array.isArray(preview.resolvedSkills));
+    assert.ok(preview.resolvedSkills.every((skill) => skill.injectionMode === 'full'));
+    assert.ok(Array.isArray(preview.recommendedSkills));
+    assert.equal(preview.launchTarget.providerId, 'gemini-cli');
+    assert.equal(preview.launchTarget.model, 'gemini-2.5-flash');
+    assert.ok(Array.isArray(preview.availableProviders));
+    assert.match(preview.systemPrompt, /Test Project/);
+    assert.deepEqual(preview.skillRoots, [localSkillRoot]);
   });
 
   it('returns a memories array including memories added to the project', async () => {
@@ -263,6 +307,39 @@ describe('buildItermScript()', () => {
 });
 
 describe('buildLaunchBashScript()', () => {
+  it('builds a Claude launch command by default', () => {
+    const script = buildLaunchBashScript({
+      projectPath: '/tmp/project',
+      scriptPath: '/tmp/launch.sh',
+      promptPath: '/tmp/prompt.txt',
+    });
+    assert.ok(script.includes('exec claude --model "sonnet" --append-system-prompt "$PROMPT"'));
+  });
+
+  it('builds a Codex launch command when codex is selected', () => {
+    const script = buildLaunchBashScript({
+      projectPath: '/tmp/project',
+      scriptPath: '/tmp/launch.sh',
+      promptPath: '/tmp/prompt.txt',
+      providerId: 'codex',
+      model: 'gpt-5.4',
+    });
+    assert.ok(script.includes('exec codex --model "gpt-5.4" "$PROMPT"'));
+  });
+
+  it('builds a Gemini launch command when gemini is selected', () => {
+    const script = buildLaunchBashScript({
+      projectPath: '/tmp/project',
+      scriptPath: '/tmp/launch.sh',
+      promptPath: '/tmp/prompt.txt',
+      providerId: 'gemini-cli',
+      model: 'gemini-2.5-flash',
+    });
+    assert.ok(script.includes('exec gemini --model "gemini-2.5-flash" --prompt-interactive "$PROMPT"'));
+  });
+});
+
+describe('buildLaunchBashScript()', () => {
   it('cds to project, reads prompt from file, self-deletes, and execs claude', () => {
     const bash = buildLaunchBashScript({
       projectPath: '/Users/alice/web',
@@ -273,7 +350,7 @@ describe('buildLaunchBashScript()', () => {
     assert.ok(bash.includes('cd "/Users/alice/web"'));
     assert.ok(bash.includes('PROMPT="$(cat "/tmp/prompt-1.txt")"'));
     assert.ok(bash.includes('rm -f "/tmp/prompt-1.txt" "/tmp/launch-1.sh"'));
-    assert.ok(bash.includes('exec claude --append-system-prompt "$PROMPT"'));
+    assert.ok(bash.includes('exec claude --model "sonnet" --append-system-prompt "$PROMPT"'));
   });
 
   it('safely quotes paths with spaces and double quotes', () => {

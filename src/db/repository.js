@@ -163,6 +163,17 @@ export function createRepository(db) {
     `),
     getById: db.prepare(`SELECT * FROM persona WHERE persona_id = ?`),
     listAll: db.prepare(`SELECT * FROM persona ORDER BY label`),
+    update: db.prepare(`
+      UPDATE persona SET
+        label = COALESCE(@label, label),
+        domain = COALESCE(@domain, domain),
+        secondary_domains = COALESCE(@secondaryDomains, secondary_domains),
+        character_sprite = COALESCE(@characterSprite, character_sprite),
+        skill_ids = COALESCE(@skillIds, skill_ids),
+        system_prompt_template = COALESCE(@systemPromptTemplate, system_prompt_template),
+        source = COALESCE(@source, source)
+      WHERE persona_id = @id
+    `),
   };
 
   /**
@@ -203,6 +214,23 @@ export function createRepository(db) {
    */
   function listPersonas() {
     return personaStmts.listAll.all().map(rowToPersona);
+  }
+
+  /**
+   * @param {number} id
+   * @param {{ label?: string, domain?: string, secondaryDomains?: any[], characterSprite?: string, skillIds?: any[], systemPromptTemplate?: string, source?: string }} fields
+   */
+  function updatePersona(id, fields) {
+    personaStmts.update.run({
+      id,
+      label: fields.label ?? null,
+      domain: fields.domain ?? null,
+      secondaryDomains: fields.secondaryDomains !== undefined ? toJson(fields.secondaryDomains) : null,
+      characterSprite: fields.characterSprite ?? null,
+      skillIds: fields.skillIds !== undefined ? toJson(fields.skillIds) : null,
+      systemPromptTemplate: fields.systemPromptTemplate ?? null,
+      source: fields.source ?? null,
+    });
   }
 
   // ── Skill ────────────────────────────────────────────────────────────────────
@@ -769,6 +797,7 @@ export function createRepository(db) {
     createPersona,
     getPersona,
     listPersonas,
+    updatePersona,
 
     // Skills
     createSkill,

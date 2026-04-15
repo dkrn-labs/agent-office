@@ -44,6 +44,21 @@ describe('PersonaRegistry.seedBuiltIns', () => {
     assert.equal(personas.length, 5);
   });
 
+  it('backfills missing built-in prompt templates on existing personas', async () => {
+    const frontend = registry.listPersonas().find((persona) => persona.label === 'Frontend Engineer');
+    assert.ok(frontend, 'expected Frontend Engineer to exist');
+
+    repo.updatePersona(frontend.id, {
+      systemPromptTemplate: null,
+    });
+
+    await registry.seedBuiltIns();
+
+    const repaired = registry.getPersona(frontend.id);
+    assert.equal(typeof repaired.systemPromptTemplate, 'string');
+    assert.ok(repaired.systemPromptTemplate.includes('{{project}}'));
+  });
+
   it('each persona has the correct primary domain', () => {
     const personas = registry.listPersonas();
     const domainsByLabel = Object.fromEntries(personas.map((p) => [p.label, p.domain]));

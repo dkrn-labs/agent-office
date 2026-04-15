@@ -2,7 +2,7 @@ import { describe, it, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { get as httpGet } from 'node:http';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -40,9 +40,18 @@ let httpServer;
 let repo;
 let configDir;
 let db;
+let localSkillRoot;
+let app;
 
 before(async () => {
   configDir = mkdtempSync(join(tmpdir(), 'agent-office-preview-test-'));
+  localSkillRoot = join(configDir, 'skills');
+  mkdirSync(join(localSkillRoot, 'frontend-guard'), { recursive: true });
+  writeFileSync(
+    join(localSkillRoot, 'frontend-guard', 'SKILL.md'),
+    '# Frontend Guard\n\nProtects UI consistency.\n',
+    'utf8',
+  );
 
   db = openDatabase(':memory:');
   await runMigrations(db);
@@ -50,9 +59,10 @@ before(async () => {
   repo = createRepository(db);
   const bus = createEventBus();
   const config = loadConfig(configDir);
+  config.skillRoots = [localSkillRoot];
 
   // dryRun: true so launch doesn't try to spawn a terminal
-  const app = createApp({ repo, bus, config, configDir, db, dryRun: true });
+  app = createApp({ repo, bus, config, configDir, db, dryRun: true });
   httpServer = createServer(app);
 
   await new Promise((resolve) => httpServer.listen(0, '127.0.0.1', resolve));
@@ -61,6 +71,7 @@ before(async () => {
 });
 
 after(() => {
+  app?.locals.stopTelemetry?.();
   return new Promise((resolve, reject) => {
     httpServer.close((err) => {
       rmSync(configDir, { recursive: true, force: true });
@@ -107,13 +118,24 @@ describe('GET /api/office/preview', () => {
   });
 
   it('returns preview context for valid ids', async () => {
-    const { status, body: data } = await get(`${base}/api/office/preview?personaId=${personaId}&projectId=${projectId}`);
+    const { status, body: data } = await get(
+      `${base}/api/office/preview?personaId=${personaId}&projectId=${projectId}&providerId=codex&model=gpt-5.4`,
+    );
     assert.equal(status, 200);
     assert.equal(data.persona.id, personaId);
     assert.equal(data.project.id, projectId);
+    assert.equal(data.launchTarget.providerId, 'codex');
+    assert.equal(data.launchTarget.model, 'gpt-5.4');
     assert.ok(Array.isArray(data.skills));
+    assert.ok(Array.isArray(data.resolvedSkills));
+    assert.ok(Array.isArray(data.installedSkills));
+    assert.ok(Array.isArray(data.recommendedSkills));
+    assert.ok(Array.isArray(data.availableProviders));
     assert.ok(Array.isArray(data.memories));
     assert.ok(Array.isArray(data.personaObservations));
     assert.ok('lastSession' in data);
+    assert.equal(typeof data.systemPrompt, 'string');
+    assert.deepEqual(data.skillRoots, [localSkillRoot]);
+    assert.ok(data.installedSkills.some((skill) => skill.name === 'Frontend Guard'));
   });
 });

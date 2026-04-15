@@ -20,6 +20,7 @@ import { SESSION_STARTED } from '../core/events.js';
 import { createMemoryEngine } from '../memory/memory-engine.js';
 import { formatForContext } from '../memory/memory-injector.js';
 import { filterObservationsForPersona } from '../memory/persona-filter.js';
+import { listLaunchProviders, resolveLaunchTarget } from './provider-catalog.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -43,17 +44,25 @@ export function detectTerminal() {
  * shell/AppleScript escaping problem: the prompt may contain newlines, double
  * quotes, single quotes, backslashes — none reach the shell parser.
  *
- * @param {{ projectPath: string, scriptPath: string, promptPath: string }} opts
+ * @param {{ projectPath: string, scriptPath: string, promptPath: string, providerId?: string, model?: string }} opts
  * @returns {string} bash source
  */
-export function buildLaunchBashScript({ projectPath, scriptPath, promptPath }) {
+export function buildLaunchBashScript({ projectPath, scriptPath, promptPath, providerId, model }) {
   const q = JSON.stringify; // safe shell-quoting via JSON for paths
+  const launchTarget = resolveLaunchTarget(providerId, model);
+  let command = `exec claude --model ${q(launchTarget.model)} --append-system-prompt "$PROMPT"`;
+  if (launchTarget.providerId === 'codex') {
+    command = `exec codex --model ${q(launchTarget.model)} "$PROMPT"`;
+  } else if (launchTarget.providerId === 'gemini-cli') {
+    command = `exec gemini --model ${q(launchTarget.model)} --prompt-interactive "$PROMPT"`;
+  }
+
   return `#!/bin/bash
 cd ${q(projectPath)} || exit 1
 clear
 PROMPT="$(cat ${q(promptPath)})"
 rm -f ${q(promptPath)} ${q(scriptPath)}
-exec claude --append-system-prompt "$PROMPT"
+${command}
 `;
 }
 
@@ -103,9 +112,9 @@ end tell`;
  * run the script. The script self-deletes after launching Claude, so nothing
  * persists in /tmp.
  *
- * @param {{ projectPath: string, systemPrompt: string }} opts
+ * @param {{ projectPath: string, systemPrompt: string, providerId?: string, model?: string }} opts
  */
-export async function spawnItermTab({ projectPath, systemPrompt }) {
+export async function spawnItermTab({ projectPath, systemPrompt, providerId, model }) {
   if (process.platform !== 'darwin') {
     throw new Error(`Terminal spawn not supported on ${process.platform} yet`);
   }
@@ -113,7 +122,13 @@ export async function spawnItermTab({ projectPath, systemPrompt }) {
   const promptPath = join(tmpdir(), `agent-office-prompt-${stamp}.txt`);
   const scriptPath = join(tmpdir(), `agent-office-launch-${stamp}.sh`);
   await writeFile(promptPath, systemPrompt, 'utf8');
-  const bash = buildLaunchBashScript({ projectPath, scriptPath, promptPath });
+  const bash = buildLaunchBashScript({
+    projectPath,
+    scriptPath,
+    promptPath,
+    providerId,
+    model,
+  });
   await writeFile(scriptPath, bash, { mode: 0o755, encoding: 'utf8' });
   const terminal = detectTerminal();
   const script = buildItermScript({ scriptPath, terminal });
@@ -143,6 +158,28 @@ function buildClaudeMemSection(last, personaObs, persona) {
   return parts.join('\n\n');
 }
 
+function buildFallbackSystemPrompt(persona, project, resolvedSkills, memories) {
+  const personaLabel = persona?.label ?? 'Software Engineer';
+  const personaDomain = persona?.domain ?? 'general';
+  const stackText = (project?.techStack ?? []).join(', ') || 'unknown';
+  const skillsText =
+    resolvedSkills.length > 0
+      ? resolvedSkills.map((skill) => `- ${skill.name}: ${skill.preview ?? ''}`).join('\n')
+      : '- No resolved skills.';
+
+  return [
+    `You are ${personaLabel} working on ${project?.name ?? 'this project'}.`,
+    `Primary domain: ${personaDomain}.`,
+    `Tech stack: ${stackText}.`,
+    '',
+    'Available skills:',
+    skillsText,
+    '',
+    'Relevant memories:',
+    formatForContext(memories),
+  ].join('\n');
+}
+
 export function createLauncher({
   repo,
   bus,
@@ -151,8 +188,67 @@ export function createLauncher({
   memoryEngine: memoryEngineOpt,
   claudeMem = null,
   watcher = null,
+  skillRoots = [],
 } = {}) {
   const memoryEngine = memoryEngineOpt ?? createMemoryEngine(repo);
+
+  async function buildLaunchContext(personaId, projectId, options = {}) {
+    const persona = repo.getPersona(personaId);
+    if (!persona) throw new Error(`Persona not found: ${personaId}`);
+
+    const project = repo.getProject(projectId);
+    if (!project) throw new Error(`Project not found: ${projectId}`);
+
+    const inventory = resolver.inventoryForLaunch(persona, project);
+    const resolvedSkills = inventory.resolved.map((skill) => ({
+      id: skill.id,
+      name: skill.name,
+      domain: skill.domain,
+      source: skill.source,
+      injectionMode: 'full',
+      applicableStacks: skill.applicableStacks ?? [],
+      preview: skill.content,
+      reasons: skill.reasons ?? [],
+    }));
+    const memories = memoryEngine.queryForPersona(projectId, persona);
+
+    let claudeMemSection = '';
+    let lastSession = null;
+    let personaObservations = [];
+    if (claudeMem) {
+      lastSession = claudeMem.getLastSession(project.name);
+      const allObs = claudeMem.getObservations(project.name, { limit: 50 });
+      personaObservations = filterObservationsForPersona(allObs, persona, { limit: 10 });
+      claudeMemSection = buildClaudeMemSection(lastSession, personaObservations, persona);
+    }
+
+    const template = persona.systemPromptTemplate?.trim() ?? '';
+    const baseSystemPrompt = template
+      ? template
+          .replace('{{project}}', project.name ?? '')
+          .replace('{{techStack}}', (project.techStack ?? []).join(', '))
+          .replace('{{skills}}', resolvedSkills.map((s) => s.preview).join('\n\n'))
+          .replace('{{memories}}', formatForContext(memories))
+      : buildFallbackSystemPrompt(persona, project, resolvedSkills, memories);
+    const systemPrompt = claudeMemSection
+      ? `${claudeMemSection}\n\n${baseSystemPrompt}`
+      : baseSystemPrompt;
+
+    const launchTarget = resolveLaunchTarget(options.providerId, options.model);
+
+    return {
+      persona,
+      project,
+      resolvedSkills,
+      memories,
+      lastSession,
+      personaObservations,
+      systemPrompt,
+      launchTarget,
+      installedSkills: inventory.installed,
+      recommendedSkills: inventory.recommended,
+    };
+  }
   /**
    * Assemble all context for a launch without spawning a terminal.
    *
@@ -160,49 +256,23 @@ export function createLauncher({
    * @param {number} projectId
    * @returns {Promise<{ sessionId: number, projectPath: string, systemPrompt: string, skills: object[], memories: object[] }>}
    */
-  async function prepareLaunch(personaId, projectId) {
-    // 1. Load persona
-    const persona = repo.getPersona(personaId);
-    if (!persona) throw new Error(`Persona not found: ${personaId}`);
-
-    // 2. Load project
-    const project = repo.getProject(projectId);
-    if (!project) throw new Error(`Project not found: ${projectId}`);
-
-    // 3. Resolve skills
-    const skills = resolver.resolve(persona, project);
-
-    // 4. Query memories for relevant domains via memory engine
-    const memories = memoryEngine.queryForPersona(projectId, persona);
-
-    // 4b. Pull claude-mem context (last session + persona-filtered observations)
-    let claudeMemSection = '';
-    if (claudeMem) {
-      const last = claudeMem.getLastSession(project.name);
-      const allObs = claudeMem.getObservations(project.name, { limit: 50 });
-      const personaObs = filterObservationsForPersona(allObs, persona, { limit: 10 });
-      claudeMemSection = buildClaudeMemSection(last, personaObs, persona);
-    }
-
-    // 5. Hydrate system prompt template
-    const template = persona.systemPromptTemplate ?? '';
-    const baseSystemPrompt = template
-      .replace('{{project}}', project.name ?? '')
-      .replace('{{techStack}}', (project.techStack ?? []).join(', '))
-      .replace('{{skills}}', skills.map((s) => s.content).join('\n\n'))
-      .replace('{{memories}}', formatForContext(memories));
-    const systemPrompt = claudeMemSection
-      ? `${claudeMemSection}\n\n${baseSystemPrompt}`
-      : baseSystemPrompt;
+  async function prepareLaunch(personaId, projectId, options = {}) {
+    const { persona, project, systemPrompt, resolvedSkills, memories, launchTarget } = await buildLaunchContext(
+      personaId,
+      projectId,
+      options,
+    );
 
     // 6. Create session record
     const startedAt = new Date().toISOString();
     const sessionId = repo.createSession({
       projectId,
       personaId,
+      providerId: launchTarget.providerId,
       startedAt,
       systemPrompt,
     });
+    repo.updateSession(Number(sessionId), { lastModel: launchTarget.model });
 
     // 7. Emit SESSION_STARTED
     bus.emit(SESSION_STARTED, {
@@ -210,15 +280,24 @@ export function createLauncher({
       projectId,
       personaId,
       startedAt,
+      projectName: project.name,
+      projectPath: project.path,
+      personaLabel: persona.label,
+      personaDomain: persona.domain,
+      providerId: launchTarget.providerId,
+      lastModel: launchTarget.model,
     });
 
     return {
       sessionId: Number(sessionId),
       projectPath: project.path,
       systemPrompt,
-      skills,
+      skills: resolvedSkills,
       memories,
       startedAt,
+      launchTarget,
+      providerId: launchTarget.providerId,
+      model: launchTarget.model,
     };
   }
 
@@ -229,8 +308,8 @@ export function createLauncher({
    * @param {number} projectId
    * @returns {Promise<{ sessionId: number, projectPath: string, systemPrompt: string, skills: object[], memories: object[] }>}
    */
-  async function launch(personaId, projectId) {
-    const ctx = await prepareLaunch(personaId, projectId);
+  async function launch(personaId, projectId, options = {}) {
+    const ctx = await prepareLaunch(personaId, projectId, options);
 
     watcher?.registerLaunch?.({
       projectPath: ctx.projectPath,
@@ -238,39 +317,50 @@ export function createLauncher({
       personaId,
       projectId,
       launchedAt: ctx.startedAt,
+      providerId: ctx.providerId,
     });
 
     if (!dryRun) {
       await spawnItermTab({
         projectPath: ctx.projectPath,
         systemPrompt: ctx.systemPrompt,
+        providerId: ctx.providerId,
+        model: ctx.model,
       });
     }
 
     return ctx;
   }
 
-  async function preview(personaId, projectId) {
-    const persona = repo.getPersona(personaId);
-    if (!persona) throw new Error(`Persona not found: ${personaId}`);
-    const project = repo.getProject(projectId);
-    if (!project) throw new Error(`Project not found: ${projectId}`);
-
-    const skills = resolver.resolve(persona, project);
-    const memories = memoryEngine.queryForPersona(projectId, persona);
-
-    let lastSession = null;
-    let personaObservations = [];
-    if (claudeMem) {
-      lastSession = claudeMem.getLastSession(project.name);
-      const allObs = claudeMem.getObservations(project.name, { limit: 50 });
-      personaObservations = filterObservationsForPersona(allObs, persona, { limit: 10 });
-    }
+  async function preview(personaId, projectId, options = {}) {
+    const {
+      persona,
+      project,
+      resolvedSkills,
+      memories,
+      lastSession,
+      personaObservations,
+      systemPrompt,
+      launchTarget,
+      installedSkills,
+      recommendedSkills,
+    } = await buildLaunchContext(personaId, projectId, options);
 
     return {
       persona: { id: persona.id, label: persona.label, domain: persona.domain },
       project: { id: project.id, name: project.name, path: project.path, techStack: project.techStack ?? [] },
-      skills: skills.map((s) => ({ id: s.id, name: s.name, domain: s.domain })),
+      systemPrompt,
+      launchTarget,
+      availableProviders: listLaunchProviders(),
+      skillRoots,
+      resolvedSkills,
+      installedSkills,
+      recommendedSkills,
+      injectionStrategy: {
+        defaultMode: 'full',
+        note: 'Phase 5.1 keeps launch behavior unchanged while exposing the exact injected prompt.',
+      },
+      skills: resolvedSkills.map((s) => ({ id: s.id, name: s.name, domain: s.domain })),
       memories: memories.map((m) => ({ id: m.id, domain: m.domain, content: m.content })),
       lastSession,
       personaObservations,

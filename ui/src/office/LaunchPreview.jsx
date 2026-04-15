@@ -75,6 +75,7 @@ export default function LaunchPreview() {
 
   const backdropRef = useRef(null);
   const [obsVisible, setObsVisible] = useState(INITIAL_OBS_VISIBLE);
+  const [showPrompt, setShowPrompt] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -85,7 +86,10 @@ export default function LaunchPreview() {
 
   // Reset visible count whenever preview reopens
   useEffect(() => {
-    if (open) setObsVisible(INITIAL_OBS_VISIBLE);
+    if (open) {
+      setObsVisible(INITIAL_OBS_VISIBLE);
+      setShowPrompt(false);
+    }
   }, [open]);
 
   if (!open) return null;
@@ -93,7 +97,10 @@ export default function LaunchPreview() {
   async function handleConfirm() {
     if (!data) return;
     try {
-      await launchAgent(data.persona.id, data.project.id);
+      await launchAgent(data.persona.id, data.project.id, {
+        providerId: data.launchTarget?.providerId,
+        model: data.launchTarget?.model,
+      });
       closePreview();
     } catch (err) {
       useOfficeStore.setState({ previewError: err.message ?? 'Launch failed' });
@@ -107,6 +114,11 @@ export default function LaunchPreview() {
   const observations = data?.personaObservations ?? [];
   const visible = observations.slice(0, obsVisible);
   const hasMore = observations.length > obsVisible;
+  const resolvedSkills = data?.resolvedSkills ?? data?.skills ?? [];
+  const installedSkills = data?.installedSkills ?? [];
+  const recommendedSkills = data?.recommendedSkills ?? [];
+  const promptText = data?.systemPrompt ?? '';
+  const launchTarget = data?.launchTarget ?? null;
 
   return (
     <div
@@ -128,6 +140,11 @@ export default function LaunchPreview() {
             <span className="text-gray-500 mx-1.5">→</span>
             <span className="text-blue-300">{data?.project?.name ?? project?.name ?? ''}</span>
           </p>
+          {launchTarget && (
+            <p className="mt-1 text-xs text-gray-400">
+              {launchTarget.label} · {launchTarget.model}
+            </p>
+          )}
         </div>
 
         {/* Body — scrollable */}
@@ -143,6 +160,27 @@ export default function LaunchPreview() {
             <div className="rounded-lg border border-red-800 bg-red-900/30 px-3 py-2 text-red-300">
               {error}
             </div>
+          )}
+
+          {launchTarget && (
+            <section>
+              <h3 className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1.5">
+                Launch target
+              </h3>
+              <div className="rounded-lg border border-gray-800 bg-gray-950/50 px-3 py-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-blue-950/70 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-300">
+                    {launchTarget.label}
+                  </span>
+                  <span className="rounded-full bg-gray-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-300">
+                    {launchTarget.model}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs text-gray-400">
+                  {launchTarget.command} · prompt is {launchTarget.promptModeLabel}
+                </p>
+              </div>
+            </section>
           )}
 
           {/* Last session */}
@@ -220,22 +258,152 @@ export default function LaunchPreview() {
             </section>
           )}
 
-          {/* Skills */}
-          {data?.skills?.length > 0 && (
+          {/* Resolved skills */}
+          {resolvedSkills.length > 0 && (
             <section>
               <h3 className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1.5">
-                Skills <span className="text-gray-600 ml-1">({data.skills.length})</span>
+                Resolved skills <span className="text-gray-600 ml-1">({resolvedSkills.length})</span>
               </h3>
-              <div className="flex flex-wrap gap-1.5">
-                {data.skills.map((s) => (
-                  <span
+              <div className="space-y-2">
+                {resolvedSkills.map((s) => (
+                  <div
                     key={s.id}
-                    className="inline-block rounded-md bg-gray-800 border border-gray-700 px-2 py-1 text-xs text-gray-300"
+                    className="rounded-lg border border-gray-800 bg-gray-950/40 px-3 py-2"
                   >
-                    {s.name}
-                  </span>
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm text-gray-200">{s.name}</p>
+                        <p className="text-[10px] uppercase tracking-wide text-gray-500">
+                          {s.source ?? 'unknown'} · {s.domain ?? 'general'}
+                        </p>
+                        {s.reasons?.length > 0 && (
+                          <p className="mt-1 text-xs text-gray-400">
+                            {s.reasons.map((reason) => reason.label).join(' · ')}
+                          </p>
+                        )}
+                      </div>
+                      <span className="rounded-md border border-blue-800 bg-blue-950/50 px-2 py-1 text-[10px] uppercase tracking-wide text-blue-300">
+                        {s.injectionMode ?? 'full'}
+                      </span>
+                    </div>
+                  </div>
                 ))}
               </div>
+            </section>
+          )}
+
+          {/* Recommended skills */}
+          {recommendedSkills.length > 0 && (
+            <section>
+              <h3 className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1.5">
+                Recommended skills <span className="text-gray-600 ml-1">({recommendedSkills.length})</span>
+              </h3>
+              <div className="space-y-2">
+                {recommendedSkills.map((s) => (
+                  <div
+                    key={s.id}
+                    className="rounded-lg border border-emerald-900/60 bg-emerald-950/20 px-3 py-2"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm text-gray-200">{s.name}</p>
+                        <p className="text-[10px] uppercase tracking-wide text-gray-500">
+                          {s.source ?? 'unknown'} · {s.domain ?? 'general'}
+                        </p>
+                        {s.reasons?.length > 0 && (
+                          <p className="mt-1 text-xs text-emerald-200/80">
+                            {s.reasons.map((reason) => reason.label).join(' · ')}
+                          </p>
+                        )}
+                      </div>
+                      <span className="rounded-md border border-emerald-800 bg-emerald-950/50 px-2 py-1 text-[10px] uppercase tracking-wide text-emerald-300">
+                        optional
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Installed skills inventory */}
+          {(installedSkills.length > 0 || data?.skillRoots?.length > 0) && (
+            <section>
+              <div className="flex items-baseline justify-between mb-1.5 gap-3">
+                <h3 className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
+                  Installed skills
+                  <span className="text-gray-600 ml-1">({installedSkills.length})</span>
+                </h3>
+                {data?.skillRoots?.length > 0 && (
+                  <span className="text-[10px] text-gray-500 truncate">
+                    {data.skillRoots[0]}
+                  </span>
+                )}
+              </div>
+              <div className="max-h-40 overflow-y-auto rounded-lg border border-gray-800 bg-gray-950/40">
+                {installedSkills.length === 0 ? (
+                  <p className="px-3 py-3 text-xs text-gray-500">
+                    No installed skills were found in the configured local roots.
+                  </p>
+                ) : (
+                  <ul className="divide-y divide-gray-800">
+                    {installedSkills.slice(0, 12).map((s) => (
+                      <li key={s.id} className="px-3 py-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm text-gray-200">{s.name}</span>
+                          <span className="text-[10px] uppercase tracking-wide text-gray-500">
+                            {s.source ?? 'unknown'}
+                          </span>
+                        </div>
+                        {s.description && (
+                          <p className="mt-0.5 text-xs leading-snug text-gray-400">{s.description}</p>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              {installedSkills.length > 12 && (
+                <p className="mt-1 text-[10px] text-gray-500">
+                  Showing 12 of {installedSkills.length} installed skills.
+                </p>
+              )}
+            </section>
+          )}
+
+          {/* Prompt inspector */}
+          {data && (
+            <section>
+              <div className="flex items-center justify-between gap-3 mb-1.5">
+                <div>
+                  <h3 className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
+                    Prompt inspector
+                  </h3>
+                  <p className="text-[10px] text-gray-600 mt-0.5">
+                    Exact launch prompt that will be passed to the selected CLI at session start.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="rounded-lg border border-gray-700 px-2 py-1 text-[10px] uppercase tracking-wide text-gray-300 hover:bg-gray-800"
+                  onClick={() => setShowPrompt((value) => !value)}
+                >
+                  {showPrompt ? 'Hide prompt' : 'Show prompt'}
+                </button>
+              </div>
+              {showPrompt ? (
+                <pre className="max-h-64 overflow-auto rounded-lg border border-gray-800 bg-black/50 px-3 py-3 text-xs leading-relaxed text-gray-300 whitespace-pre-wrap">
+                  {promptText || 'No system prompt available.'}
+                </pre>
+              ) : (
+                <div className="rounded-lg border border-gray-800 bg-gray-950/40 px-3 py-2">
+                  <p className="text-xs text-gray-400">
+                    {promptText
+                      ? `Prompt ready · ${promptText.length.toLocaleString()} characters`
+                      : 'No system prompt available.'}
+                  </p>
+                </div>
+              )}
             </section>
           )}
 
@@ -271,7 +439,7 @@ export default function LaunchPreview() {
               disabled={loading || !data}
               onClick={handleConfirm}
             >
-              Launch in iTerm
+              {launchTarget ? `Launch ${launchTarget.label}` : 'Launch in iTerm'}
             </button>
           </div>
         </div>

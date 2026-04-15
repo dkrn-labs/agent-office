@@ -1,6 +1,88 @@
 import { create } from 'zustand';
 import { fetchJSON, postJSON, fetchJSONWithQuery } from '../lib/api.js';
 
+const PROJECT_PREFS_KEY = 'agent-office-project-prefs-v1';
+const MAX_RECENT_PROJECTS = 8;
+
+function readProjectPrefs() {
+  if (typeof window === 'undefined') {
+    return { pinnedProjectIds: [], recentProjectIds: [] };
+  }
+  try {
+    const raw = window.localStorage.getItem(PROJECT_PREFS_KEY);
+    if (!raw) return { pinnedProjectIds: [], recentProjectIds: [] };
+    const parsed = JSON.parse(raw);
+    return {
+      pinnedProjectIds: Array.isArray(parsed?.pinnedProjectIds) ? parsed.pinnedProjectIds : [],
+      recentProjectIds: Array.isArray(parsed?.recentProjectIds) ? parsed.recentProjectIds : [],
+    };
+  } catch {
+    return { pinnedProjectIds: [], recentProjectIds: [] };
+  }
+}
+
+function persistProjectPrefs(state) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(
+      PROJECT_PREFS_KEY,
+      JSON.stringify({
+        pinnedProjectIds: state.pinnedProjectIds ?? [],
+        recentProjectIds: state.recentProjectIds ?? [],
+      }),
+    );
+  } catch {
+    // Ignore persistence failures.
+  }
+}
+
+function mergeRecentProjectIds(existingIds = [], incomingIds = []) {
+  const next = [];
+  for (const projectId of [...incomingIds, ...existingIds]) {
+    if (projectId == null || next.includes(projectId)) continue;
+    next.push(projectId);
+    if (next.length >= MAX_RECENT_PROJECTS) break;
+  }
+  return next;
+}
+
+function normalizeSession(payload, existing = {}, fallbackWorking = false) {
+  const totals = payload?.totals ?? existing.totals ?? {
+    tokensIn: payload?.tokensIn ?? 0,
+    tokensOut: payload?.tokensOut ?? 0,
+    cacheRead: payload?.tokensCacheRead ?? 0,
+    cacheWrite: payload?.tokensCacheWrite ?? 0,
+    total:
+      payload?.totalTokens ??
+      (payload?.tokensIn ?? 0) +
+        (payload?.tokensOut ?? 0) +
+        (payload?.tokensCacheRead ?? 0) +
+        (payload?.tokensCacheWrite ?? 0),
+    costUsd: payload?.costUsd ?? null,
+  };
+
+  return {
+    ...existing,
+    sessionId: payload?.sessionId ?? payload?.id ?? existing.sessionId ?? null,
+    providerId: payload?.providerId ?? existing.providerId ?? null,
+    providerSessionId: payload?.providerSessionId ?? existing.providerSessionId ?? null,
+    projectId: payload?.projectId ?? existing.projectId ?? null,
+    projectName: payload?.projectName ?? existing.projectName ?? null,
+    projectPath: payload?.projectPath ?? existing.projectPath ?? null,
+    personaId: payload?.personaId ?? existing.personaId ?? null,
+    personaLabel: payload?.personaLabel ?? existing.personaLabel ?? null,
+    personaDomain: payload?.personaDomain ?? existing.personaDomain ?? null,
+    startedAt: payload?.startedAt ?? existing.startedAt ?? null,
+    endedAt: payload?.endedAt ?? existing.endedAt ?? null,
+    lastActivity:
+      payload?.lastActivity ?? payload?.endedAt ?? payload?.startedAt ?? existing.lastActivity ?? null,
+    lastModel: payload?.lastModel ?? existing.lastModel ?? null,
+    totals,
+    outcome: payload?.outcome ?? existing.outcome ?? null,
+    working: payload?.working ?? existing.working ?? fallbackWorking,
+  };
+}
+
 /**
  * Central store for the Agent Office panel.
  *
@@ -13,6 +95,8 @@ import { fetchJSON, postJSON, fetchJSONWithQuery } from '../lib/api.js';
  *   connected       — WebSocket connected flag
  */
 export const useOfficeStore = create((set, get) => ({
+  ...readProjectPrefs(),
+
   // ── state ──────────────────────────────────────────────────────────────────
   personas: [],
   projects: [],
@@ -22,6 +106,8 @@ export const useOfficeStore = create((set, get) => ({
   connected: false,
   activeView: 'office',
   activityStats: null,
+  portfolioStats: null,
+  portfolioWindow: 'today',
   pulseBuckets: [],
   recentSessions: [],
   terrainSessions: [],
@@ -52,7 +138,16 @@ export const useOfficeStore = create((set, get) => ({
 
   async fetchProjects() {
     const projects = await fetchJSON('/api/projects/active');
-    set({ projects });
+    set((state) => {
+      const activeProjectIds = new Set(projects.map((project) => project.id));
+      const nextState = {
+        projects,
+        pinnedProjectIds: state.pinnedProjectIds.filter((projectId) => activeProjectIds.has(projectId)),
+        recentProjectIds: state.recentProjectIds.filter((projectId) => activeProjectIds.has(projectId)),
+      };
+      persistProjectPrefs(nextState);
+      return nextState;
+    });
   },
 
   async fetchActiveSessions() {
@@ -60,20 +155,11 @@ export const useOfficeStore = create((set, get) => ({
     const sessions = {};
     for (const session of activeSessions) {
       if (session.personaId == null) continue;
-      sessions[session.personaId] = {
-        sessionId: session.sessionId ?? session.id,
-        totals:
-          session.totals ?? {
-            tokensIn: session.tokensIn ?? 0,
-            tokensOut: session.tokensOut ?? 0,
-            cacheRead: session.tokensCacheRead ?? 0,
-            cacheWrite: session.tokensCacheWrite ?? 0,
-            total: session.totalTokens ?? 0,
-            costUsd: session.costUsd ?? null,
-          },
-        lastActivity: session.lastActivity ?? session.startedAt ?? Date.now(),
-        working: true,
-      };
+      sessions[session.personaId] = normalizeSession(
+        { ...session, working: true },
+        {},
+        true,
+      );
     }
     set({ sessions });
   },
@@ -83,6 +169,13 @@ export const useOfficeStore = create((set, get) => ({
     set({ activityStats });
   },
 
+  async fetchPortfolioStats(refresh = false) {
+    const portfolioStats = await fetchJSONWithQuery('/api/portfolio/stats', {
+      refresh: refresh ? 1 : null,
+    });
+    set({ portfolioStats });
+  },
+
   async fetchPulse() {
     const pulseBuckets = await fetchJSON('/api/sessions/pulse');
     set({ pulseBuckets });
@@ -90,7 +183,17 @@ export const useOfficeStore = create((set, get) => ({
 
   async fetchRecentSessions() {
     const page = await fetchJSONWithQuery('/api/sessions', { page: 1, pageSize: 5 });
-    set({ recentSessions: page.items ?? [] });
+    set((state) => {
+      const nextState = {
+        recentSessions: page.items ?? [],
+        recentProjectIds: mergeRecentProjectIds(
+          state.recentProjectIds,
+          (page.items ?? []).map((session) => session.projectId),
+        ),
+      };
+      persistProjectPrefs({ ...state, ...nextState });
+      return nextState;
+    });
   },
 
   async fetchTerrainSessions() {
@@ -144,6 +247,10 @@ export const useOfficeStore = create((set, get) => ({
     }
   },
 
+  setPortfolioWindow(portfolioWindow) {
+    set({ portfolioWindow });
+  },
+
   setHistoryFilters(nextFilters) {
     const historyFilters = { ...get().historyFilters, ...nextFilters };
     set({
@@ -171,7 +278,7 @@ export const useOfficeStore = create((set, get) => ({
     });
   },
 
-  async previewLaunch(personaId, project) {
+  async previewLaunch(personaId, project, launchConfig = {}) {
     set({
       previewOpen:    true,
       previewLoading: true,
@@ -183,6 +290,8 @@ export const useOfficeStore = create((set, get) => ({
       const data = await fetchJSONWithQuery('/api/office/preview', {
         personaId,
         projectId: project.id,
+        providerId: launchConfig.providerId,
+        model: launchConfig.model,
       });
       set({ previewData: data, previewLoading: false });
     } catch (err) {
@@ -200,13 +309,46 @@ export const useOfficeStore = create((set, get) => ({
     });
   },
 
-  async launchAgent(personaId, projectId) {
-    const result = await postJSON('/api/office/launch', { personaId, projectId });
-    // result contains { sessionId }
+  async launchAgent(personaId, projectId, launchConfig = {}) {
+    const result = await postJSON('/api/office/launch', {
+      personaId,
+      projectId,
+      providerId: launchConfig.providerId,
+      model: launchConfig.model,
+    });
+    set((state) => {
+      const nextState = {
+        recentProjectIds: mergeRecentProjectIds(state.recentProjectIds, [projectId]),
+      };
+      persistProjectPrefs({ ...state, ...nextState });
+      return nextState;
+    });
     return result;
   },
 
   // ── picker actions ──────────────────────────────────────────────────────────
+
+  markProjectUsed(projectId) {
+    set((state) => {
+      const nextState = {
+        recentProjectIds: mergeRecentProjectIds(state.recentProjectIds, [projectId]),
+      };
+      persistProjectPrefs({ ...state, ...nextState });
+      return nextState;
+    });
+  },
+
+  togglePinnedProject(projectId) {
+    set((state) => {
+      const nextState = {
+        pinnedProjectIds: state.pinnedProjectIds.includes(projectId)
+          ? state.pinnedProjectIds.filter((id) => id !== projectId)
+          : [projectId, ...state.pinnedProjectIds],
+      };
+      persistProjectPrefs({ ...state, ...nextState });
+      return nextState;
+    });
+  },
 
   openPicker(personaId) {
     set({ selectedPersona: personaId, pickerOpen: true });
@@ -219,92 +361,89 @@ export const useOfficeStore = create((set, get) => ({
   // ── WebSocket event handlers ────────────────────────────────────────────────
 
   onSessionStarted(payload) {
-    // payload: { personaId, sessionId, projectPath, ... }
     const { personaId, sessionId } = payload;
     set((state) => ({
       sessions: {
         ...state.sessions,
-        [personaId]: {
-          sessionId,
-          totals: payload.totals ?? { tokensIn: 0, tokensOut: 0, total: 0, costUsd: null },
-          lastActivity: payload.startedAt ?? Date.now(),
-          working: true,
-        },
+        [personaId]: normalizeSession(
+          { ...payload, sessionId, working: true },
+          state.sessions[personaId],
+          true,
+        ),
       },
     }));
   },
 
   onSessionUpdate(payload) {
-    // payload: { personaId, sessionId, totals, ... }
     const { personaId } = payload;
     set((state) => {
       const existing = state.sessions[personaId] ?? {};
       return {
         sessions: {
           ...state.sessions,
-          [personaId]: {
-            ...existing,
-            sessionId: payload.sessionId ?? existing.sessionId,
-            totals: payload.totals ?? existing.totals,
-            lastActivity: payload.lastActivity ?? Date.now(),
-            working: true,
-          },
+          [personaId]: normalizeSession(
+            { ...payload, working: true },
+            existing,
+            true,
+          ),
         },
       };
     });
   },
 
   onSessionEnded(payload) {
-    // payload: { personaId, sessionId, totals, ... }
     const { personaId } = payload;
     set((state) => {
       const existing = state.sessions[personaId] ?? {};
       return {
         sessions: {
           ...state.sessions,
-          [personaId]: {
-            ...existing,
-            sessionId: payload.sessionId ?? existing.sessionId,
-            totals: payload.totals ?? existing.totals,
-            lastActivity: payload.endedAt ?? existing.lastActivity ?? Date.now(),
-            working: false,
-          },
+          [personaId]: normalizeSession(
+            { ...payload, working: false },
+            existing,
+            false,
+          ),
         },
       };
     });
-    set((state) => ({
-      recentSessions: [
-        {
-          id: payload.sessionId,
-          sessionId: payload.sessionId,
-          personaId: payload.personaId,
-          projectId: payload.projectId,
-          personaLabel: payload.personaLabel ?? null,
-          projectName: payload.projectName ?? null,
-          outcome: payload.outcome,
-          endedAt: payload.endedAt,
-          totalTokens: payload.totals?.total ?? 0,
-          costUsd: payload.totals?.costUsd ?? null,
-        },
-        ...state.recentSessions.filter((session) => session.sessionId !== payload.sessionId),
-      ].slice(0, 5),
-      terrainSessions: [
-        {
-          id: payload.sessionId,
-          sessionId: payload.sessionId,
-          personaId: payload.personaId,
-          projectId: payload.projectId,
-          personaLabel: payload.personaLabel ?? null,
-          projectName: payload.projectName ?? null,
-          outcome: payload.outcome,
-          endedAt: payload.endedAt,
-          totalTokens: payload.totals?.total ?? 0,
-          costUsd: payload.totals?.costUsd ?? null,
-          commitsProduced: payload.outcomeSignals?.commitsProduced ?? 0,
-        },
-        ...state.terrainSessions.filter((session) => session.sessionId !== payload.sessionId),
-      ].slice(0, 12),
-    }));
+    set((state) => {
+      const nextState = {
+        recentProjectIds: mergeRecentProjectIds(state.recentProjectIds, [payload.projectId]),
+        recentSessions: [
+          {
+            id: payload.sessionId,
+            sessionId: payload.sessionId,
+            personaId: payload.personaId,
+            projectId: payload.projectId,
+            personaLabel: payload.personaLabel ?? null,
+            projectName: payload.projectName ?? null,
+            outcome: payload.outcome,
+            endedAt: payload.endedAt,
+            totalTokens: payload.totals?.total ?? 0,
+            costUsd: payload.totals?.costUsd ?? null,
+          },
+          ...state.recentSessions.filter((session) => session.sessionId !== payload.sessionId),
+        ].slice(0, 5),
+        terrainSessions: [
+          {
+            id: payload.sessionId,
+            sessionId: payload.sessionId,
+            personaId: payload.personaId,
+            projectId: payload.projectId,
+            personaLabel: payload.personaLabel ?? null,
+            projectName: payload.projectName ?? null,
+            outcome: payload.outcome,
+            endedAt: payload.endedAt,
+            totalTokens: payload.totals?.total ?? 0,
+            costUsd: payload.totals?.costUsd ?? null,
+            commitsProduced: payload.outcomeSignals?.commitsProduced ?? 0,
+          },
+          ...state.terrainSessions.filter((session) => session.sessionId !== payload.sessionId),
+        ].slice(0, 12),
+      };
+      persistProjectPrefs({ ...state, ...nextState });
+      return nextState;
+    });
     if (get().selectedHistorySessionId === payload.sessionId) {
       void get().fetchHistorySessionDetail(payload.sessionId);
     }
@@ -320,10 +459,11 @@ export const useOfficeStore = create((set, get) => ({
       return {
         sessions: {
           ...state.sessions,
-          [personaId]: {
-            ...existing,
-            working: false,
-          },
+          [personaId]: normalizeSession(
+            { ...payload, working: false },
+            existing,
+            false,
+          ),
         },
       };
     });

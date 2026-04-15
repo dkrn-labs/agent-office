@@ -2,7 +2,7 @@ import { describe, it, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { request as httpRequest, get as httpGet } from 'node:http';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -71,9 +71,18 @@ let httpServer;
 let repo;
 let configDir;
 let db;
+let app;
+let localSkillRoot;
 
 before(async () => {
   configDir = mkdtempSync(join(tmpdir(), 'agent-office-office-test-'));
+  localSkillRoot = join(configDir, 'skills');
+  mkdirSync(join(localSkillRoot, 'react-auditor'), { recursive: true });
+  writeFileSync(
+    join(localSkillRoot, 'react-auditor', 'SKILL.md'),
+    '# React Auditor\n\nChecks React component quality for UI projects.\n',
+    'utf8',
+  );
 
   db = openDatabase(':memory:');
   await runMigrations(db);
@@ -81,9 +90,10 @@ before(async () => {
   repo = createRepository(db);
   const bus = createEventBus();
   const config = loadConfig(configDir);
+  config.skillRoots = [localSkillRoot];
 
   // dryRun: true so launch doesn't try to spawn a terminal
-  const app = createApp({ repo, bus, config, configDir, db, dryRun: true });
+  app = createApp({ repo, bus, config, configDir, db, dryRun: true });
   httpServer = createServer(app);
 
   await new Promise((resolve) => httpServer.listen(0, '127.0.0.1', resolve));
@@ -92,6 +102,7 @@ before(async () => {
 });
 
 after(() => {
+  app?.locals.stopTelemetry?.();
   return new Promise((resolve, reject) => {
     httpServer.close((err) => {
       rmSync(configDir, { recursive: true, force: true });
@@ -130,6 +141,25 @@ describe('GET /api/skills', () => {
     assert.equal(status, 200);
     assert.ok(Array.isArray(body), 'body should be an array');
   });
+
+  it('returns installed/resolved/recommended inventory when personaId and projectId are provided', async () => {
+    const registry = createPersonaRegistry(repo);
+    await registry.seedBuiltIns();
+    const personas = repo.listPersonas();
+    const personaId = personas[0].id;
+    const projectId = repo.createProject({
+      path: `/tmp/test-project-${randomUUID()}`,
+      name: 'ReactInventoryProject',
+      techStack: ['react'],
+    });
+
+    const { status, body } = await get(`${base}/api/skills?personaId=${personaId}&projectId=${projectId}`);
+    assert.equal(status, 200);
+    assert.ok(Array.isArray(body.installed));
+    assert.ok(Array.isArray(body.resolved));
+    assert.ok(Array.isArray(body.recommended));
+    assert.ok(body.installed.some((skill) => skill.name === 'React Auditor'));
+  });
 });
 
 describe('POST /api/office/launch', () => {
@@ -156,11 +186,16 @@ describe('POST /api/office/launch', () => {
     const { status, body } = await post(`${base}/api/office/launch`, {
       personaId,
       projectId,
+      providerId: 'gemini-cli',
+      model: 'gemini-2.5-flash',
     });
     assert.equal(status, 200);
     assert.ok('sessionId' in body, 'response should have sessionId');
     assert.equal(typeof body.sessionId, 'number');
     assert.ok(body.sessionId > 0, 'sessionId should be a positive integer');
+    const session = repo.getSession(body.sessionId);
+    assert.equal(session.providerId, 'gemini-cli');
+    assert.equal(session.lastModel, 'gemini-2.5-flash');
   });
 
   it('returns 400 when personaId is missing', async () => {

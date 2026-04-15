@@ -1,30 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
 import { useOfficeStore } from '../stores/office-store.js';
+import { DEFAULT_LAUNCH_PROVIDER_ID, getLaunchProviderById, LAUNCH_PROVIDERS } from '../lib/launch-options.js';
 
-// ── Tech-stack badge color map ─────────────────────────────────────────────
 const BADGE_COLORS = {
-  // Blue family
-  node:       'bg-blue-900 text-blue-300',
-  nodejs:     'bg-blue-900 text-blue-300',
-  react:      'bg-blue-800 text-blue-200',
+  node: 'bg-blue-900 text-blue-300',
+  nodejs: 'bg-blue-900 text-blue-300',
+  react: 'bg-blue-800 text-blue-200',
   typescript: 'bg-blue-700 text-blue-100',
-  ts:         'bg-blue-700 text-blue-100',
-  vite:       'bg-blue-600 text-blue-100',
-  // Yellow / amber family
-  python:     'bg-amber-900 text-amber-300',
-  flask:      'bg-amber-800 text-amber-200',
-  django:     'bg-amber-700 text-amber-100',
-  // Orange
-  rust:       'bg-orange-800 text-orange-200',
-  // Cyan
-  go:         'bg-cyan-900 text-cyan-300',
-  golang:     'bg-cyan-900 text-cyan-300',
-  // Red
-  ruby:       'bg-red-900 text-red-300',
-  rails:      'bg-red-900 text-red-300',
-  // Red-orange
-  java:       'bg-red-800 text-orange-200',
-  spring:     'bg-red-800 text-orange-200',
+  ts: 'bg-blue-700 text-blue-100',
+  vite: 'bg-blue-600 text-blue-100',
+  python: 'bg-amber-900 text-amber-300',
+  flask: 'bg-amber-800 text-amber-200',
+  django: 'bg-amber-700 text-amber-100',
+  rust: 'bg-orange-800 text-orange-200',
+  go: 'bg-cyan-900 text-cyan-300',
+  golang: 'bg-cyan-900 text-cyan-300',
+  ruby: 'bg-red-900 text-red-300',
+  rails: 'bg-red-900 text-red-300',
+  java: 'bg-red-800 text-orange-200',
+  spring: 'bg-red-800 text-orange-200',
 };
 
 function techBadgeClass(tech) {
@@ -32,54 +26,117 @@ function techBadgeClass(tech) {
   return BADGE_COLORS[key] ?? 'bg-gray-700 text-gray-300';
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
 function truncatePath(path, maxLen = 52) {
   if (!path || path.length <= maxLen) return path ?? '';
   const half = Math.floor((maxLen - 3) / 2);
   return path.slice(0, half) + '…' + path.slice(-half);
 }
 
-// ── Component ──────────────────────────────────────────────────────────────
+function SectionHeading({ label, count }) {
+  return (
+    <p className="mb-2 text-[10px] uppercase tracking-widest text-gray-500">
+      {label}
+      {typeof count === 'number' && <span className="ml-1 text-gray-600">({count})</span>}
+    </p>
+  );
+}
+
 export default function ProjectPicker() {
   const {
     pickerOpen,
     selectedPersona: selectedPersonaId,
     personas,
     projects,
+    sessions,
+    pinnedProjectIds,
+    recentProjectIds,
     previewLaunch,
+    markProjectUsed,
+    togglePinnedProject,
     closePicker,
   } = useOfficeStore();
 
-  const [search, setSearch]     = useState('');
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState(null);
-  const searchRef               = useRef(null);
-  const backdropRef             = useRef(null);
+  const [search, setSearch] = useState('');
+  const [selectedProject, setSelectedProject] = useState(null);
+  const [selectedProviderId, setSelectedProviderId] = useState(DEFAULT_LAUNCH_PROVIDER_ID);
+  const [selectedModel, setSelectedModel] = useState(getLaunchProviderById(DEFAULT_LAUNCH_PROVIDER_ID).defaultModel);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const searchRef = useRef(null);
+  const backdropRef = useRef(null);
 
-  // Resolve the full persona object from the id stored in state
-  const persona = personas.find((p) => p.id === selectedPersonaId) ?? null;
+  const persona = personas.find((item) => item.id === selectedPersonaId) ?? null;
+  const searchNeedle = search.trim().toLowerCase();
+  const selectedProvider = getLaunchProviderById(selectedProviderId);
 
-  // Filter projects by search query
-  const filtered = projects.filter((p) =>
-    p.name?.toLowerCase().includes(search.toLowerCase()),
+  const activeProjectIds = [];
+  for (const session of Object.values(sessions)) {
+    if (!session?.working || session.projectId == null || activeProjectIds.includes(session.projectId)) {
+      continue;
+    }
+    activeProjectIds.push(session.projectId);
+  }
+
+  const activeProjectIdSet = new Set(activeProjectIds);
+  const pinnedProjectIdSet = new Set(pinnedProjectIds);
+  const recentProjectIdSet = new Set(recentProjectIds);
+
+  const filteredProjects = projects.filter((project) => {
+    if (!searchNeedle) return true;
+    const haystack = `${project.name ?? ''} ${project.path ?? ''} ${(project.techStack ?? []).join(' ')}`
+      .toLowerCase();
+    return haystack.includes(searchNeedle);
+  });
+
+  const sortedProjects = [...filteredProjects].sort((a, b) => {
+    const aActive = activeProjectIdSet.has(a.id) ? activeProjectIds.indexOf(a.id) : Number.POSITIVE_INFINITY;
+    const bActive = activeProjectIdSet.has(b.id) ? activeProjectIds.indexOf(b.id) : Number.POSITIVE_INFINITY;
+    if (aActive !== bActive) return aActive - bActive;
+
+    const aPinned = pinnedProjectIdSet.has(a.id) ? pinnedProjectIds.indexOf(a.id) : Number.POSITIVE_INFINITY;
+    const bPinned = pinnedProjectIdSet.has(b.id) ? pinnedProjectIds.indexOf(b.id) : Number.POSITIVE_INFINITY;
+    if (aPinned !== bPinned) return aPinned - bPinned;
+
+    const aRecent = recentProjectIdSet.has(a.id) ? recentProjectIds.indexOf(a.id) : Number.POSITIVE_INFINITY;
+    const bRecent = recentProjectIdSet.has(b.id) ? recentProjectIds.indexOf(b.id) : Number.POSITIVE_INFINITY;
+    if (aRecent !== bRecent) return aRecent - bRecent;
+
+    return (a.name ?? '').localeCompare(b.name ?? '');
+  });
+
+  const activeProjects = sortedProjects.filter((project) => activeProjectIdSet.has(project.id));
+  const pinnedProjects = sortedProjects.filter(
+    (project) => !activeProjectIdSet.has(project.id) && pinnedProjectIdSet.has(project.id),
+  );
+  const recentProjects = sortedProjects.filter(
+    (project) =>
+      !activeProjectIdSet.has(project.id) &&
+      !pinnedProjectIdSet.has(project.id) &&
+      recentProjectIdSet.has(project.id),
+  );
+  const otherProjects = sortedProjects.filter(
+    (project) =>
+      !activeProjectIdSet.has(project.id) &&
+      !pinnedProjectIdSet.has(project.id) &&
+      !recentProjectIdSet.has(project.id),
   );
 
-  // Focus search input when modal opens; reset state on close
   useEffect(() => {
     if (pickerOpen) {
       setSearch('');
+      setSelectedProject(null);
+      setSelectedProviderId(DEFAULT_LAUNCH_PROVIDER_ID);
+      setSelectedModel(getLaunchProviderById(DEFAULT_LAUNCH_PROVIDER_ID).defaultModel);
       setLoading(false);
       setError(null);
-      // Defer focus so the element is visible in the DOM
       setTimeout(() => searchRef.current?.focus(), 50);
     }
   }, [pickerOpen]);
 
-  // Escape key closes the picker
   useEffect(() => {
-    if (!pickerOpen) return;
-    function handleKey(e) {
-      if (e.key === 'Escape') closePicker();
+    if (!pickerOpen) return undefined;
+    function handleKey(event) {
+      if (event.key === 'Escape') closePicker();
     }
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
@@ -87,12 +144,23 @@ export default function ProjectPicker() {
 
   if (!pickerOpen) return null;
 
-  async function handleSelectProject(project) {
+  function handleSelectProject(project) {
+    setSelectedProject(project);
+    setError(null);
+  }
+
+  async function handleContinue() {
+    if (loading || !selectedProject) return;
     if (loading) return;
     setLoading(true);
     setError(null);
     try {
-      await previewLaunch(selectedPersonaId, project);
+      const model = selectedModel.trim() || selectedProvider.defaultModel;
+      markProjectUsed(selectedProject.id);
+      await previewLaunch(selectedPersonaId, selectedProject, {
+        providerId: selectedProvider.id,
+        model,
+      });
       closePicker();
     } catch (err) {
       setError(err.message ?? 'Preview failed');
@@ -100,25 +168,117 @@ export default function ProjectPicker() {
     }
   }
 
-  function handleBackdropClick(e) {
-    if (e.target === backdropRef.current) closePicker();
+  function handleBackdropClick(event) {
+    if (event.target === backdropRef.current) closePicker();
+  }
+
+  function handleTogglePin(event, projectId) {
+    event.preventDefault();
+    event.stopPropagation();
+    togglePinnedProject(projectId);
+  }
+
+  function handleProviderChange(event) {
+    const nextProvider = getLaunchProviderById(event.target.value);
+    setSelectedProviderId(nextProvider.id);
+    setSelectedModel(nextProvider.defaultModel);
+  }
+
+  function ProjectRow({ project, active = false, accent = false }) {
+    const pinned = pinnedProjectIdSet.has(project.id);
+    const recent = recentProjectIdSet.has(project.id);
+    const selected = selectedProject?.id === project.id;
+
+    return (
+      <div
+        className={[
+          'rounded-lg border px-4 py-3 transition-colors',
+          selected
+            ? 'border-blue-500 bg-blue-950/30'
+            : accent
+              ? 'border-blue-900/70 bg-blue-950/20'
+              : 'border-gray-700 bg-transparent',
+          loading ? 'opacity-50' : 'hover:bg-gray-800 hover:border-gray-600',
+        ].join(' ')}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() => handleSelectProject(project)}
+            className="min-w-0 flex-1 text-left focus:outline-none focus:ring-1 focus:ring-blue-500 rounded-md"
+          >
+            <p className="font-semibold text-gray-100 text-sm leading-snug">
+              {project.name}
+            </p>
+            <div className="mt-1 flex flex-wrap gap-1">
+              {active && (
+                <span className="inline-block rounded-full bg-emerald-950/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-300">
+                  Active now
+                </span>
+              )}
+              {pinned && (
+                <span className="inline-block rounded-full bg-amber-950/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
+                  Pinned
+                </span>
+              )}
+              {!active && !pinned && recent && (
+                <span className="inline-block rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-300">
+                  Recent
+                </span>
+              )}
+            </div>
+
+            {Array.isArray(project.techStack) && project.techStack.length > 0 && (
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {project.techStack.map((tech) => (
+                  <span
+                    key={tech}
+                    className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${techBadgeClass(tech)}`}
+                  >
+                    {tech}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {project.path && (
+              <p className="mt-1 font-mono text-xs text-gray-500" title={project.path}>
+                {truncatePath(project.path)}
+              </p>
+            )}
+          </button>
+          <button
+            type="button"
+            disabled={loading}
+            onClick={(event) => handleTogglePin(event, project.id)}
+            className={[
+              'shrink-0 rounded-md border px-2 py-1 text-[10px] uppercase tracking-wide',
+              pinned
+                ? 'border-amber-800 bg-amber-950/60 text-amber-300'
+                : 'border-gray-700 bg-gray-900 text-gray-400 hover:text-gray-200',
+            ].join(' ')}
+            aria-label={pinned ? `Unpin ${project.name}` : `Pin ${project.name}`}
+          >
+            {pinned ? 'Unpin' : 'Pin'}
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
-    /* Backdrop */
     <div
       ref={backdropRef}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
       onClick={handleBackdropClick}
     >
-      {/* Modal card */}
       <div
-        className="relative w-full max-w-lg rounded-xl border border-gray-700 bg-gray-900 shadow-2xl"
+        className="relative w-full max-w-3xl rounded-xl border border-gray-700 bg-gray-900 shadow-2xl"
         role="dialog"
         aria-modal="true"
         aria-label="Pick a project"
       >
-        {/* Header: persona info */}
         <div className="border-b border-gray-700 px-5 py-4">
           {persona ? (
             <>
@@ -126,92 +286,189 @@ export default function ProjectPicker() {
               <p className="mt-0.5 text-lg font-bold leading-tight text-gray-100">
                 {persona.label}
               </p>
-              {persona.domain && (
-                <p className="mt-0.5 text-sm text-gray-400">{persona.domain}</p>
-              )}
+              {persona.domain && <p className="mt-0.5 text-sm text-gray-400">{persona.domain}</p>}
             </>
           ) : (
             <p className="text-sm text-gray-400">Select a project</p>
           )}
         </div>
 
-        {/* Search */}
-        <div className="px-5 pt-4 pb-2">
+        <div className="px-5 pb-2 pt-4">
           <input
             ref={searchRef}
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search projects…"
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search projects, paths, or stack…"
             className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
           />
         </div>
 
-        {/* Error banner */}
         {error && (
           <div className="mx-5 mb-2 rounded-lg bg-red-900/40 px-3 py-2 text-sm text-red-300">
             {error}
           </div>
         )}
 
-        {/* Project list */}
-        <ul className="max-h-80 overflow-y-auto px-5 pb-5 pt-1 space-y-2">
-          {filtered.length === 0 && (
-            <li className="py-6 text-center text-sm text-gray-500">
-              {search ? 'No projects match your search.' : 'No active projects found.'}
-            </li>
+        <div className="max-h-80 space-y-4 overflow-y-auto px-5 pb-5 pt-1">
+          {!persona && (
+            <div className="rounded-lg border border-gray-800 bg-gray-950/40 px-4 py-3 text-sm text-gray-400">
+              Pick a persona from the office first, then choose the project to launch into.
+            </div>
           )}
-          {filtered.map((project) => (
-            <li key={project.id}>
-              <button
-                disabled={loading}
-                onClick={() => handleSelectProject(project)}
-                className={[
-                  'w-full rounded-lg border border-gray-700 px-4 py-3 text-left transition-colors',
-                  loading
-                    ? 'cursor-not-allowed opacity-50'
-                    : 'hover:bg-gray-800 hover:border-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500',
-                ].join(' ')}
-              >
-                {/* Project name */}
-                <p className="font-semibold text-gray-100 text-sm leading-snug">
-                  {project.name}
-                </p>
 
-                {/* Tech-stack badges */}
-                {Array.isArray(project.techStack) && project.techStack.length > 0 && (
-                  <div className="mt-1.5 flex flex-wrap gap-1">
-                    {project.techStack.map((tech) => (
-                      <span
-                        key={tech}
-                        className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${techBadgeClass(tech)}`}
-                      >
-                        {tech}
-                      </span>
-                    ))}
-                  </div>
-                )}
+          {sortedProjects.length === 0 && (
+            <div className="py-6 text-center text-sm text-gray-500">
+              {searchNeedle
+                ? 'No projects match your search. Try a repo name, path fragment, or stack keyword.'
+                : 'No active projects found. Scan or reactivate a project first.'}
+            </div>
+          )}
 
-                {/* Path */}
-                {project.path && (
-                  <p
-                    className="mt-1 text-xs text-gray-500 font-mono"
-                    title={project.path}
-                  >
-                    {truncatePath(project.path)}
+          {!searchNeedle &&
+            activeProjects.length === 0 &&
+            pinnedProjects.length === 0 &&
+            recentProjects.length === 0 &&
+            sortedProjects.length > 0 && (
+              <div className="rounded-lg border border-gray-800 bg-gray-950/40 px-4 py-3 text-sm text-gray-400">
+                Nothing is pinned yet. Pin the projects you launch often so they stay at the top.
+              </div>
+            )}
+
+          {activeProjects.length > 0 && (
+            <section>
+              <SectionHeading label="Active sessions" count={activeProjects.length} />
+              <ul className="space-y-2">
+                {activeProjects.map((project) => (
+                  <li key={project.id}>
+                    <ProjectRow project={project} active accent />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {pinnedProjects.length > 0 && (
+            <section>
+              <SectionHeading label="Pinned" count={pinnedProjects.length} />
+              <ul className="space-y-2">
+                {pinnedProjects.map((project) => (
+                  <li key={project.id}>
+                    <ProjectRow project={project} />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {recentProjects.length > 0 && (
+            <section>
+              <SectionHeading label="Recent" count={recentProjects.length} />
+              <ul className="space-y-2">
+                {recentProjects.map((project) => (
+                  <li key={project.id}>
+                    <ProjectRow project={project} accent />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {otherProjects.length > 0 && (
+            <section>
+              {(activeProjects.length > 0 || pinnedProjects.length > 0 || recentProjects.length > 0) && (
+                <SectionHeading label={searchNeedle ? 'Search results' : 'All projects'} count={otherProjects.length} />
+              )}
+              <ul className="space-y-2">
+                {otherProjects.map((project) => (
+                  <li key={project.id}>
+                    <ProjectRow project={project} />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </div>
+
+        <div className="border-t border-gray-700 bg-gray-900/95 px-5 py-4">
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px_220px] md:items-end">
+            <div className="rounded-lg border border-gray-800 bg-gray-950/50 px-3 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-gray-500">Selected project</p>
+              {selectedProject ? (
+                <>
+                  <p className="mt-1 text-sm font-semibold text-gray-100">{selectedProject.name}</p>
+                  <p className="mt-1 font-mono text-xs text-gray-500" title={selectedProject.path}>
+                    {truncatePath(selectedProject.path, 68)}
                   </p>
-                )}
-              </button>
-            </li>
-          ))}
-        </ul>
+                </>
+              ) : (
+                <p className="mt-1 text-sm text-gray-400">
+                  Pick a project above, then choose the CLI agent and model before preview.
+                </p>
+              )}
+            </div>
 
-        {/* Loading overlay */}
+            <label className="block">
+              <span className="mb-1 block text-[10px] uppercase tracking-widest text-gray-500">CLI agent</span>
+              <select
+                value={selectedProviderId}
+                onChange={handleProviderChange}
+                className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              >
+                {LAUNCH_PROVIDERS.map((provider) => (
+                  <option key={provider.id} value={provider.id}>
+                    {provider.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block">
+              <span className="mb-1 block text-[10px] uppercase tracking-widest text-gray-500">Model</span>
+              <input
+                list={`launch-models-${selectedProvider.id}`}
+                value={selectedModel}
+                onChange={(event) => setSelectedModel(event.target.value)}
+                placeholder={selectedProvider.defaultModel}
+                className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              />
+              <datalist id={`launch-models-${selectedProvider.id}`}>
+                {selectedProvider.models.map((model) => (
+                  <option key={model} value={model} />
+                ))}
+              </datalist>
+            </label>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-gray-500">
+              {selectedProvider.command} · {selectedProvider.promptModeLabel}
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="rounded-lg px-3 py-1.5 text-sm text-gray-300 hover:bg-gray-800"
+                onClick={closePicker}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!selectedProject || loading || !persona}
+                className="rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={handleContinue}
+              >
+                Continue to preview
+              </button>
+            </div>
+          </div>
+        </div>
+
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-gray-900/80">
             <div className="flex flex-col items-center gap-3">
               <span className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-gray-600 border-t-blue-400" />
-              <p className="text-sm text-gray-400">Launching…</p>
+              <p className="text-sm text-gray-400">Building preview…</p>
             </div>
           </div>
         )}

@@ -4,8 +4,23 @@ const TABS = ['EVOLVE', 'RESEARCH', 'SKILLS', 'HELP', 'CREATE'];
 
 export default function LeftSidebar() {
   const projects = useOfficeStore((s) => s.projects);
+  const personas = useOfficeStore((s) => s.personas);
+  const sessions = useOfficeStore((s) => s.sessions);
+  const pinnedProjectIds = useOfficeStore((s) => s.pinnedProjectIds);
+  const recentProjectIds = useOfficeStore((s) => s.recentProjectIds);
   const activeView = useOfficeStore((s) => s.activeView);
   const setActiveView = useOfficeStore((s) => s.setActiveView);
+
+  const pinnedProjects = pinnedProjectIds
+    .map((projectId) => projects.find((project) => project.id === projectId))
+    .filter(Boolean)
+    .slice(0, 4);
+  const recentProjects = recentProjectIds
+    .filter((projectId) => !pinnedProjectIds.includes(projectId))
+    .map((projectId) => projects.find((project) => project.id === projectId))
+    .filter(Boolean)
+    .slice(0, 4);
+  const activeCount = Object.values(sessions).filter((session) => session?.working).length;
 
   function tabView(tab) {
     if (tab === 'SKILLS') return 'office';
@@ -14,22 +29,61 @@ export default function LeftSidebar() {
   }
 
   function isTabActive(tab) {
-    const view = tabView(tab);
-    return activeView === view;
+    return activeView === tabView(tab);
   }
 
   return (
     <aside className="sidebar sidebar--left">
       <div className="sidebar-section">
-        <h3 className="sidebar-label">Projects</h3>
-        <ul className="project-list">
-          {projects.map((p) => (
-            <li key={p.id} className="project-item">
-              {p.name || (p.path ? p.path.split('/').pop() : 'unnamed')}
-            </li>
-          ))}
-        </ul>
-        <button className="sidebar-link">ALL PROJECTS ›</button>
+        <h3 className="sidebar-label">Launch Flow</h3>
+        <div className="checklist">
+          <div className="checklist-item">1. Click an agent in the office</div>
+          <div className="checklist-item">2. Pick an active, pinned, or recent project</div>
+          <div className="checklist-item">3. Inspect prompt and skills before launch</div>
+        </div>
+        <div className="metric-card mt-3">
+          <span className="metric-label">Active desks</span>
+          <span className="metric-value">{activeCount}</span>
+        </div>
+        <p className="mt-3 text-[11px] text-gray-500">
+          {personas.length > 0
+            ? `Office has ${personas.length} personas ready to launch.`
+            : 'No personas loaded yet.'}
+        </p>
+      </div>
+
+      <div className="sidebar-section">
+        <h3 className="sidebar-label">Pinned Projects</h3>
+        {pinnedProjects.length === 0 ? (
+          <p className="text-[11px] text-gray-500">
+            Pin projects from the picker to keep your usual repos near the top.
+          </p>
+        ) : (
+          <ul className="project-list">
+            {pinnedProjects.map((project) => (
+              <li key={project.id} className="project-item">
+                {project.name || (project.path ? project.path.split('/').pop() : 'unnamed')}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="sidebar-section">
+        <h3 className="sidebar-label">Recent Projects</h3>
+        {recentProjects.length === 0 ? (
+          <p className="text-[11px] text-gray-500">
+            Recent launches and completed sessions will appear here automatically.
+          </p>
+        ) : (
+          <ul className="project-list">
+            {recentProjects.map((project) => (
+              <li key={project.id} className="project-item">
+                {project.name || (project.path ? project.path.split('/').pop() : 'unnamed')}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       <div className="sidebar-section">

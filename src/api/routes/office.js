@@ -10,14 +10,17 @@ export function officeRoutes(launcher) {
 
   // GET /api/office/preview — return the context that would be injected on launch
   router.get('/api/office/preview', async (req, res) => {
-    const { personaId, projectId } = req.query ?? {};
+    const { personaId, projectId, providerId, model } = req.query ?? {};
 
     if (personaId == null || projectId == null) {
       return res.status(400).json({ error: 'personaId and projectId are required' });
     }
 
     try {
-      const preview = await launcher.preview(Number(personaId), Number(projectId));
+      const preview = await launcher.preview(Number(personaId), Number(projectId), {
+        providerId: providerId ?? undefined,
+        model: model ?? undefined,
+      });
       res.json(preview);
     } catch (err) {
       const status =
@@ -31,14 +34,17 @@ export function officeRoutes(launcher) {
 
   // POST /api/office/launch — assemble context, create session, emit event, spawn iTerm
   router.post('/api/office/launch', async (req, res) => {
-    const { personaId, projectId } = req.body ?? {};
+    const { personaId, projectId, providerId, model } = req.body ?? {};
 
     if (personaId == null || projectId == null) {
       return res.status(400).json({ error: 'personaId and projectId are required' });
     }
 
     try {
-      const ctx = await launcher.launch(Number(personaId), Number(projectId));
+      const ctx = await launcher.launch(Number(personaId), Number(projectId), {
+        providerId: providerId ?? undefined,
+        model: model ?? undefined,
+      });
       res.json({ sessionId: ctx.sessionId });
     } catch (err) {
       const status =

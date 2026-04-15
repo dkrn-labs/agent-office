@@ -20,11 +20,29 @@ export function createPersonaRegistry(repo) {
    */
   async function seedBuiltIns() {
     const existing = repo.listPersonas();
-    const existingLabels = new Set(existing.map((p) => p.label));
+    const existingByLabel = new Map(existing.map((p) => [p.label, p]));
 
     for (const persona of BUILT_IN_PERSONAS) {
-      if (!existingLabels.has(persona.label)) {
+      const current = existingByLabel.get(persona.label);
+      if (!current) {
         repo.createPersona(persona);
+        continue;
+      }
+
+      const patch = {};
+      if (!current.domain && persona.domain) patch.domain = persona.domain;
+      if ((!current.secondaryDomains || current.secondaryDomains.length === 0) && persona.secondaryDomains) {
+        patch.secondaryDomains = persona.secondaryDomains;
+      }
+      if (!current.characterSprite && persona.characterSprite) patch.characterSprite = persona.characterSprite;
+      if ((!current.skillIds || current.skillIds.length === 0) && persona.skillIds) patch.skillIds = persona.skillIds;
+      if (!current.systemPromptTemplate && persona.systemPromptTemplate) {
+        patch.systemPromptTemplate = persona.systemPromptTemplate;
+      }
+      if (!current.source && persona.source) patch.source = persona.source;
+
+      if (Object.keys(patch).length > 0) {
+        repo.updatePersona(current.id, patch);
       }
     }
   }
