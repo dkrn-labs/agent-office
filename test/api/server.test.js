@@ -79,6 +79,7 @@ let base;
 let httpServer;
 let repo;
 let configDir;
+let app;
 
 before(async () => {
   configDir = mkdtempSync(join(tmpdir(), 'agent-office-test-'));
@@ -91,7 +92,7 @@ before(async () => {
   const bus = createEventBus();
   const config = loadConfig(configDir);
 
-  const app = createApp({ repo, bus, config, configDir });
+  app = createApp({ repo, bus, config, configDir });
   httpServer = createServer(app);
 
   await new Promise((resolve) => httpServer.listen(0, '127.0.0.1', resolve));
@@ -100,6 +101,7 @@ before(async () => {
 });
 
 after(() => {
+  app?.locals.stopTelemetry?.();
   return new Promise((resolve, reject) => {
     httpServer.close((err) => {
       rmSync(configDir, { recursive: true, force: true });

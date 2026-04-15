@@ -158,6 +158,10 @@ describe('telemetry flow', () => {
     assert.equal(live.totals.total, 215);
 
     await waitFor(() => updates.length === 1);
+    assert.equal(updates[0].projectName, 'project-alpha');
+    assert.equal(updates[0].projectPath, projectPath);
+    assert.equal(updates[0].personaLabel, 'Frontend Dev');
+    assert.equal(updates[0].personaDomain, 'frontend');
     const sessionAfterUpdate = repo.getSessionDetail(ctx.sessionId);
     assert.equal(sessionAfterUpdate.providerSessionId, 'provider-session-1');
     assert.equal(sessionAfterUpdate.lastModel, 'claude-sonnet-4-6');
@@ -168,8 +172,15 @@ describe('telemetry flow', () => {
 
     await waitFor(() => ended.length === 1);
     assert.equal(idles.length, 1);
+    assert.equal(idles[0].projectName, 'project-alpha');
+    assert.equal(idles[0].projectPath, projectPath);
+    assert.equal(idles[0].personaLabel, 'Frontend Dev');
+    assert.equal(idles[0].lastModel, 'claude-sonnet-4-6');
     assert.equal(ended[0].sessionId, ctx.sessionId);
     assert.equal(ended[0].outcome, 'partial');
+    assert.equal(ended[0].projectPath, projectPath);
+    assert.equal(ended[0].personaDomain, 'frontend');
+    assert.equal(ended[0].lastModel, 'claude-sonnet-4-6');
     assert.equal(ended[0].totals.total, 215);
 
     const detail = repo.getSessionDetail(ctx.sessionId);

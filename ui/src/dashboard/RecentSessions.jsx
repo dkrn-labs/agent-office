@@ -1,6 +1,12 @@
 import OutcomeBadge from './OutcomeBadge.jsx';
-import CostFormatter from './CostFormatter.jsx';
+import { formatTokens } from './CostFormatter.jsx';
 import { useOfficeStore } from '../stores/office-store.js';
+
+const PROVIDER_LABELS = {
+  'claude-code': 'Claude',
+  codex: 'Codex',
+  'gemini-cli': 'Gemini',
+};
 
 function relativeTime(value) {
   if (!value) return '—';
@@ -37,7 +43,14 @@ export default function RecentSessions({ sessions = [] }) {
               {session.projectName ?? 'Unknown project'} · {relativeTime(session.endedAt ?? session.lastActivity)}
             </div>
           </div>
-          <CostFormatter costUsd={session.costUsd ?? session.totals?.costUsd} tokens={session.totalTokens ?? session.totals?.total ?? 0} />
+          <div className="recent-session-telemetry">
+            <span className="recent-session-provider">
+              {PROVIDER_LABELS[session.providerId] ?? session.providerId ?? 'Provider'}
+            </span>
+            <span className="recent-session-tokens">
+              {formatTokens(session.totalTokens ?? session.totals?.total ?? 0)} tokens
+            </span>
+          </div>
         </button>
       ))}
     </div>

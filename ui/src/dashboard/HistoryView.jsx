@@ -3,6 +3,12 @@ import { useOfficeStore } from '../stores/office-store.js';
 import OutcomeBadge from './OutcomeBadge.jsx';
 import CostFormatter from './CostFormatter.jsx';
 
+const PROVIDER_LABELS = {
+  'claude-code': 'Claude',
+  codex: 'Codex',
+  'gemini-cli': 'Gemini',
+};
+
 function formatStarted(value) {
   if (!value) return '—';
   return new Date(value).toLocaleString([], {
@@ -28,6 +34,10 @@ function formatBoolean(value) {
   return value ? 'yes' : 'no';
 }
 
+function providerLabel(providerId) {
+  return PROVIDER_LABELS[providerId] ?? providerId ?? '—';
+}
+
 export default function HistoryView() {
   const personas = useOfficeStore((s) => s.personas);
   const projects = useOfficeStore((s) => s.projects);
@@ -47,6 +57,16 @@ export default function HistoryView() {
       fetchHistory(1);
     }
   }, [historyPage, fetchHistory]);
+
+  const breakdownAvailable =
+    historyDetail &&
+    historyDetail.providerId !== 'codex' &&
+    (
+      (historyDetail.tokensIn ?? 0) > 0 ||
+      (historyDetail.tokensOut ?? 0) > 0 ||
+      (historyDetail.tokensCacheRead ?? 0) > 0 ||
+      (historyDetail.tokensCacheWrite ?? 0) > 0
+    );
 
   return (
     <div className="history-view">
@@ -100,8 +120,8 @@ export default function HistoryView() {
         <div className="history-row history-row--head">
           <span>Persona</span>
           <span>Project</span>
+          <span>Provider</span>
           <span>Started</span>
-          <span>Duration</span>
           <span>Tokens</span>
           <span>Outcome</span>
         </div>
@@ -126,8 +146,8 @@ export default function HistoryView() {
           >
             <span>{session.personaLabel}</span>
             <span>{session.projectName}</span>
+            <span>{providerLabel(session.providerId)}</span>
             <span>{formatStarted(session.startedAt)}</span>
-            <span>{session.durationSec != null ? `${session.durationSec}s` : '—'}</span>
             <span><CostFormatter costUsd={session.costUsd} tokens={session.totalTokens} /></span>
             <span><OutcomeBadge outcome={session.outcome} /></span>
           </button>
@@ -166,6 +186,10 @@ export default function HistoryView() {
                 <OutcomeBadge outcome={historyDetail.outcome} />
               </div>
               <div className="history-detail-card">
+                <span className="history-detail-label">Provider</span>
+                <span>{providerLabel(historyDetail.providerId)}</span>
+              </div>
+              <div className="history-detail-card">
                 <span className="history-detail-label">Token Cost</span>
                 <CostFormatter costUsd={historyDetail.costUsd} tokens={historyDetail.totalTokens} />
               </div>
@@ -193,30 +217,44 @@ export default function HistoryView() {
                 <span className="history-detail-label">Diff Exists</span>
                 <span>{formatBoolean(historyDetail.diffExists)}</span>
               </div>
-              <div className="history-detail-card">
-                <span className="history-detail-label">Provider Session</span>
-                <span>{historyDetail.providerSessionId ?? '—'}</span>
-              </div>
             </div>
 
-            <div className="history-token-breakdown">
-              <div className="history-detail-card">
-                <span className="history-detail-label">Input</span>
-                <span>{historyDetail.tokensIn ?? 0}</span>
+            {breakdownAvailable ? (
+              <div className="history-token-breakdown">
+                <div className="history-detail-card">
+                  <span className="history-detail-label">Input</span>
+                  <span>{historyDetail.tokensIn ?? 0}</span>
+                </div>
+                <div className="history-detail-card">
+                  <span className="history-detail-label">Output</span>
+                  <span>{historyDetail.tokensOut ?? 0}</span>
+                </div>
+                <div className="history-detail-card">
+                  <span className="history-detail-label">Cache Read</span>
+                  <span>{historyDetail.tokensCacheRead ?? 0}</span>
+                </div>
+                <div className="history-detail-card">
+                  <span className="history-detail-label">Cache Write</span>
+                  <span>{historyDetail.tokensCacheWrite ?? 0}</span>
+                </div>
               </div>
-              <div className="history-detail-card">
-                <span className="history-detail-label">Output</span>
-                <span>{historyDetail.tokensOut ?? 0}</span>
+            ) : (
+              <div className="history-telemetry-note">
+                {historyDetail.providerId === 'codex'
+                  ? 'Codex sessions currently expose trustworthy total-token telemetry only.'
+                  : 'Detailed token breakdown is not available for this session.'}
               </div>
-              <div className="history-detail-card">
-                <span className="history-detail-label">Cache Read</span>
-                <span>{historyDetail.tokensCacheRead ?? 0}</span>
+            )}
+
+            <details className="history-diagnostics">
+              <summary>Diagnostics</summary>
+              <div className="history-detail-grid history-detail-grid--diagnostics">
+                <div className="history-detail-card">
+                  <span className="history-detail-label">Provider Session</span>
+                  <span>{historyDetail.providerSessionId ?? '—'}</span>
+                </div>
               </div>
-              <div className="history-detail-card">
-                <span className="history-detail-label">Cache Write</span>
-                <span>{historyDetail.tokensCacheWrite ?? 0}</span>
-              </div>
-            </div>
+            </details>
 
             <details className="history-prompt">
               <summary>System Prompt</summary>

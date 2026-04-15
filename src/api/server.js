@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { healthRoutes } from './routes/health.js';
 import { projectRoutes } from './routes/projects.js';
+import { portfolioRoutes } from './routes/portfolio.js';
 import { configRoutes } from './routes/config.js';
 import { personaRoutes } from './routes/personas.js';
 import { skillRoutes } from './routes/skills.js';
@@ -15,12 +16,16 @@ import { importFromClaudeProjects } from '../memory/claude-importer.js';
 import { memoryRoutes } from './routes/memories.js';
 import { createClaudeMemAdapter, defaultClaudeMemPath } from '../memory/claude-mem-adapter.js';
 import { createJsonlWatcher } from '../telemetry/jsonl-watcher.js';
+import { createCodexWatcher } from '../telemetry/codex-watcher.js';
+import { createGeminiWatcher } from '../telemetry/gemini-watcher.js';
+import { createCompositeWatcher } from '../telemetry/composite-watcher.js';
 import { createAggregator } from '../telemetry/session-aggregator.js';
 import { computeCostUsd } from '../telemetry/pricing.js';
 import { inferOutcome } from '../telemetry/outcome-inference.js';
 import { sessionRoutes } from './routes/sessions.js';
 import { SESSION_ENDED, SESSION_IDLE, SESSION_UPDATE } from '../core/events.js';
 import { scanLocalSkills } from '../skills/local-skill-index.js';
+import { createPortfolioStatsService } from '../stats/portfolio-stats.js';
 
 /**
  * Creates and configures the Express application.
@@ -67,7 +72,11 @@ export function createApp({
   }
 
   const watcher = telemetry
-    ? createJsonlWatcher({ rootPath: telemetryRoot, idleMs: telemetryIdleMs })
+    ? createCompositeWatcher([
+        createJsonlWatcher({ rootPath: telemetryRoot, idleMs: telemetryIdleMs }),
+        createCodexWatcher({ idleMs: telemetryIdleMs }),
+        createGeminiWatcher({ idleMs: telemetryIdleMs }),
+      ])
     : null;
   const launcher = createLauncher({
     repo,
@@ -77,8 +86,13 @@ export function createApp({
     memoryEngine,
     claudeMem,
     watcher,
+    skillRoots: config.skillRoots,
   });
   const aggregator = createAggregator({ repo, claudeMem, bus, watcher });
+  const portfolioStats = createPortfolioStatsService({
+    repo,
+    projectsDir: config.projectsDir,
+  });
 
   watcher?.on('session:update', (payload) => {
     const costUsd = computeCostUsd({
@@ -99,13 +113,21 @@ export function createApp({
       costUsd,
     });
 
+    const detail = repo.getSessionDetail(payload.sessionId);
+
     bus.emit(SESSION_UPDATE, {
       sessionId: payload.sessionId,
       providerSessionId: payload.providerSessionId,
-      personaId: payload.personaId,
-      projectId: payload.projectId,
+      providerId: detail?.providerId ?? null,
+      personaId: payload.personaId ?? detail?.personaId ?? null,
+      projectId: payload.projectId ?? detail?.projectId ?? null,
+      startedAt: detail?.startedAt ?? null,
       lastActivity: payload.lastActivity,
       lastModel: payload.lastModel,
+      projectName: detail?.projectName ?? null,
+      projectPath: detail?.projectPath ?? payload.projectPath ?? null,
+      personaLabel: detail?.personaLabel ?? null,
+      personaDomain: detail?.personaDomain ?? null,
       totals: {
         tokensIn: payload.totals.tokensIn,
         tokensOut: payload.totals.tokensOut,
@@ -118,8 +140,6 @@ export function createApp({
   });
 
   watcher?.on('session:idle', async (payload) => {
-    bus.emit(SESSION_IDLE, payload);
-
     const session = repo.getSession(payload.sessionId);
     if (!session) return;
     const endedAt = new Date().toISOString();
@@ -137,13 +157,36 @@ export function createApp({
     });
 
     const detail = repo.getSessionDetail(payload.sessionId);
+    bus.emit(SESSION_IDLE, {
+      ...payload,
+      providerId: detail?.providerId ?? null,
+      startedAt: detail?.startedAt ?? null,
+      projectName: detail?.projectName ?? null,
+      projectPath: detail?.projectPath ?? payload.projectPath ?? null,
+      personaLabel: detail?.personaLabel ?? null,
+      personaDomain: detail?.personaDomain ?? null,
+      lastModel: detail?.lastModel ?? null,
+      totals: {
+        tokensIn: detail?.tokensIn ?? 0,
+        tokensOut: detail?.tokensOut ?? 0,
+        cacheRead: detail?.tokensCacheRead ?? 0,
+        cacheWrite: detail?.tokensCacheWrite ?? 0,
+        total: detail?.totalTokens ?? 0,
+        costUsd: detail?.costUsd ?? null,
+      },
+    });
     bus.emit(SESSION_ENDED, {
       sessionId: payload.sessionId,
       providerSessionId: payload.providerSessionId,
+      providerId: detail?.providerId ?? null,
       personaId: payload.personaId,
       projectId: payload.projectId,
+      startedAt: detail?.startedAt ?? null,
       personaLabel: detail?.personaLabel ?? null,
+      personaDomain: detail?.personaDomain ?? null,
       projectName: detail?.projectName ?? null,
+      projectPath: detail?.projectPath ?? payload.projectPath ?? null,
+      lastModel: detail?.lastModel ?? null,
       endedAt,
       durationSec: detail?.durationSec ?? null,
       totals: {
@@ -179,6 +222,7 @@ export function createApp({
   // Mount route modules
   app.use(healthRoutes());
   app.use(projectRoutes(repo));
+  app.use(portfolioRoutes(portfolioStats));
   app.use(configRoutes(configDir));
   app.use(personaRoutes(repo));
   app.use(skillRoutes(repo, resolver));

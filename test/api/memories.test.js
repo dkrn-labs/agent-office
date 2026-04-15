@@ -69,6 +69,7 @@ let httpServer;
 let repo;
 let configDir;
 let projectId;
+let app;
 
 before(async () => {
   configDir = mkdtempSync(join(tmpdir(), 'agent-office-memories-test-'));
@@ -83,7 +84,7 @@ before(async () => {
   // Create a project to use in tests
   projectId = repo.createProject({ path: '/test/mem-project', name: 'MemProject' });
 
-  const app = createApp({ repo, bus, config, configDir });
+  app = createApp({ repo, bus, config, configDir });
   httpServer = createServer(app);
 
   await new Promise((resolve) => httpServer.listen(0, '127.0.0.1', resolve));
@@ -92,6 +93,7 @@ before(async () => {
 });
 
 after(() => {
+  app?.locals.stopTelemetry?.();
   return new Promise((resolve, reject) => {
     httpServer.close((err) => {
       rmSync(configDir, { recursive: true, force: true });

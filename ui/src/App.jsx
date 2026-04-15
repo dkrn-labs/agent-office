@@ -10,30 +10,24 @@ export default function App() {
   const fetchPersonas = useOfficeStore((s) => s.fetchPersonas);
   const fetchProjects = useOfficeStore((s) => s.fetchProjects);
   const fetchActiveSessions = useOfficeStore((s) => s.fetchActiveSessions);
-  const fetchActivityStats = useOfficeStore((s) => s.fetchActivityStats);
-  const fetchPulse = useOfficeStore((s) => s.fetchPulse);
+  const fetchPortfolioStats = useOfficeStore((s) => s.fetchPortfolioStats);
   const fetchRecentSessions = useOfficeStore((s) => s.fetchRecentSessions);
-  const fetchTerrainSessions = useOfficeStore((s) => s.fetchTerrainSessions);
   const wsClientRef = useRef(null);
 
   useEffect(() => {
     fetchPersonas();
     fetchProjects();
     fetchActiveSessions();
-    fetchActivityStats();
-    fetchPulse();
+    fetchPortfolioStats();
     fetchRecentSessions();
-    fetchTerrainSessions();
     wsClientRef.current = createWsClient(useOfficeStore);
     return () => wsClientRef.current?.close();
   }, [
     fetchPersonas,
     fetchProjects,
     fetchActiveSessions,
-    fetchActivityStats,
-    fetchPulse,
+    fetchPortfolioStats,
     fetchRecentSessions,
-    fetchTerrainSessions,
   ]);
 
   return (

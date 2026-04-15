@@ -761,6 +761,40 @@ export function createRepository(db) {
     listAll: db.prepare(`SELECT * FROM garden_rule ORDER BY rule_id`),
   };
 
+  // ── Portfolio Stats Snapshot ───────────────────────────────────────────────
+
+  function rowToPortfolioStatsSnapshot(row) {
+    if (!row) return null;
+    return {
+      window: row.window_key,
+      computedAt: row.computed_at,
+      repoCount: row.repo_count,
+      commitCount: row.commit_count,
+      fileCount: row.file_count,
+      sessionCount: row.session_count,
+      tokenTotal: row.token_total,
+    };
+  }
+
+  const portfolioStatsStmts = {
+    upsert: db.prepare(`
+      INSERT INTO portfolio_stats_snapshot (
+        window_key, computed_at, repo_count, commit_count, file_count, session_count, token_total
+      ) VALUES (
+        @window, @computedAt, @repoCount, @commitCount, @fileCount, @sessionCount, @tokenTotal
+      )
+      ON CONFLICT(window_key) DO UPDATE SET
+        computed_at = excluded.computed_at,
+        repo_count = excluded.repo_count,
+        commit_count = excluded.commit_count,
+        file_count = excluded.file_count,
+        session_count = excluded.session_count,
+        token_total = excluded.token_total
+    `),
+    getByWindow: db.prepare(`SELECT * FROM portfolio_stats_snapshot WHERE window_key = ?`),
+    listAll: db.prepare(`SELECT * FROM portfolio_stats_snapshot ORDER BY window_key`),
+  };
+
   /**
    * @param {{ scope: string, projectId?: number, schedule?: string, strategy?: string, config?: object }} fields
    * @returns {number} rule_id
@@ -781,6 +815,36 @@ export function createRepository(db) {
    */
   function listGardenRules() {
     return gardenRuleStmts.listAll.all().map(rowToGardenRule);
+  }
+
+  /**
+   * @param {{ window: string, computedAt: string, repoCount: number, commitCount: number, fileCount: number, sessionCount: number, tokenTotal: number }} fields
+   */
+  function upsertPortfolioStatsSnapshot(fields) {
+    portfolioStatsStmts.upsert.run({
+      window: fields.window,
+      computedAt: fields.computedAt,
+      repoCount: fields.repoCount ?? 0,
+      commitCount: fields.commitCount ?? 0,
+      fileCount: fields.fileCount ?? 0,
+      sessionCount: fields.sessionCount ?? 0,
+      tokenTotal: fields.tokenTotal ?? 0,
+    });
+  }
+
+  /**
+   * @param {string} window
+   * @returns {object|null}
+   */
+  function getPortfolioStatsSnapshot(window) {
+    return rowToPortfolioStatsSnapshot(portfolioStatsStmts.getByWindow.get(window));
+  }
+
+  /**
+   * @returns {object[]}
+   */
+  function listPortfolioStatsSnapshots() {
+    return portfolioStatsStmts.listAll.all().map(rowToPortfolioStatsSnapshot);
   }
 
   // ── Public API ───────────────────────────────────────────────────────────────
@@ -829,5 +893,10 @@ export function createRepository(db) {
     // GardenRules
     createGardenRule,
     listGardenRules,
+
+    // Portfolio stats snapshots
+    upsertPortfolioStatsSnapshot,
+    getPortfolioStatsSnapshot,
+    listPortfolioStatsSnapshots,
   };
 }

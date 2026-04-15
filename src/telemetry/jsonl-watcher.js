@@ -53,19 +53,22 @@ export function createJsonlWatcher({
   function prunePending() {
     const cutoff = Date.now() - 5 * 60 * 1000;
     for (let i = pendingLaunches.length - 1; i >= 0; i -= 1) {
-      if (new Date(pendingLaunches[i].launchedAt).getTime() < cutoff) {
+      if ((pendingLaunches[i].registeredAt ?? 0) < cutoff) {
         pendingLaunches.splice(i, 1);
       }
     }
   }
 
-  function registerLaunch({ projectPath, sessionId, personaId, projectId, launchedAt }) {
+  function registerLaunch({ projectPath, sessionId, personaId, projectId, launchedAt, providerId }) {
+    if (providerId && providerId !== 'claude-code') return;
     pendingLaunches.push({
       projectPath,
       sessionId,
       personaId,
       projectId,
       launchedAt: launchedAt ?? new Date().toISOString(),
+      providerId: providerId ?? 'claude-code',
+      registeredAt: Date.now(),
     });
     prunePending();
   }

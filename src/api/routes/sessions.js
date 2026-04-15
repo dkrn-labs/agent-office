@@ -6,6 +6,7 @@ function mergeLiveSession(repo, liveSession) {
     ...(detail ?? {}),
     sessionId: liveSession.sessionId,
     id: liveSession.sessionId,
+    providerId: liveSession.providerId ?? detail?.providerId ?? null,
     providerSessionId: liveSession.providerSessionId,
     personaId: liveSession.personaId ?? detail?.personaId ?? null,
     projectId: liveSession.projectId ?? detail?.projectId ?? null,
