@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useOfficeStore } from '../stores/office-store.js';
 import { DEFAULT_LAUNCH_PROVIDER_ID, getLaunchProviderById, LAUNCH_PROVIDERS } from '../lib/launch-options.js';
+import { isSessionLive, useSessionClock } from '../lib/session-status.js';
 
 const BADGE_COLORS = {
   node: 'bg-blue-900 text-blue-300',
@@ -64,6 +65,7 @@ export default function ProjectPicker() {
   const [error, setError] = useState(null);
   const searchRef = useRef(null);
   const backdropRef = useRef(null);
+  const now = useSessionClock();
 
   const persona = personas.find((item) => item.id === selectedPersonaId) ?? null;
   const searchNeedle = search.trim().toLowerCase();
@@ -71,7 +73,7 @@ export default function ProjectPicker() {
 
   const activeProjectIds = [];
   for (const session of Object.values(sessions)) {
-    if (!session?.working || session.projectId == null || activeProjectIds.includes(session.projectId)) {
+    if (!isSessionLive(session, now) || session.projectId == null || activeProjectIds.includes(session.projectId)) {
       continue;
     }
     activeProjectIds.push(session.projectId);

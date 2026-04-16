@@ -38,6 +38,7 @@ export function createLiveSessionTracker({
     return {
       sessionId: entry.sessionId,
       providerSessionId: entry.providerSessionId,
+      providerId: entry.providerId,
       personaId: entry.personaId,
       projectId: entry.projectId,
       projectPath: entry.projectPath,
@@ -122,6 +123,7 @@ export function createLiveSessionTracker({
       if (!claimed) return null;
       entry = {
         providerSessionId,
+        providerId: candidateProviderId ?? providerId ?? null,
         sessionId: claimed.sessionId,
         personaId: claimed.personaId,
         projectId: claimed.projectId,
@@ -145,6 +147,7 @@ export function createLiveSessionTracker({
       entry.lastActivity !== (lastActivity ?? entry.lastActivity) ||
       entry.lastModel !== (lastModel ?? entry.lastModel);
 
+    entry.providerId = candidateProviderId ?? entry.providerId ?? providerId ?? null;
     entry.projectPath = projectPath ?? entry.projectPath;
     entry.lastActivity = lastActivity ?? entry.lastActivity;
     entry.lastModel = lastModel ?? entry.lastModel;

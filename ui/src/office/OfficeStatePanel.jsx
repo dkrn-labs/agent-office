@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useOfficeStore } from '../stores/office-store.js';
+import { getSessionPresence, useSessionClock } from '../lib/session-status.js';
 
 const PROVIDER_LABELS = {
   'claude-code': 'Claude',
@@ -25,9 +26,10 @@ function formatTokens(total) {
   return `${total} tok`;
 }
 
-function sessionStatus(session) {
-  if (session?.working) return { label: 'LIVE', tone: 'live' };
-  if (session?.sessionId) return { label: 'IDLE', tone: 'idle' };
+function sessionStatus(session, now) {
+  const presence = getSessionPresence(session, now);
+  if (presence === 'live') return { label: 'LIVE', tone: 'live' };
+  if (presence === 'idle') return { label: 'IDLE', tone: 'idle' };
   return { label: 'READY', tone: 'ready' };
 }
 
@@ -41,6 +43,7 @@ export default function OfficeStatePanel() {
   const connected = useOfficeStore((s) => s.connected);
   const openPicker = useOfficeStore((s) => s.openPicker);
   const [collapsed, setCollapsed] = useState(false);
+  const now = useSessionClock();
 
   const roster = useMemo(
     () =>
@@ -49,10 +52,10 @@ export default function OfficeStatePanel() {
         return {
           persona,
           session,
-          status: sessionStatus(session),
+          status: sessionStatus(session, now),
         };
       }),
-    [personas, sessions],
+    [now, personas, sessions],
   );
 
   return (

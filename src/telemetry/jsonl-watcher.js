@@ -85,6 +85,7 @@ export function createJsonlWatcher({
     return {
       sessionId: entry.sessionId,
       providerSessionId: entry.providerSessionId,
+      providerId: entry.providerId,
       personaId: entry.personaId,
       projectId: entry.projectId,
       projectPath: entry.projectPath,
@@ -116,6 +117,7 @@ export function createJsonlWatcher({
 
       entry = {
         providerSessionId,
+        providerId: claimed.providerId ?? 'claude-code',
         sessionId: claimed.sessionId,
         personaId: claimed.personaId,
         projectId: claimed.projectId,

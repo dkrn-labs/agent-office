@@ -1,4 +1,5 @@
 import { useOfficeStore } from '../stores/office-store.js';
+import { isSessionLive, useSessionClock } from '../lib/session-status.js';
 
 const TABS = ['EVOLVE', 'RESEARCH', 'SKILLS', 'HELP', 'CREATE'];
 
@@ -10,6 +11,7 @@ export default function LeftSidebar() {
   const recentProjectIds = useOfficeStore((s) => s.recentProjectIds);
   const activeView = useOfficeStore((s) => s.activeView);
   const setActiveView = useOfficeStore((s) => s.setActiveView);
+  const now = useSessionClock();
 
   const pinnedProjects = pinnedProjectIds
     .map((projectId) => projects.find((project) => project.id === projectId))
@@ -20,7 +22,7 @@ export default function LeftSidebar() {
     .map((projectId) => projects.find((project) => project.id === projectId))
     .filter(Boolean)
     .slice(0, 4);
-  const activeCount = Object.values(sessions).filter((session) => session?.working).length;
+  const activeCount = Object.values(sessions).filter((session) => isSessionLive(session, now)).length;
 
   function tabView(tab) {
     if (tab === 'SKILLS') return 'office';

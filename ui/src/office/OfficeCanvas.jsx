@@ -7,6 +7,7 @@ import { startGameLoop } from './engine/gameLoop.ts';
 import { deserializeLayout } from './layout/layoutSerializer.ts';
 import TokenBadge from './TokenBadge.jsx';
 import OfficeStatePanel from './OfficeStatePanel.jsx';
+import { isSessionLive, useSessionClock } from '../lib/session-status.js';
 
 const ASSET_PATHS = {
   characters: '/assets/characters',
@@ -220,6 +221,7 @@ export default function OfficeCanvas() {
   const [loaded, setLoaded] = useState(false);
   const [toast, setToast] = useState(null);
   const [badgePositions, setBadgePositions] = useState([]);
+  const now = useSessionClock();
 
   const openPicker = useOfficeStore((s) => s.openPicker);
   const sessions = useOfficeStore((s) => s.sessions);
@@ -336,10 +338,10 @@ export default function OfficeCanvas() {
     if (!office) return;
     for (const { personaId, agentId } of PERSONA_AGENT_MAP) {
       const session = sessions[personaId];
-      const isWorking = session?.working ?? false;
+      const isWorking = isSessionLive(session, now);
       office.setAgentActive(agentId, isWorking);
     }
-  }, [sessions]);
+  }, [now, sessions]);
 
   useEffect(() => {
     let frame = 0;
@@ -366,7 +368,7 @@ export default function OfficeCanvas() {
             left: left - rect.left,
             top: top - rect.top,
             totals: session.totals,
-            working: session.working,
+            working: isSessionLive(session, now),
           };
         }).filter(Boolean);
         setBadgePositions(next);
@@ -376,7 +378,7 @@ export default function OfficeCanvas() {
 
     frame = requestAnimationFrame(projectBadges);
     return () => cancelAnimationFrame(frame);
-  }, [sessions]);
+  }, [now, sessions]);
 
   // ─── Canvas DPR-aware resize ──────────────────────────────────────
   useEffect(() => {
