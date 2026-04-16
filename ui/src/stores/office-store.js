@@ -116,6 +116,7 @@ export const useOfficeStore = create((set, get) => ({
   selectedHistorySessionId: null,
   historyDetail: null,
   historyDetailLoading: false,
+  resumingSessionId: null,
   historyFilters: {
     personaId: null,
     projectId: null,
@@ -322,6 +323,23 @@ export const useOfficeStore = create((set, get) => ({
     return result;
   },
 
+  async resumeSession(session) {
+    if (!session?.personaId || !session?.projectId) {
+      throw new Error('Session is missing persona or project information');
+    }
+
+    const sessionId = session.id ?? session.sessionId ?? null;
+    set({ resumingSessionId: sessionId });
+    try {
+      return await get().launchAgent(session.personaId, session.projectId, {
+        providerId: session.providerId ?? undefined,
+        model: session.lastModel ?? undefined,
+      });
+    } finally {
+      set({ resumingSessionId: null });
+    }
+  },
+
   // ── picker actions ──────────────────────────────────────────────────────────
 
   markProjectUsed(projectId) {
@@ -411,8 +429,10 @@ export const useOfficeStore = create((set, get) => ({
             sessionId: payload.sessionId,
             personaId: payload.personaId,
             projectId: payload.projectId,
+            providerId: payload.providerId ?? null,
             personaLabel: payload.personaLabel ?? null,
             projectName: payload.projectName ?? null,
+            lastModel: payload.lastModel ?? null,
             outcome: payload.outcome,
             endedAt: payload.endedAt,
             totalTokens: payload.totals?.total ?? 0,
@@ -426,8 +446,10 @@ export const useOfficeStore = create((set, get) => ({
             sessionId: payload.sessionId,
             personaId: payload.personaId,
             projectId: payload.projectId,
+            providerId: payload.providerId ?? null,
             personaLabel: payload.personaLabel ?? null,
             projectName: payload.projectName ?? null,
+            lastModel: payload.lastModel ?? null,
             outcome: payload.outcome,
             endedAt: payload.endedAt,
             totalTokens: payload.totals?.total ?? 0,

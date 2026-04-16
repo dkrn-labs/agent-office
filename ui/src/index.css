@@ -770,61 +770,71 @@
 }
 
 .recent-session-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px;
-  border-radius: 4px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 32px;
+  align-items: stretch;
+  gap: 8px;
+  min-width: 0;
+}
+
+.recent-session-card {
+  display: block;
+  padding: 10px;
+  border-radius: 8px;
   background: #111827;
-  border: 1px solid transparent;
+  border: 1px solid #1f2937;
   appearance: none;
-  border-width: 1px;
   text-align: left;
   cursor: pointer;
   font: inherit;
   color: inherit;
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  transition: border-color 0.15s ease, transform 0.15s ease, background 0.15s ease;
+  min-width: 0;
 }
 
-.recent-session-row:hover {
-  border-color: #374151;
+.recent-session-card:hover {
+  border-color: #334155;
+  background: #0f172a;
   transform: translateY(-1px);
 }
 
 .recent-session-main {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+  min-width: 0;
 }
 
-.recent-session-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 11px;
+.recent-session-title-text {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+  color: #f8fafc;
+  line-height: 1.25;
 }
 
 .recent-session-meta {
   font-size: 10px;
-  color: #6b7280;
+  color: #94a3b8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.recent-session-telemetry {
+.recent-session-tags {
   display: flex;
-  min-width: 88px;
-  flex-direction: column;
-  align-items: flex-end;
+  flex-wrap: wrap;
   gap: 4px;
-  color: #cbd5e1;
-  font-size: 10px;
 }
 
 .recent-session-provider {
   border-radius: 9999px;
-  background: #1f2937;
-  padding: 2px 7px;
+  background: #1e293b;
+  padding: 2px 6px;
   font-size: 9px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -833,7 +843,57 @@
 
 .recent-session-tokens {
   color: #93c5fd;
-  white-space: nowrap;
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.recent-session-presence {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  padding: 2px 6px;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.recent-session-presence--live {
+  background: #052e16;
+  color: #86efac;
+}
+
+.recent-session-presence--idle {
+  background: #172554;
+  color: #93c5fd;
+}
+
+.recent-session-play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  min-width: 32px;
+  padding: 0;
+  border: 1px solid #1f2937;
+  border-radius: 8px;
+  background: #111827;
+  color: #93c5fd;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.recent-session-play:hover:not(:disabled) {
+  border-color: #2563eb;
+  background: #172554;
+  color: #dbeafe;
+}
+
+.recent-session-play:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 .history-view {
