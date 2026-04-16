@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "generatedAt": "2026-04-15",
+  "policy": {
+    "codeLicense": "MIT",
+    "bundledArtCoveredByRootMIT": false,
+    "status": "interim",
+    "note": "Bundled office art is treated as third-party material pending asset-by-asset provenance verification."
+  },
+  "entries": [
+    {
+      "path": "characters",
+      "kind": "bundled-art",
+      "originFamily": "LimeZu office/interior character assets",
+      "confidence": "medium",
+      "licenseStatus": "needs-verification",
+      "notes": [
+        "Planning docs reference LimeZu free-pack assets as the source family.",
+        "Do not assume root MIT applies to these PNGs."
+      ]
+    },
+    {
+      "path": "floors",
+      "kind": "bundled-art",
+      "originFamily": "LimeZu office/interior floor tiles",
+      "confidence": "medium",
+      "licenseStatus": "needs-verification"
+    },
+    {
+      "path": "walls",
+      "kind": "bundled-art",
+      "originFamily": "LimeZu office/interior wall tiles",
+      "confidence": "medium",
+      "licenseStatus": "needs-verification"
+    },
+    {
+      "path": "furniture",
+      "kind": "bundled-art",
+      "originFamily": "LimeZu office/interior furniture assets",
+      "confidence": "medium",
+      "licenseStatus": "needs-verification"
+    },
+    {
+      "path": "default-layout.json",
+      "kind": "generated-metadata",
+      "generatedBy": "scripts/build-default-layout.js",
+      "licenseStatus": "repo-code"
+    },
+    {
+      "path": "furniture-manifest.json",
+      "kind": "generated-metadata",
+      "generatedBy": "scripts/build-furniture-manifest.js",
+      "licenseStatus": "repo-code"
+    }
+  ]
+}
