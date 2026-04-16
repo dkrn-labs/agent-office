@@ -10,7 +10,13 @@ and returns success so the provider session is not interrupted.
 
 ## Requirements
 
-Run `agent-office` locally on the default port or set:
+Run `agent-office` locally. The hook script will:
+
+- use `AGENT_OFFICE_BASE_URL` when set
+- otherwise read `~/.agent-office/config.json` and use its configured `port`
+- otherwise fall back to `http://127.0.0.1:3333`
+
+You can still override it explicitly with:
 
 ```bash
 export AGENT_OFFICE_BASE_URL=http://127.0.0.1:3333

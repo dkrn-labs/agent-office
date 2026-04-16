@@ -1,10 +1,29 @@
 #!/usr/bin/env node
 
 import process from 'node:process';
+import os from 'node:os';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { buildHistoryIngestPayload } from '../src/history/hook-bridge.js';
 
+function resolveApiBase() {
+  const explicit = process.env.AGENT_OFFICE_BASE_URL?.trim();
+  if (explicit) return explicit;
+
+  const configPath = join(os.homedir(), '.agent-office', 'config.json');
+  try {
+    const config = JSON.parse(readFileSync(configPath, 'utf8'));
+    const port = Number(config?.port);
+    if (Number.isInteger(port) && port > 0) {
+      return `http://127.0.0.1:${port}`;
+    }
+  } catch {}
+
+  return 'http://127.0.0.1:3333';
+}
+
 function parseArgs(argv) {
-  const args = { provider: null, apiBase: process.env.AGENT_OFFICE_BASE_URL ?? 'http://127.0.0.1:3333', notifyJsonArg: false };
+  const args = { provider: null, apiBase: resolveApiBase(), notifyJsonArg: false };
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
     if (token === '--provider') {
