@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 import { mkdirSync, existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { createServer } from 'node:http';
+import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import { createCommand } from 'commander';
 import { openDatabase, runMigrations } from '../src/db/database.js';
@@ -22,6 +23,17 @@ const { version } = require('../package.json');
 const log = createLogger('cli');
 
 const program = createCommand();
+
+function parseNodeMajor(version = process.versions.node) {
+  const major = Number(String(version).split('.')[0]);
+  return Number.isFinite(major) ? major : 0;
+}
+
+function commandOnPath(command) {
+  const locator = process.platform === 'win32' ? 'where' : 'which';
+  const result = spawnSync(locator, [command], { encoding: 'utf8' });
+  return result.status === 0;
+}
 
 program
   .name('agent-office')
@@ -190,6 +202,50 @@ program
         process.exit(0);
       });
     });
+  });
+
+// ── doctor ───────────────────────────────────────────────────────────────────
+
+program
+  .command('doctor')
+  .description('Check whether this machine is ready to run agent-office')
+  .option('--data-dir <path>', 'data directory', join(os.homedir(), '.agent-office'))
+  .action((opts) => {
+    const dataDir = resolve(opts.dataDir);
+    const configPath = join(dataDir, 'config.json');
+    const dbPath = join(dataDir, 'agent-office.db');
+    const uiDistPath = join(resolve(join(import.meta.dirname, '..')), 'ui', 'dist', 'index.html');
+    const configExists = existsSync(configPath);
+    const dbExists = existsSync(dbPath);
+    const uiBuilt = existsSync(uiDistPath);
+    const nodeMajor = parseNodeMajor();
+    const nodeOk = nodeMajor >= 22;
+
+    const checks = [
+      ['Node.js >= 22', nodeOk, process.versions.node],
+      ['Config initialized', configExists, configPath],
+      ['Database present', dbExists, dbPath],
+      ['UI build present', uiBuilt, uiDistPath],
+      ['Claude CLI on PATH', commandOnPath('claude'), 'claude'],
+      ['Codex CLI on PATH', commandOnPath('codex'), 'codex'],
+      ['Gemini CLI on PATH', commandOnPath('gemini'), 'gemini'],
+    ];
+
+    console.log('agent-office doctor\n');
+    for (const [label, ok, detail] of checks) {
+      console.log(`${ok ? 'OK ' : 'NO '} ${label}${detail ? ` — ${detail}` : ''}`);
+    }
+
+    console.log('');
+    if (!configExists) {
+      console.log(`Next step: run 'agent-office init --projects-dir ~/Projects'`);
+    } else if (!uiBuilt) {
+      console.log(`Next step: run 'npm run build:ui'`);
+    } else {
+      console.log(`Next step: run 'agent-office start'`);
+    }
+
+    process.exitCode = checks.every(([, ok]) => ok) ? 0 : 1;
   });
 
 // ── garden ────────────────────────────────────────────────────────────────────

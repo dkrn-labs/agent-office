@@ -31,10 +31,11 @@ describe('agent-office CLI', () => {
 
   // ── --help ─────────────────────────────────────────────────────────────────
 
-  it('--help shows usage with init and start commands', () => {
+  it('--help shows usage with init, start, and doctor commands', () => {
     const out = run(['--help']);
     assert.match(out, /init/);
     assert.match(out, /start/);
+    assert.match(out, /doctor/);
     assert.match(out, /Usage/i);
   });
 
@@ -84,6 +85,34 @@ describe('agent-office CLI', () => {
       db.close();
 
       assert.ok(count > 0, `Expected at least 1 persona in DB, got ${count}`);
+    });
+  });
+
+  describe('doctor command', () => {
+    let tmpDir;
+
+    before(() => {
+      tmpDir = mkdtempSync(join(os.tmpdir(), 'agent-office-doctor-test-'));
+    });
+
+    after(() => {
+      rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it('reports missing init state and exits non-zero when config is absent', () => {
+      let stdout = '';
+      let status = 0;
+      try {
+        stdout = run(['doctor', '--data-dir', tmpDir]);
+      } catch (err) {
+        stdout = err.stdout?.toString?.() ?? '';
+        status = err.status ?? 1;
+      }
+
+      assert.notEqual(status, 0);
+      assert.match(stdout, /agent-office doctor/);
+      assert.match(stdout, /Config initialized/);
+      assert.match(stdout, /Next step: run 'agent-office init/);
     });
   });
 });
