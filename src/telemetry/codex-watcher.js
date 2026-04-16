@@ -19,9 +19,10 @@ export function createCodexWatcher({
   dbPath = defaultCodexStatePath(),
   // Codex threads can go quiet for a while during longer reasoning/tool phases.
   idleMs = DEFAULT_CODEX_IDLE_MS,
+  expiryMs,
   pollMs = 2_000,
 } = {}) {
-  const tracker = createLiveSessionTracker({ idleMs, providerId: 'codex' });
+  const tracker = createLiveSessionTracker({ idleMs, expiryMs, providerId: 'codex' });
   let timer = null;
   let db = null;
   const seen = new Map();

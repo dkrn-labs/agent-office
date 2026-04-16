@@ -60,9 +60,10 @@ export function createGeminiWatcher({
   // or the main model hands off to a utility summarizer. A short idle window
   // truncates sessions before the final cumulative totals land on disk.
   idleMs = DEFAULT_GEMINI_IDLE_MS,
+  expiryMs,
   pollMs = 2_000,
 } = {}) {
-  const tracker = createLiveSessionTracker({ idleMs, providerId: 'gemini-cli' });
+  const tracker = createLiveSessionTracker({ idleMs, expiryMs, providerId: 'gemini-cli' });
   const fileState = new Map();
   let timer = null;
 

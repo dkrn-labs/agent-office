@@ -14,6 +14,7 @@ function mergeLiveSession(repo, liveSession) {
     startedAt: liveSession.startedAt ?? detail?.startedAt ?? null,
     lastActivity: liveSession.lastActivity ?? null,
     lastModel: liveSession.lastModel ?? detail?.lastModel ?? null,
+    working: liveSession.working ?? true,
     totals: {
       tokensIn: liveSession.totals?.tokensIn ?? detail?.tokensIn ?? 0,
       tokensOut: liveSession.totals?.tokensOut ?? detail?.tokensOut ?? 0,

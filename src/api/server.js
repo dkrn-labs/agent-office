@@ -40,6 +40,7 @@ import { createPortfolioStatsService } from '../stats/portfolio-stats.js';
  *   telemetry?: boolean,
  *   telemetryRoot?: string,
  *   telemetryIdleMs?: number,
+ *   telemetryExpiryMs?: number,
  *   startTelemetryWatcher?: boolean,
  * }} options
  * @returns {import('express').Application}
@@ -54,6 +55,7 @@ export function createApp({
   telemetry = false,
   telemetryRoot,
   telemetryIdleMs,
+  telemetryExpiryMs,
   startTelemetryWatcher = true,
 }) {
   const app = express();
@@ -73,9 +75,13 @@ export function createApp({
 
   const watcher = telemetry
     ? createCompositeWatcher([
-        createJsonlWatcher({ rootPath: telemetryRoot, idleMs: telemetryIdleMs }),
-        createCodexWatcher({ idleMs: telemetryIdleMs }),
-        createGeminiWatcher({ idleMs: telemetryIdleMs }),
+        createJsonlWatcher({
+          rootPath: telemetryRoot,
+          idleMs: telemetryIdleMs,
+          expiryMs: telemetryExpiryMs,
+        }),
+        createCodexWatcher({ idleMs: telemetryIdleMs, expiryMs: telemetryExpiryMs }),
+        createGeminiWatcher({ idleMs: telemetryIdleMs, expiryMs: telemetryExpiryMs }),
       ])
     : null;
   const launcher = createLauncher({
@@ -140,22 +146,6 @@ export function createApp({
   });
 
   watcher?.on('session:idle', async (payload) => {
-    const session = repo.getSession(payload.sessionId);
-    if (!session) return;
-    const endedAt = new Date().toISOString();
-    const inferred = await inferOutcome({
-      projectPath: payload.projectPath,
-      startedAt: session.startedAt ?? endedAt,
-      endedAt,
-    });
-
-    repo.updateSession(payload.sessionId, {
-      endedAt,
-      commitsProduced: inferred.signals?.commitsProduced ?? null,
-      diffExists: inferred.signals?.diffExists ?? null,
-      outcome: inferred.outcome,
-    });
-
     const detail = repo.getSessionDetail(payload.sessionId);
     bus.emit(SESSION_IDLE, {
       ...payload,
@@ -175,6 +165,26 @@ export function createApp({
         costUsd: detail?.costUsd ?? null,
       },
     });
+  });
+
+  watcher?.on('session:expired', async (payload) => {
+    const session = repo.getSession(payload.sessionId);
+    if (!session) return;
+    const endedAt = new Date().toISOString();
+    const inferred = await inferOutcome({
+      projectPath: payload.projectPath,
+      startedAt: session.startedAt ?? endedAt,
+      endedAt,
+    });
+
+    repo.updateSession(payload.sessionId, {
+      endedAt,
+      commitsProduced: inferred.signals?.commitsProduced ?? null,
+      diffExists: inferred.signals?.diffExists ?? null,
+      outcome: inferred.outcome,
+    });
+
+    const detail = repo.getSessionDetail(payload.sessionId);
     bus.emit(SESSION_ENDED, {
       sessionId: payload.sessionId,
       providerSessionId: payload.providerSessionId,

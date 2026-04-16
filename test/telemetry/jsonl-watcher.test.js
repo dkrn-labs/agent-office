@@ -58,11 +58,13 @@ describe('parseUsageLine', () => {
 describe('createJsonlWatcher', () => {
   it('correlates a launch and emits update/idle events from jsonl writes', async () => {
     const projectPath = '/tmp/agent-office-project';
-    const watcher = createJsonlWatcher({ idleMs: 50 });
+    const watcher = createJsonlWatcher({ idleMs: 50, expiryMs: 90 });
     const updates = [];
     const idles = [];
+    const expired = [];
     watcher.on('session:update', (payload) => updates.push(payload));
     watcher.on('session:idle', (payload) => idles.push(payload));
+    watcher.on('session:expired', (payload) => expired.push(payload));
     watcher.registerLaunch({
       projectPath,
       sessionId: 42,
@@ -91,6 +93,26 @@ describe('createJsonlWatcher', () => {
 
     await waitFor(() => idles.length === 1);
     assert.equal(idles[0].sessionId, 42);
+    assert.equal(watcher.snapshot().length, 1);
+    assert.equal(watcher.snapshot()[0].working, false);
+
+    watcher.ingestUsage('provider-1', projectPath, {
+      providerSessionId: 'provider-1',
+      cwd: projectPath,
+      timestamp: '2026-04-15T08:01:30.000Z',
+      model: 'claude-sonnet-4-6',
+      tokensIn: 5,
+      tokensOut: 5,
+      cacheRead: 0,
+      cacheWrite: 0,
+    });
+
+    await waitFor(() => updates.length === 2);
+    assert.equal(updates[1].sessionId, 42);
+    assert.equal(watcher.snapshot()[0].working, true);
+
+    await waitFor(() => expired.length === 1);
+    assert.equal(expired[0].sessionId, 42);
     assert.deepEqual(watcher.snapshot(), []);
 
     await watcher.stop();

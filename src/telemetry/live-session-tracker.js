@@ -25,7 +25,11 @@ function sameTotals(a = {}, b = {}) {
   );
 }
 
-export function createLiveSessionTracker({ idleMs = 10_000, providerId } = {}) {
+export function createLiveSessionTracker({
+  idleMs = 10_000,
+  expiryMs = Math.max(idleMs, 5 * 60 * 1000),
+  providerId,
+} = {}) {
   const emitter = new EventEmitter();
   const pendingLaunches = [];
   const sessionsByProvider = new Map();
@@ -40,6 +44,7 @@ export function createLiveSessionTracker({ idleMs = 10_000, providerId } = {}) {
       startedAt: entry.startedAt,
       lastActivity: entry.lastActivity,
       lastModel: entry.lastModel,
+      working: !entry.isIdle,
       totals: cloneTotals(entry.totals),
     };
   }
@@ -74,10 +79,23 @@ export function createLiveSessionTracker({ idleMs = 10_000, providerId } = {}) {
     return null;
   }
 
+  function emitExpired(entry) {
+    sessionsByProvider.delete(entry.providerSessionId);
+    emitter.emit('session:expired', {
+      sessionId: entry.sessionId,
+      providerSessionId: entry.providerSessionId,
+      personaId: entry.personaId,
+      projectId: entry.projectId,
+      projectPath: entry.projectPath,
+      lastActivity: entry.lastActivity,
+    });
+  }
+
   function armIdle(entry) {
     if (entry.idleTimer) clearTimeout(entry.idleTimer);
+    if (entry.expiryTimer) clearTimeout(entry.expiryTimer);
     entry.idleTimer = setTimeout(() => {
-      sessionsByProvider.delete(entry.providerSessionId);
+      entry.isIdle = true;
       emitter.emit('session:idle', {
         sessionId: entry.sessionId,
         providerSessionId: entry.providerSessionId,
@@ -87,6 +105,7 @@ export function createLiveSessionTracker({ idleMs = 10_000, providerId } = {}) {
         lastActivity: entry.lastActivity,
       });
     }, idleMs);
+    entry.expiryTimer = setTimeout(() => emitExpired(entry), expiryMs);
   }
 
   function updateAbsolute({
@@ -112,12 +131,16 @@ export function createLiveSessionTracker({ idleMs = 10_000, providerId } = {}) {
         lastModel: null,
         totals: cloneTotals(),
         idleTimer: null,
+        expiryTimer: null,
+        isIdle: false,
       };
       sessionsByProvider.set(providerSessionId, entry);
     }
 
+    const wasIdle = entry.isIdle === true;
     const nextTotals = cloneTotals(totals);
     const changed =
+      wasIdle ||
       !sameTotals(entry.totals, nextTotals) ||
       entry.lastActivity !== (lastActivity ?? entry.lastActivity) ||
       entry.lastModel !== (lastModel ?? entry.lastModel);
@@ -126,6 +149,7 @@ export function createLiveSessionTracker({ idleMs = 10_000, providerId } = {}) {
     entry.lastActivity = lastActivity ?? entry.lastActivity;
     entry.lastModel = lastModel ?? entry.lastModel;
     entry.totals = nextTotals;
+    entry.isIdle = false;
     armIdle(entry);
 
     if (!changed) return buildSnapshot(entry);
@@ -137,6 +161,7 @@ export function createLiveSessionTracker({ idleMs = 10_000, providerId } = {}) {
   async function stop() {
     for (const entry of sessionsByProvider.values()) {
       if (entry.idleTimer) clearTimeout(entry.idleTimer);
+      if (entry.expiryTimer) clearTimeout(entry.expiryTimer);
     }
     sessionsByProvider.clear();
   }

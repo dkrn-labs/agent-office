@@ -43,6 +43,7 @@ function emptyTotals() {
 export function createJsonlWatcher({
   rootPath = defaultClaudeProjectsRoot(),
   idleMs = 10_000,
+  expiryMs = Math.max(idleMs, 5 * 60 * 1000),
 } = {}) {
   const emitter = new EventEmitter();
   const fileCursors = new Map();
@@ -90,8 +91,21 @@ export function createJsonlWatcher({
       startedAt: entry.startedAt,
       lastActivity: entry.lastActivity,
       lastModel: entry.lastModel,
+      working: !entry.isIdle,
       totals: { ...entry.totals },
     };
+  }
+
+  function emitExpired(entry) {
+    sessionsByProvider.delete(entry.providerSessionId);
+    emitter.emit('session:expired', {
+      sessionId: entry.sessionId,
+      providerSessionId: entry.providerSessionId,
+      personaId: entry.personaId,
+      projectId: entry.projectId,
+      projectPath: entry.projectPath,
+      lastActivity: entry.lastActivity,
+    });
   }
 
   function applyUsage(providerSessionId, projectPath, usage) {
@@ -111,10 +125,13 @@ export function createJsonlWatcher({
         lastModel: null,
         totals: emptyTotals(),
         idleTimer: null,
+        expiryTimer: null,
+        isIdle: false,
       };
       sessionsByProvider.set(providerSessionId, entry);
     }
 
+    const wasIdle = entry.isIdle === true;
     entry.totals.tokensIn += usage.tokensIn;
     entry.totals.tokensOut += usage.tokensOut;
     entry.totals.cacheRead += usage.cacheRead;
@@ -126,10 +143,12 @@ export function createJsonlWatcher({
       entry.totals.cacheWrite;
     entry.lastActivity = usage.timestamp ?? new Date().toISOString();
     entry.lastModel = usage.model ?? entry.lastModel ?? null;
+    entry.isIdle = false;
 
     if (entry.idleTimer) clearTimeout(entry.idleTimer);
+    if (entry.expiryTimer) clearTimeout(entry.expiryTimer);
     entry.idleTimer = setTimeout(() => {
-      sessionsByProvider.delete(providerSessionId);
+      entry.isIdle = true;
       emitter.emit('session:idle', {
         sessionId: entry.sessionId,
         providerSessionId: entry.providerSessionId,
@@ -139,9 +158,19 @@ export function createJsonlWatcher({
         lastActivity: entry.lastActivity,
       });
     }, idleMs);
+    entry.expiryTimer = setTimeout(() => emitExpired(entry), expiryMs);
 
     const snapshot = buildSnapshot(entry);
-    emitter.emit('session:update', snapshot);
+    if (
+      wasIdle ||
+      usage.tokensIn > 0 ||
+      usage.tokensOut > 0 ||
+      usage.cacheRead > 0 ||
+      usage.cacheWrite > 0 ||
+      usage.model
+    ) {
+      emitter.emit('session:update', snapshot);
+    }
     return snapshot;
   }
 
@@ -197,6 +226,7 @@ export function createJsonlWatcher({
     }
     for (const entry of sessionsByProvider.values()) {
       if (entry.idleTimer) clearTimeout(entry.idleTimer);
+      if (entry.expiryTimer) clearTimeout(entry.expiryTimer);
     }
     sessionsByProvider.clear();
   }

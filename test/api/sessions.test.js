@@ -86,6 +86,7 @@ before(async () => {
     telemetry: true,
     startTelemetryWatcher: false,
     telemetryIdleMs: 5000,
+    telemetryExpiryMs: 5100,
   });
 
   app.locals.telemetry.watcher.registerLaunch({
@@ -147,6 +148,7 @@ describe('GET /api/sessions/active', () => {
     assert.equal(body[0].totals.total, 400);
     assert.equal(body[0].totals.tokensIn, 250);
     assert.equal(body[0].totals.tokensOut, 125);
+    assert.equal(body[0].working, true);
   });
 });
 

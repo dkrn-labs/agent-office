@@ -155,11 +155,7 @@ export const useOfficeStore = create((set, get) => ({
     const sessions = {};
     for (const session of activeSessions) {
       if (session.personaId == null) continue;
-      sessions[session.personaId] = normalizeSession(
-        { ...session, working: true },
-        {},
-        true,
-      );
+      sessions[session.personaId] = normalizeSession(session, {}, true);
     }
     set({ sessions });
   },

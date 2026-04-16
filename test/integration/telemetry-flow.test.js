@@ -117,6 +117,7 @@ describe('telemetry flow', () => {
       dryRun: true,
       telemetry: true,
       telemetryIdleMs: 75,
+      telemetryExpiryMs: 120,
       startTelemetryWatcher: false,
     });
 
@@ -170,12 +171,17 @@ describe('telemetry flow', () => {
 
     writeFileSync(join(projectPath, 'feature.js'), 'export const feature = "changed";\n');
 
-    await waitFor(() => ended.length === 1);
+    await waitFor(() => idles.length === 1);
     assert.equal(idles.length, 1);
     assert.equal(idles[0].projectName, 'project-alpha');
     assert.equal(idles[0].projectPath, projectPath);
     assert.equal(idles[0].personaLabel, 'Frontend Dev');
     assert.equal(idles[0].lastModel, 'claude-sonnet-4-6');
+
+    assert.equal(app.locals.telemetry.watcher.snapshot().length, 1);
+    assert.equal(app.locals.telemetry.watcher.snapshot()[0].working, false);
+
+    await waitFor(() => ended.length === 1);
     assert.equal(ended[0].sessionId, ctx.sessionId);
     assert.equal(ended[0].outcome, 'partial');
     assert.equal(ended[0].projectPath, projectPath);

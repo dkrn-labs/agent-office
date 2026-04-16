@@ -5,6 +5,7 @@ export function createCompositeWatcher(watchers = []) {
   const unsubscribers = watchers.flatMap((watcher) => [
     watcher.on?.('session:update', (payload) => emitter.emit('session:update', payload)),
     watcher.on?.('session:idle', (payload) => emitter.emit('session:idle', payload)),
+    watcher.on?.('session:expired', (payload) => emitter.emit('session:expired', payload)),
   ]).filter(Boolean);
 
   return {
