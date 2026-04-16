@@ -90,7 +90,9 @@ describe('buildHistoryIngestPayload', () => {
       CREATE TABLE threads (
         id TEXT PRIMARY KEY,
         cwd TEXT NOT NULL,
-        updated_at INTEGER NOT NULL
+        updated_at INTEGER NOT NULL,
+        first_user_message TEXT NOT NULL DEFAULT '',
+        title TEXT NOT NULL DEFAULT ''
       );
     `);
     logsDb.exec(`
@@ -103,10 +105,17 @@ describe('buildHistoryIngestPayload', () => {
       );
     `);
 
-    stateDb.prepare(`INSERT INTO threads (id, cwd, updated_at) VALUES (?, ?, ?)`).run('thread-1', '/tmp/project', 100);
+    stateDb
+      .prepare(`INSERT INTO threads (id, cwd, updated_at, first_user_message, title) VALUES (?, ?, ?, ?, ?)`)
+      .run('thread-1', '/tmp/project', 100, 'Make Codex history useful', 'Codex history enrichment');
     logsDb
       .prepare(`INSERT INTO logs (ts, ts_nanos, thread_id, feedback_log_body) VALUES (?, ?, ?, ?)`)
-      .run(100, 0, 'thread-1', 'ToolCall: exec_command {"cmd":"git add /tmp/project/src/hook.js","workdir":"/tmp/project"}');
+      .run(
+        100,
+        0,
+        'thread-1',
+        'session_loop{thread_id=thread-1}:turn{turn.id=codex-turn-1}: ToolCall: exec_command {"cmd":"git add /tmp/project/src/hook.js","workdir":"/tmp/project"}',
+      );
 
     stateDb.close();
     logsDb.close();
@@ -115,12 +124,15 @@ describe('buildHistoryIngestPayload', () => {
     process.env.CODEX_LOGS_DB_PATH = logsDbPath;
     const payload = buildHistoryIngestPayload(
       'codex',
-      { type: 'agent-turn-complete', message: 'Completed Codex turn.' },
+      { type: 'agent-turn-complete', session_id: 'codex-turn-1' },
       { cwd: '/tmp/project' },
     );
 
     assert.equal(payload.providerId, 'codex');
     assert.equal(payload.projectPath, '/tmp/project');
+    assert.equal(payload.providerSessionId, 'codex-turn-1');
+    assert.equal(payload.summary.request, 'Make Codex history useful');
+    assert.equal(payload.summary.completed, 'Updated hook.js.');
     assert.deepEqual(payload.summary.filesEdited, ['/tmp/project/src/hook.js']);
 
     delete process.env.CODEX_STATE_DB_PATH;

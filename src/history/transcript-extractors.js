@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import Database from 'better-sqlite3';
 
 function unique(items) {
@@ -15,6 +16,16 @@ function basename(path) {
   if (!normalized) return null;
   const parts = normalized.split('/');
   return parts[parts.length - 1] || normalized;
+}
+
+function looksLikeInjectedPrompt(text) {
+  if (typeof text !== 'string') return false;
+  return (
+    text.startsWith('## Last Session') ||
+    /\bYou are a\b/.test(text) ||
+    /\bTech stack:\b/.test(text) ||
+    /\bAvailable skills:\b/.test(text)
+  );
 }
 
 function looksLikePath(value) {
@@ -161,26 +172,118 @@ function parseGeminiToolCall(toolCall) {
   return { filesModified: [], filesRead: paths };
 }
 
-function extractPathsFromExecCommand(command) {
+function tokenizeShellCommand(command) {
   if (typeof command !== 'string') return [];
-  const matches = command.match(/(?:\/[\w.\-@]+)+/g) ?? [];
-  return unique(matches);
+  return command.match(/'[^']*'|"[^"]*"|\S+/g) ?? [];
 }
 
-function tryParseEmbeddedJson(line) {
-  const start = line.indexOf('{');
-  const end = line.lastIndexOf('}');
+function normalizeShellToken(token) {
+  if (typeof token !== 'string') return null;
+  const normalized = token.replace(/^['"]|['"]$/g, '').trim();
+  return normalized || null;
+}
+
+function looksLikeRelativePathToken(token) {
+  if (typeof token !== 'string') return false;
+  if (token.startsWith('-') || token.startsWith('$')) return false;
+  if (token.includes('://') || token.includes(':')) return false;
+  if (/[*?<>|=]/.test(token)) return false;
+  if (/^\d+(?:,\d+)?p?$/.test(token)) return false;
+  return token.includes('/') || /[.][a-z0-9]+$/i.test(token);
+}
+
+function extractPathsFromExecCommand(command, cwd) {
+  if (typeof command !== 'string') return [];
+  const absoluteMatches = [];
+  const relativeMatches = [];
+  const workdir = trimText(cwd);
+  for (const rawToken of tokenizeShellCommand(command)) {
+    const token = normalizeShellToken(rawToken);
+    if (!token) continue;
+    if (token.startsWith('/')) {
+      absoluteMatches.push(token);
+      continue;
+    }
+    if (!looksLikeRelativePathToken(token) || !workdir) continue;
+    relativeMatches.push(path.resolve(workdir, token));
+  }
+  return unique([...absoluteMatches, ...relativeMatches]);
+}
+
+function extractPathsFromPatchBody(body) {
+  if (typeof body !== 'string') return [];
+  const matches = [...body.matchAll(/^\*\*\* (?:Update|Add|Delete) File: (.+)$/gm)];
+  return unique(matches.map((match) => trimText(match[1])).filter(Boolean));
+}
+
+function parseTurnIdFromBody(body) {
+  if (typeof body !== 'string') return null;
+  const match = body.match(/\bturn\.id=([^}\s]+)/i);
+  return trimText(match?.[1]) ?? null;
+}
+
+function parseThreadIdFromBody(body) {
+  if (typeof body !== 'string') return null;
+  const match = body.match(/\bthread_id=([^}\s:]+)/i);
+  return trimText(match?.[1]) ?? trimText(body.match(/\bthread\.id=([^}\s:]+)/i)?.[1]) ?? null;
+}
+
+function parseCodexToolCallJson(body, marker) {
+  if (typeof body !== 'string' || typeof marker !== 'string') return null;
+  const markerIndex = body.indexOf(marker);
+  if (markerIndex === -1) return null;
+  const start = body.indexOf('{', markerIndex + marker.length);
+  const end = body.lastIndexOf('}');
   if (start === -1 || end === -1 || end <= start) return null;
   try {
-    return JSON.parse(line.slice(start, end + 1));
+    return JSON.parse(body.slice(start, end + 1));
   } catch {
     return null;
   }
 }
 
-function extractCodexThreadFiles({ logsDbPath, stateDbPath, cwd }) {
+function looksLikeReadCommand(cmd) {
+  return /\b(sed|cat|rg|grep|find|ls|sqlite3|head|tail|wc|git\s+show|git\s+diff)\b/.test(cmd);
+}
+
+function summarizeCodexActivity({ filesRead, filesModified }) {
+  if (filesModified.length > 0) {
+    const files = filesModified.slice(0, 3).map((path) => basename(path)).filter(Boolean);
+    const label = files.join(', ');
+    const suffix = filesModified.length > 3 ? ` and ${filesModified.length - 3} more files` : '';
+    return `Updated ${label}${suffix}.`;
+  }
+  if (filesRead.length > 0) {
+    const files = filesRead.slice(0, 3).map((path) => basename(path)).filter(Boolean);
+    const label = files.join(', ');
+    const suffix = filesRead.length > 3 ? ` and ${filesRead.length - 3} more files` : '';
+    return `Investigated ${label}${suffix}.`;
+  }
+  return null;
+}
+
+function findCodexThreadForTurn(logsDb, turnId) {
+  if (!logsDb || !trimText(turnId)) return null;
+  const rows = logsDb
+    .prepare(`
+      SELECT thread_id, feedback_log_body
+      FROM logs
+      WHERE feedback_log_body LIKE ?
+        AND thread_id IS NOT NULL
+      ORDER BY ts DESC, ts_nanos DESC, id DESC
+      LIMIT 50
+    `)
+    .all(`%${turnId}%`);
+  for (const row of rows) {
+    if (parseTurnIdFromBody(row?.feedback_log_body) !== turnId) continue;
+    return trimText(row?.thread_id) ?? null;
+  }
+  return null;
+}
+
+function extractCodexTurnActivity({ logsDbPath, stateDbPath, cwd, turnId }) {
   if (!trimText(logsDbPath) || !trimText(stateDbPath) || !trimText(cwd)) {
-    return { filesRead: [], filesModified: [] };
+    return { filesRead: [], filesModified: [], threadId: null };
   }
 
   let stateDb;
@@ -189,53 +292,128 @@ function extractCodexThreadFiles({ logsDbPath, stateDbPath, cwd }) {
     stateDb = new Database(stateDbPath, { readonly: true, fileMustExist: true });
     logsDb = new Database(logsDbPath, { readonly: true, fileMustExist: true });
 
-    const thread = stateDb
-      .prepare(`
-        SELECT id
-        FROM threads
-        WHERE cwd = ?
-        ORDER BY updated_at DESC
-        LIMIT 1
-      `)
-      .get(cwd);
-    if (!thread?.id) return { filesRead: [], filesModified: [] };
+    const threadIdFromTurn = findCodexThreadForTurn(logsDb, turnId);
+    const thread = threadIdFromTurn
+      ? stateDb
+          .prepare(`
+            SELECT id
+            FROM threads
+            WHERE id = ?
+            LIMIT 1
+          `)
+          .get(threadIdFromTurn)
+      : stateDb
+          .prepare(`
+            SELECT id
+            FROM threads
+            WHERE cwd = ?
+            ORDER BY updated_at DESC
+            LIMIT 1
+          `)
+          .get(cwd);
+    if (!thread?.id) return { filesRead: [], filesModified: [], threadId: null };
 
-    const rows = logsDb
-      .prepare(`
-        SELECT feedback_log_body
-        FROM logs
-        WHERE thread_id = ?
-        ORDER BY ts DESC, ts_nanos DESC, id DESC
-        LIMIT 40
-      `)
-      .all(thread.id);
+    const rows = turnId
+      ? logsDb
+          .prepare(`
+            SELECT feedback_log_body
+            FROM logs
+            WHERE thread_id = ?
+              AND feedback_log_body LIKE ?
+            ORDER BY ts DESC, ts_nanos DESC, id DESC
+            LIMIT 200
+          `)
+          .all(thread.id, `%turn.id=${turnId}%`)
+      : logsDb
+          .prepare(`
+            SELECT feedback_log_body
+            FROM logs
+            WHERE thread_id = ?
+            ORDER BY ts DESC, ts_nanos DESC, id DESC
+            LIMIT 80
+          `)
+          .all(thread.id);
 
     const filesRead = [];
     const filesModified = [];
+    let matchedTurn = false;
 
     for (const row of rows) {
       const body = row?.feedback_log_body;
-      if (typeof body !== 'string' || !body.includes('ToolCall: exec_command')) continue;
-      const parsed = tryParseEmbeddedJson(body);
-      const cmd = parsed?.cmd ?? '';
-      const paths = extractPathsFromExecCommand(cmd);
-      if (paths.length === 0) continue;
+      if (typeof body !== 'string') continue;
+      const bodyTurnId = parseTurnIdFromBody(body);
+      if (turnId && bodyTurnId && bodyTurnId !== turnId) continue;
+      if (turnId && bodyTurnId === turnId) matchedTurn = true;
 
-      if (/\b(sed|cat|rg|grep|find|ls|sqlite3)\b/.test(cmd)) {
-        filesRead.push(...paths);
-      } else {
-        filesModified.push(...paths);
+      if (body.includes('ToolCall: exec_command')) {
+        const parsed = parseCodexToolCallJson(body, 'ToolCall: exec_command');
+        const cmd = parsed?.cmd ?? '';
+        const paths = extractPathsFromExecCommand(cmd, parsed?.workdir ?? cwd);
+        if (paths.length === 0) continue;
+
+        if (looksLikeReadCommand(cmd)) {
+          filesRead.push(...paths);
+        } else {
+          filesModified.push(...paths);
+        }
+        continue;
+      }
+
+      if (body.includes('ToolCall: apply_patch')) {
+        filesModified.push(...extractPathsFromPatchBody(body));
       }
     }
 
     return {
       filesRead: unique(filesRead.filter((path) => path !== stateDbPath && path !== logsDbPath)),
       filesModified: unique(filesModified.filter((path) => path !== stateDbPath && path !== logsDbPath)),
+      threadId: matchedTurn || !turnId ? thread.id : null,
     };
   } catch {
-    return { filesRead: [], filesModified: [] };
+    return { filesRead: [], filesModified: [], threadId: null };
   } finally {
     logsDb?.close?.();
+    stateDb?.close?.();
+  }
+}
+
+function loadCodexThreadContext({ stateDbPath, threadId, cwd }) {
+  if (!trimText(stateDbPath)) return { request: null, threadTitle: null };
+
+  let stateDb;
+  try {
+    stateDb = new Database(stateDbPath, { readonly: true, fileMustExist: true });
+    let thread = null;
+    if (threadId) {
+      thread = stateDb
+        .prepare(`
+          SELECT first_user_message, title
+          FROM threads
+          WHERE id = ?
+          LIMIT 1
+        `)
+        .get(threadId);
+    }
+    if (!thread && trimText(cwd)) {
+      thread = stateDb
+        .prepare(`
+          SELECT first_user_message, title
+          FROM threads
+          WHERE cwd = ?
+          ORDER BY updated_at DESC
+          LIMIT 1
+        `)
+        .get(cwd);
+    }
+    return {
+      request: looksLikeInjectedPrompt(thread?.first_user_message)
+        ? null
+        : (trimText(thread?.first_user_message) ?? null),
+      threadTitle: looksLikeInjectedPrompt(thread?.title) ? null : (trimText(thread?.title) ?? null),
+    };
+  } catch {
+    return { request: null, threadTitle: null };
+  } finally {
     stateDb?.close?.();
   }
 }
@@ -317,24 +495,33 @@ export function enrichCodexTurn({
   logsDbPath,
   stateDbPath,
   cwd,
+  turnId,
   responseText,
   createdAt,
   providerId = 'codex',
 }) {
-  const files = extractCodexThreadFiles({ logsDbPath, stateDbPath, cwd });
-  const completed = extractCompleted(responseText);
+  const activity = extractCodexTurnActivity({ logsDbPath, stateDbPath, cwd, turnId });
+  const thread = loadCodexThreadContext({ stateDbPath, threadId: activity.threadId, cwd });
+  const completed =
+    extractCompleted(responseText) ??
+    summarizeCodexActivity({
+      filesRead: activity.filesRead,
+      filesModified: activity.filesModified,
+    }) ??
+    (thread.threadTitle ? `Worked on ${thread.threadTitle}.` : null);
   const nextSteps = extractNextSteps(responseText);
   return {
+    request: thread.request,
     completed,
     nextSteps,
-    filesRead: files.filesRead,
-    filesEdited: files.filesModified,
+    filesRead: activity.filesRead,
+    filesEdited: activity.filesModified,
     observations: buildObservation({
       providerId,
       completed,
       nextSteps,
-      filesRead: files.filesRead,
-      filesModified: files.filesModified,
+      filesRead: activity.filesRead,
+      filesModified: activity.filesModified,
       createdAt,
     }),
   };

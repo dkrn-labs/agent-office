@@ -73,14 +73,16 @@ function buildGeminiPayload(input, opts = {}) {
 function buildCodexPayload(input, opts = {}) {
   const projectPath = trimText(opts.cwd) ?? trimText(process.cwd()) ?? null;
   const createdAt = toIsoNow();
+  const fallbackMessage = trimText(input.message);
   const enrichment = enrichCodexTurn({
     logsDbPath: trimText(process.env.CODEX_LOGS_DB_PATH) ?? `${process.env.HOME ?? ''}/.codex/logs_2.sqlite`,
     stateDbPath: trimText(process.env.CODEX_STATE_DB_PATH) ?? `${process.env.HOME ?? ''}/.codex/state_5.sqlite`,
     cwd: projectPath,
-    responseText: trimText(input.message) ?? 'Codex turn completed.',
+    turnId: trimText(input.session_id) ?? trimText(input.turn_id) ?? trimText(input['turn-id']),
+    responseText: fallbackMessage,
     createdAt,
   });
-  const completed = enrichment.completed ?? 'Codex turn completed.';
+  const completed = enrichment.completed ?? fallbackMessage ?? 'Codex turn completed.';
   if (!projectPath) return null;
 
   return {
@@ -90,6 +92,7 @@ function buildCodexPayload(input, opts = {}) {
     status: 'completed',
     summary: {
       summaryKind: 'turn',
+      request: enrichment.request,
       completed,
       nextSteps: enrichment.nextSteps,
       filesRead: enrichment.filesRead,
