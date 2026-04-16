@@ -186,6 +186,7 @@ export function createLauncher({
   resolver,
   dryRun = false,
   memoryEngine: memoryEngineOpt,
+  projectHistory = null,
   claudeMem = null,
   watcher = null,
   skillRoots = [],
@@ -215,7 +216,13 @@ export function createLauncher({
     let claudeMemSection = '';
     let lastSession = null;
     let personaObservations = [];
-    if (claudeMem) {
+    if (projectHistory) {
+      const history = projectHistory.getLaunchHistory(project.id, persona);
+      lastSession = history.lastSession;
+      personaObservations = history.personaObservations;
+      claudeMemSection = history.section;
+    }
+    if (!claudeMemSection && claudeMem) {
       lastSession = claudeMem.getLastSession(project.name);
       const allObs = claudeMem.getObservations(project.name, { limit: 50 });
       personaObservations = filterObservationsForPersona(allObs, persona, { limit: 10 });

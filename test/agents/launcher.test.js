@@ -12,6 +12,7 @@ import { SESSION_STARTED } from '../../src/core/events.js';
 import { detectTerminal } from '../../src/agents/terminal-detector.js';
 import { createLauncher } from '../../src/agents/launcher.js';
 import { createMemoryEngine } from '../../src/memory/memory-engine.js';
+import { createProjectHistoryStore } from '../../src/history/project-history.js';
 
 // ── Shared setup ─────────────────────────────────────────────────────────────
 
@@ -401,6 +402,71 @@ describe('createLauncher with claudeMem adapter', () => {
     const ctx = await launcher.prepareLaunch(personaId, projectId);
     assert.ok(!ctx.systemPrompt.includes('## Last Session'));
     assert.ok(!ctx.systemPrompt.includes('## Recent Work as'));
+  });
+
+  it('prefers internal project history over claude-mem when present', async () => {
+    const historyStore = createProjectHistoryStore(repo);
+    const historySessionId = repo.createHistorySession({
+      projectId,
+      providerId: 'codex',
+      providerSessionId: 'codex-1',
+      startedAt: '2026-04-16T09:00:00.000Z',
+      endedAt: '2026-04-16T09:30:00.000Z',
+      status: 'completed',
+      model: 'gpt-5.4',
+    });
+    repo.createHistorySummary({
+      historySessionId,
+      projectId,
+      providerId: 'codex',
+      completed: 'Internal history summary',
+      nextSteps: 'Continue internal flow',
+      createdAt: '2026-04-16T09:31:00.000Z',
+    });
+    repo.createHistoryObservation({
+      historySessionId,
+      projectId,
+      providerId: 'codex',
+      type: 'feature',
+      title: 'Internal observation',
+      filesModified: ['ui/src/office/OfficeCanvas.jsx'],
+      createdAt: '2026-04-16T09:32:00.000Z',
+    });
+
+    const claudeMem = {
+      getLastSession: () => ({
+        title: 'External history summary',
+        completed: 'Should not win',
+        nextSteps: 'Ignore me',
+        at: '2026-04-15',
+      }),
+      getObservations: () => [
+        {
+          id: 1,
+          title: 'External observation',
+          subtitle: null,
+          narrative: null,
+          type: 'bugfix',
+          filesModified: ['ui/src/office/Other.jsx'],
+          createdAt: '2026-04-15',
+        },
+      ],
+      close: () => {},
+    };
+
+    const historyFirstLauncher = createLauncher({
+      repo,
+      bus,
+      resolver,
+      dryRun: true,
+      projectHistory: historyStore,
+      claudeMem,
+    });
+    const ctx = await historyFirstLauncher.prepareLaunch(personaId, projectId);
+
+    assert.match(ctx.systemPrompt, /Internal history summary/);
+    assert.match(ctx.systemPrompt, /Internal observation/);
+    assert.doesNotMatch(ctx.systemPrompt, /Should not win/);
   });
 });
 

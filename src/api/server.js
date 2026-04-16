@@ -26,6 +26,8 @@ import { sessionRoutes } from './routes/sessions.js';
 import { SESSION_ENDED, SESSION_IDLE, SESSION_UPDATE } from '../core/events.js';
 import { scanLocalSkills } from '../skills/local-skill-index.js';
 import { createPortfolioStatsService } from '../stats/portfolio-stats.js';
+import { createProjectHistoryStore } from '../history/project-history.js';
+import { historyRoutes } from './routes/history.js';
 
 /**
  * Creates and configures the Express application.
@@ -65,6 +67,7 @@ export function createApp({
   // Skill resolver uses repo.listSkills() — pass repo as the "db" argument
   // (createSkillResolver's param is named db but only calls .listSkills())
   const memoryEngine = createMemoryEngine(repo);
+  const projectHistory = createProjectHistoryStore(repo);
   const localSkillInventory = scanLocalSkills(config.skillRoots);
   const resolver = createSkillResolver(repo, { localSkillInventory });
 
@@ -90,6 +93,7 @@ export function createApp({
     resolver,
     dryRun,
     memoryEngine,
+    projectHistory,
     claudeMem,
     watcher,
     skillRoots: config.skillRoots,
@@ -239,6 +243,7 @@ export function createApp({
   app.use(officeRoutes(launcher));
   app.use(sessionRoutes({ repo, watcher, aggregator }));
   app.use(memoryRoutes(memoryEngine, repo, importFromClaudeProjects));
+  app.use(historyRoutes(projectHistory));
 
   // Static file serving for production builds.
   // In dev, Vite's dev server handles assets via proxy instead.

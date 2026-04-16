@@ -59,6 +59,7 @@ export function createRepository(db) {
       VALUES (@path, @name, @techStack, @gitRemote, @defaultBranch)
     `),
     getById: db.prepare(`SELECT * FROM project WHERE project_id = ?`),
+    getByPath: db.prepare(`SELECT * FROM project WHERE path = ?`),
     listAll: db.prepare(`SELECT * FROM project ORDER BY name`),
     listActive: db.prepare(`SELECT * FROM project WHERE active = 1 ORDER BY name`),
     update: db.prepare(`UPDATE project SET
@@ -99,6 +100,14 @@ export function createRepository(db) {
    */
   function getProject(id) {
     return rowToProject(projectStmts.getById.get(id));
+  }
+
+  /**
+   * @param {string} path
+   * @returns {object|null}
+   */
+  function getProjectByPath(path) {
+    return rowToProject(projectStmts.getByPath.get(path));
   }
 
   /**
@@ -669,6 +678,291 @@ export function createRepository(db) {
     }));
   }
 
+  // ── Project History ─────────────────────────────────────────────────────────
+
+  function rowToHistorySession(row) {
+    if (!row) return null;
+    return {
+      id: row.history_session_id,
+      projectId: row.project_id,
+      personaId: row.persona_id ?? null,
+      providerId: row.provider_id,
+      providerSessionId: row.provider_session_id ?? null,
+      startedAt: row.started_at ?? null,
+      endedAt: row.ended_at ?? null,
+      status: row.status,
+      model: row.model ?? null,
+      systemPrompt: row.system_prompt ?? null,
+      source: row.source,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  function rowToHistorySummary(row) {
+    if (!row) return null;
+    return {
+      id: row.history_summary_id,
+      historySessionId: row.history_session_id,
+      projectId: row.project_id,
+      providerId: row.provider_id,
+      summaryKind: row.summary_kind,
+      request: row.request ?? null,
+      investigated: row.investigated ?? null,
+      learned: row.learned ?? null,
+      completed: row.completed ?? null,
+      nextSteps: row.next_steps ?? null,
+      filesRead: parseJson(row.files_read, []),
+      filesEdited: parseJson(row.files_edited, []),
+      notes: row.notes ?? null,
+      createdAt: row.created_at,
+      createdAtEpoch: row.created_at_epoch,
+    };
+  }
+
+  function rowToHistoryObservation(row) {
+    if (!row) return null;
+    return {
+      id: row.history_observation_id,
+      historySessionId: row.history_session_id,
+      projectId: row.project_id,
+      providerId: row.provider_id,
+      type: row.type,
+      title: row.title ?? null,
+      subtitle: row.subtitle ?? null,
+      narrative: row.narrative ?? null,
+      facts: parseJson(row.facts, []),
+      concepts: parseJson(row.concepts, []),
+      filesRead: parseJson(row.files_read, []),
+      filesModified: parseJson(row.files_modified, []),
+      turnNumber: row.turn_number ?? null,
+      contentHash: row.content_hash ?? null,
+      generatedByModel: row.generated_by_model ?? null,
+      relevanceCount: row.relevance_count,
+      confidence: row.confidence,
+      createdAt: row.created_at,
+      createdAtEpoch: row.created_at_epoch,
+      expiresAt: row.expires_at ?? null,
+    };
+  }
+
+  const historySessionStmts = {
+    insert: db.prepare(`
+      INSERT INTO history_session (
+        project_id, persona_id, provider_id, provider_session_id,
+        started_at, ended_at, status, model, system_prompt, source, created_at, updated_at
+      ) VALUES (
+        @projectId, @personaId, @providerId, @providerSessionId,
+        @startedAt, @endedAt, @status, @model, @systemPrompt, @source, @createdAt, @updatedAt
+      )
+    `),
+    getById: db.prepare(`SELECT * FROM history_session WHERE history_session_id = ?`),
+    getByProvider: db.prepare(`
+      SELECT * FROM history_session
+      WHERE provider_id = ? AND provider_session_id = ?
+    `),
+    update: db.prepare(`
+      UPDATE history_session SET
+        persona_id = COALESCE(@personaId, persona_id),
+        started_at = COALESCE(@startedAt, started_at),
+        ended_at = COALESCE(@endedAt, ended_at),
+        status = COALESCE(@status, status),
+        model = COALESCE(@model, model),
+        system_prompt = COALESCE(@systemPrompt, system_prompt),
+        source = COALESCE(@source, source),
+        updated_at = @updatedAt
+      WHERE history_session_id = @id
+    `),
+  };
+
+  const historySummaryStmts = {
+    insert: db.prepare(`
+      INSERT INTO history_summary (
+        history_session_id, project_id, provider_id, summary_kind,
+        request, investigated, learned, completed, next_steps,
+        files_read, files_edited, notes, created_at, created_at_epoch
+      ) VALUES (
+        @historySessionId, @projectId, @providerId, @summaryKind,
+        @request, @investigated, @learned, @completed, @nextSteps,
+        @filesRead, @filesEdited, @notes, @createdAt, @createdAtEpoch
+      )
+    `),
+    listByProject: db.prepare(`
+      SELECT * FROM history_summary
+      WHERE project_id = ?
+      ORDER BY created_at_epoch DESC, history_summary_id DESC
+      LIMIT ?
+    `),
+  };
+
+  const historyObservationStmts = {
+    insert: db.prepare(`
+      INSERT INTO history_observation (
+        history_session_id, project_id, provider_id, type, title, subtitle,
+        narrative, facts, concepts, files_read, files_modified, turn_number,
+        content_hash, generated_by_model, relevance_count, confidence,
+        created_at, created_at_epoch, expires_at
+      ) VALUES (
+        @historySessionId, @projectId, @providerId, @type, @title, @subtitle,
+        @narrative, @facts, @concepts, @filesRead, @filesModified, @turnNumber,
+        @contentHash, @generatedByModel, @relevanceCount, @confidence,
+        @createdAt, @createdAtEpoch, @expiresAt
+      )
+    `),
+    listByProject: db.prepare(`
+      SELECT * FROM history_observation
+      WHERE project_id = ?
+      ORDER BY created_at_epoch DESC, history_observation_id DESC
+      LIMIT ?
+    `),
+  };
+
+  function createHistorySession({
+    projectId,
+    personaId,
+    providerId,
+    providerSessionId,
+    startedAt,
+    endedAt,
+    status,
+    model,
+    systemPrompt,
+    source,
+    createdAt,
+    updatedAt,
+  }) {
+    const now = new Date().toISOString();
+    const result = historySessionStmts.insert.run({
+      projectId,
+      personaId: personaId ?? null,
+      providerId,
+      providerSessionId: providerSessionId ?? null,
+      startedAt: startedAt ?? null,
+      endedAt: endedAt ?? null,
+      status: status ?? 'completed',
+      model: model ?? null,
+      systemPrompt: systemPrompt ?? null,
+      source: source ?? 'provider-hook',
+      createdAt: createdAt ?? now,
+      updatedAt: updatedAt ?? now,
+    });
+    return result.lastInsertRowid;
+  }
+
+  function getHistorySession(id) {
+    return rowToHistorySession(historySessionStmts.getById.get(id));
+  }
+
+  function getHistorySessionByProvider(providerId, providerSessionId) {
+    return rowToHistorySession(historySessionStmts.getByProvider.get(providerId, providerSessionId));
+  }
+
+  function updateHistorySession(id, fields) {
+    historySessionStmts.update.run({
+      id,
+      personaId: fields.personaId ?? null,
+      startedAt: fields.startedAt ?? null,
+      endedAt: fields.endedAt ?? null,
+      status: fields.status ?? null,
+      model: fields.model ?? null,
+      systemPrompt: fields.systemPrompt ?? null,
+      source: fields.source ?? null,
+      updatedAt: fields.updatedAt ?? new Date().toISOString(),
+    });
+  }
+
+  function createHistorySummary({
+    historySessionId,
+    projectId,
+    providerId,
+    summaryKind,
+    request,
+    investigated,
+    learned,
+    completed,
+    nextSteps,
+    filesRead,
+    filesEdited,
+    notes,
+    createdAt,
+    createdAtEpoch,
+  }) {
+    const timestamp = createdAt ?? new Date().toISOString();
+    const result = historySummaryStmts.insert.run({
+      historySessionId,
+      projectId,
+      providerId,
+      summaryKind: summaryKind ?? 'checkpoint',
+      request: request ?? null,
+      investigated: investigated ?? null,
+      learned: learned ?? null,
+      completed: completed ?? null,
+      nextSteps: nextSteps ?? null,
+      filesRead: toJson(filesRead ?? []),
+      filesEdited: toJson(filesEdited ?? []),
+      notes: notes ?? null,
+      createdAt: timestamp,
+      createdAtEpoch: createdAtEpoch ?? new Date(timestamp).getTime(),
+    });
+    return result.lastInsertRowid;
+  }
+
+  function listHistorySummaries({ projectId, limit = 20 } = {}) {
+    if (projectId == null) return [];
+    return historySummaryStmts.listByProject.all(projectId, limit).map(rowToHistorySummary);
+  }
+
+  function createHistoryObservation({
+    historySessionId,
+    projectId,
+    providerId,
+    type,
+    title,
+    subtitle,
+    narrative,
+    facts,
+    concepts,
+    filesRead,
+    filesModified,
+    turnNumber,
+    contentHash,
+    generatedByModel,
+    relevanceCount,
+    confidence,
+    createdAt,
+    createdAtEpoch,
+    expiresAt,
+  }) {
+    const timestamp = createdAt ?? new Date().toISOString();
+    const result = historyObservationStmts.insert.run({
+      historySessionId,
+      projectId,
+      providerId,
+      type,
+      title: title ?? null,
+      subtitle: subtitle ?? null,
+      narrative: narrative ?? null,
+      facts: toJson(facts ?? []),
+      concepts: toJson(concepts ?? []),
+      filesRead: toJson(filesRead ?? []),
+      filesModified: toJson(filesModified ?? []),
+      turnNumber: turnNumber ?? null,
+      contentHash: contentHash ?? null,
+      generatedByModel: generatedByModel ?? null,
+      relevanceCount: relevanceCount ?? 0,
+      confidence: confidence ?? 1.0,
+      createdAt: timestamp,
+      createdAtEpoch: createdAtEpoch ?? new Date(timestamp).getTime(),
+      expiresAt: expiresAt ?? null,
+    });
+    return result.lastInsertRowid;
+  }
+
+  function listHistoryObservations({ projectId, limit = 50 } = {}) {
+    if (projectId == null) return [];
+    return historyObservationStmts.listByProject.all(projectId, limit).map(rowToHistoryObservation);
+  }
+
   // ── GardenLog ────────────────────────────────────────────────────────────────
 
   function rowToGardenLog(row) {
@@ -853,6 +1147,7 @@ export function createRepository(db) {
     // Projects
     createProject,
     getProject,
+    getProjectByPath,
     listProjects,
     updateProject,
     deleteProject,
@@ -885,6 +1180,16 @@ export function createRepository(db) {
     sumTokensSince,
     sumCommitsSince,
     getPulseBucketsSince,
+
+    // Project history
+    createHistorySession,
+    getHistorySession,
+    getHistorySessionByProvider,
+    updateHistorySession,
+    createHistorySummary,
+    listHistorySummaries,
+    createHistoryObservation,
+    listHistoryObservations,
 
     // GardenLogs
     createGardenLog,

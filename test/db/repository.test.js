@@ -59,6 +59,12 @@ describe('Projects', () => {
     assert.equal(project, null);
   });
 
+  it('getProjectByPath returns the matching project', () => {
+    const project = repo.getProjectByPath('/test/my-app');
+    assert.ok(project);
+    assert.equal(project.name, 'my-app');
+  });
+
   it('listProjects returns all projects', () => {
     // Create a second project to ensure list works.
     repo.createProject({ path: '/test/other-app', name: 'other-app' });
@@ -277,6 +283,72 @@ describe('Memories', () => {
 
     assert.ok(activeMemories.every((m) => m.status === 'active'));
     assert.ok(archivedMemories.some((m) => m.id === Number(memoryId)));
+  });
+});
+
+// ── Project History ──────────────────────────────────────────────────────────
+
+describe('Project history', () => {
+  let projectId;
+  let historySessionId;
+
+  before(() => {
+    projectId = repo.createProject({
+      path: '/test/history-project',
+      name: 'history-project',
+    });
+  });
+
+  it('creates and looks up a history session by provider id', () => {
+    historySessionId = repo.createHistorySession({
+      projectId,
+      providerId: 'gemini-cli',
+      providerSessionId: 'session-123',
+      startedAt: '2026-04-16T10:00:00.000Z',
+      endedAt: '2026-04-16T10:30:00.000Z',
+      status: 'completed',
+      model: 'gemini-2.5-flash',
+    });
+    const session = repo.getHistorySessionByProvider('gemini-cli', 'session-123');
+    assert.ok(session);
+    assert.equal(session.id, Number(historySessionId));
+    assert.equal(session.projectId, Number(projectId));
+    assert.equal(session.model, 'gemini-2.5-flash');
+  });
+
+  it('stores summaries and observations with parsed JSON fields', () => {
+    repo.createHistorySummary({
+      historySessionId,
+      projectId,
+      providerId: 'gemini-cli',
+      completed: 'Implemented provider-neutral history.',
+      nextSteps: 'Wire hooks.',
+      filesRead: ['src/api/server.js'],
+      filesEdited: ['src/db/repository.js'],
+      createdAt: '2026-04-16T10:31:00.000Z',
+    });
+    repo.createHistoryObservation({
+      historySessionId,
+      projectId,
+      providerId: 'gemini-cli',
+      type: 'feature',
+      title: 'Added ingestion route',
+      filesModified: ['src/api/routes/history.js'],
+      facts: ['Uses provider-neutral history tables'],
+      createdAt: '2026-04-16T10:32:00.000Z',
+    });
+
+    const summaries = repo.listHistorySummaries({ projectId, limit: 5 });
+    const observations = repo.listHistoryObservations({ projectId, limit: 5 });
+
+    assert.equal(summaries.length, 1);
+    assert.equal(summaries[0].completed, 'Implemented provider-neutral history.');
+    assert.deepEqual(summaries[0].filesEdited, ['src/db/repository.js']);
+
+    assert.equal(observations.length, 1);
+    assert.equal(observations[0].title, 'Added ingestion route');
+    assert.deepEqual(observations[0].filesModified, ['src/api/routes/history.js']);
+    assert.deepEqual(observations[0].facts, ['Uses provider-neutral history tables']);
   });
 });
 
