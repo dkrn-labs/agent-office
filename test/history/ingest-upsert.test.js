@@ -45,6 +45,7 @@ describe('historyStore.ingest upsert by historySessionId', () => {
         providerId: 'claude-code',
         providerSessionId: 'claude-abc',
         status: 'completed',
+        source: 'provider-hook',
         summary: { summaryKind: 'turn', completed: 'done', createdAt: new Date().toISOString() },
         observations: [
           {
@@ -89,6 +90,37 @@ describe('historyStore.ingest upsert by historySessionId', () => {
         observations: [],
       });
       assert.equal(first.historySession.id, second.historySession.id);
+    } finally {
+      cleanup(ctx);
+    }
+  });
+
+  it('throws when historySessionId belongs to a different project', async () => {
+    const ctx = await setup();
+    const { repo, store, personaId } = ctx;
+    try {
+      const otherProjectId = Number(repo.createProject({ path: '/tmp/q', name: 'q', techStack: [] }));
+      const otherHistoryId = repo.createHistorySession({
+        projectId: otherProjectId,
+        personaId,
+        providerId: 'claude-code',
+        providerSessionId: null,
+        status: 'in-progress',
+        source: 'launcher',
+      });
+      const primaryProjectId = Number(repo.createProject({ path: '/tmp/r', name: 'r', techStack: [] }));
+      assert.throws(
+        () =>
+          store.ingest({
+            projectId: primaryProjectId,
+            historySessionId: otherHistoryId,
+            providerId: 'claude-code',
+            providerSessionId: 'x',
+            summary: { summaryKind: 'turn', completed: 'x', createdAt: new Date().toISOString() },
+            observations: [],
+          }),
+        /historySessionId belongs to a different project/,
+      );
     } finally {
       cleanup(ctx);
     }

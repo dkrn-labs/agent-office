@@ -165,7 +165,7 @@ export function createProjectHistoryStore(repo, { db = null, brief = null } = {}
     }
 
     if (!historySession) {
-      const historySessionId = repo.createHistorySession({
+      const createdId = repo.createHistorySession({
         projectId: project.id,
         personaId: personaId != null ? Number(personaId) : null,
         providerId,
@@ -177,7 +177,7 @@ export function createProjectHistoryStore(repo, { db = null, brief = null } = {}
         systemPrompt,
         source,
       });
-      historySession = repo.getHistorySession(Number(historySessionId));
+      historySession = repo.getHistorySession(Number(createdId));
     } else {
       repo.updateHistorySession(historySession.id, {
         personaId: personaId != null ? Number(personaId) : historySession.personaId,
@@ -186,8 +186,8 @@ export function createProjectHistoryStore(repo, { db = null, brief = null } = {}
         endedAt,
         status,
         model,
-        systemPrompt,
-        source,
+        systemPrompt: historySession.systemPrompt ?? systemPrompt,
+        source: historySession.source ?? source,
       });
       historySession = repo.getHistorySession(historySession.id);
     }
