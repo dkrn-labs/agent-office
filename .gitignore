@@ -8,3 +8,14 @@ spike/pixel-agents-source/
 ui/node_modules/
 ui/dist/
 .worktrees/
+
+# LinkedIn capture output
+linkedin/
+
+# Benchmark outputs (reproducible via scripts/)
+bench/brief-*.csv
+bench/briefs/
+bench/e2e/runs/
+bench/e2e/raw.md
+bench/e2e/brief.md
+bench/e2e/task.md
