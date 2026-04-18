@@ -19,7 +19,6 @@ import { join } from 'node:path';
 import { SESSION_STARTED } from '../core/events.js';
 import { createMemoryEngine } from '../memory/memory-engine.js';
 import { formatForContext } from '../memory/memory-injector.js';
-import { filterObservationsForPersona } from '../memory/persona-filter.js';
 import { listLaunchProviders, resolveLaunchTarget } from './provider-catalog.js';
 
 const execFileAsync = promisify(execFile);
@@ -138,26 +137,6 @@ export async function spawnItermTab({ projectPath, systemPrompt, providerId, mod
   await execFileAsync('osascript', ['-e', script]);
 }
 
-function buildClaudeMemSection(last, personaObs, persona) {
-  const parts = [];
-  if (last) {
-    const summary = last.completed ?? last.title ?? '';
-    const nextBit = last.nextSteps ? ` Next: ${last.nextSteps}.` : '';
-    parts.push(`## Last Session\n${summary}.${nextBit}`);
-  }
-  if (personaObs.length > 0) {
-    const bullets = personaObs
-      .map((o) => {
-        const files = o.filesModified.slice(0, 3).join(', ');
-        const filesPart = files ? ` (${files})` : '';
-        return `- ${o.title}${o.subtitle ? ` — ${o.subtitle}` : ''}${filesPart}`;
-      })
-      .join('\n');
-    parts.push(`## Recent Work as ${persona.label}\n${bullets}`);
-  }
-  return parts.join('\n\n');
-}
-
 function buildFallbackSystemPrompt(persona, project, resolvedSkills, memories) {
   const personaLabel = persona?.label ?? 'Software Engineer';
   const personaDomain = persona?.domain ?? 'general';
@@ -187,7 +166,6 @@ export function createLauncher({
   dryRun = false,
   memoryEngine: memoryEngineOpt,
   projectHistory = null,
-  claudeMem = null,
   watcher = null,
   skillRoots = [],
 } = {}) {
@@ -213,7 +191,7 @@ export function createLauncher({
     }));
     const memories = memoryEngine.queryForPersona(projectId, persona);
 
-    let claudeMemSection = '';
+    let historySection = '';
     let lastSession = null;
     let personaObservations = [];
     let brief = null;
@@ -221,14 +199,8 @@ export function createLauncher({
       const history = await projectHistory.getLaunchHistory(project.id, persona);
       lastSession = history.lastSession;
       personaObservations = history.personaObservations;
-      claudeMemSection = history.section;
+      historySection = history.section;
       brief = history.brief ?? null;
-    }
-    if (!claudeMemSection && claudeMem) {
-      lastSession = claudeMem.getLastSession(project.name);
-      const allObs = claudeMem.getObservations(project.name, { limit: 50 });
-      personaObservations = filterObservationsForPersona(allObs, persona, { limit: 10 });
-      claudeMemSection = buildClaudeMemSection(lastSession, personaObservations, persona);
     }
 
     const template = persona.systemPromptTemplate?.trim() ?? '';
@@ -239,8 +211,8 @@ export function createLauncher({
           .replace('{{skills}}', resolvedSkills.map((s) => s.preview).join('\n\n'))
           .replace('{{memories}}', formatForContext(memories))
       : buildFallbackSystemPrompt(persona, project, resolvedSkills, memories);
-    const systemPrompt = claudeMemSection
-      ? `${claudeMemSection}\n\n${baseSystemPrompt}`
+    const systemPrompt = historySection
+      ? `${historySection}\n\n${baseSystemPrompt}`
       : baseSystemPrompt;
 
     const launchTarget = resolveLaunchTarget(options.providerId, options.model);

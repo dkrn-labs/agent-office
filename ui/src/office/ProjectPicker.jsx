@@ -249,6 +249,29 @@ export default function ProjectPicker() {
                 {truncatePath(project.path)}
               </p>
             )}
+
+            {project.memoryStats?.observationCount > 0 && (
+              <p
+                className="mt-1 text-[10px] text-gray-500"
+                title="Unified memory across Claude, Codex, Gemini — all embedded for semantic retrieval"
+              >
+                <span className="text-gray-400">
+                  {project.memoryStats.observationCount}
+                </span>{' '}
+                observation{project.memoryStats.observationCount === 1 ? '' : 's'}
+                {project.memoryStats.providerCount > 1 && (
+                  <> · {project.memoryStats.providerCount} providers</>
+                )}
+                {project.memoryStats.embeddedCount < project.memoryStats.observationCount && (
+                  <>
+                    {' '}
+                    · <span className="text-amber-400">
+                      {project.memoryStats.observationCount - project.memoryStats.embeddedCount} unindexed
+                    </span>
+                  </>
+                )}
+              </p>
+            )}
           </button>
           <button
             type="button"

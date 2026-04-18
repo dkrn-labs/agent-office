@@ -102,7 +102,6 @@ export function createApp({
     dryRun,
     memoryEngine,
     projectHistory,
-    claudeMem,
     watcher,
     skillRoots: config.skillRoots,
   });
@@ -243,14 +242,14 @@ export function createApp({
 
   // Mount route modules
   app.use(healthRoutes());
-  app.use(projectRoutes(repo));
+  app.use(projectRoutes(repo, db));
   app.use(portfolioRoutes(portfolioStats));
   app.use(configRoutes(configDir));
-  app.use(personaRoutes(repo));
+  app.use(personaRoutes(repo, db));
   app.use(skillRoutes(repo, resolver));
   app.use(officeRoutes(launcher));
   app.use(sessionRoutes({ repo, watcher, aggregator }));
-  app.use(memoryRoutes(memoryEngine, repo, importFromClaudeProjects));
+  app.use(memoryRoutes(memoryEngine, repo, importFromClaudeProjects, db));
   app.use(historyRoutes(projectHistory));
 
   // Static file serving for production builds.

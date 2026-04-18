@@ -367,44 +367,14 @@ describe('buildLaunchBashScript()', () => {
   });
 });
 
-describe('createLauncher with claudeMem adapter', () => {
-  it('prepends last-session summary and persona observations to systemPrompt', async () => {
-    const claudeMem = {
-      getLastSession: (name) => ({
-        title: `Last work on ${name}`,
-        completed: 'Shipped Phase 4.5',
-        nextSteps: 'Do Phase 5',
-        at: '2026-04-13',
-      }),
-      getObservations: () => [
-        {
-          id: 1,
-          title: 'Fixed click handler',
-          subtitle: 'coord transform',
-          narrative: 'details',
-          type: 'bugfix',
-          filesModified: ['ui/src/office/OfficeCanvas.jsx'],
-          createdAt: '2026-04-13',
-        },
-      ],
-      close: () => {},
-    };
-    const launcherWithMem = createLauncher({ repo, bus, resolver, dryRun: true, claudeMem });
-    const ctx = await launcherWithMem.prepareLaunch(personaId, projectId);
-
-    assert.match(ctx.systemPrompt, /## Last Session/);
-    assert.match(ctx.systemPrompt, /Shipped Phase 4\.5/);
-    assert.match(ctx.systemPrompt, /## Recent Work as Frontend/);
-    assert.match(ctx.systemPrompt, /Fixed click handler/);
-  });
-
-  it('gracefully handles null claudeMem (no adapter)', async () => {
+describe('createLauncher history injection', () => {
+  it('omits history sections when no observations exist', async () => {
     const ctx = await launcher.prepareLaunch(personaId, projectId);
     assert.ok(!ctx.systemPrompt.includes('## Last Session'));
     assert.ok(!ctx.systemPrompt.includes('## Recent Work as'));
   });
 
-  it('prefers internal project history over claude-mem when present', async () => {
+  it('injects project history summary + observations into systemPrompt', async () => {
     const historyStore = createProjectHistoryStore(repo);
     const historySessionId = repo.createHistorySession({
       projectId,
@@ -433,40 +403,17 @@ describe('createLauncher with claudeMem adapter', () => {
       createdAt: '2026-04-16T09:32:00.000Z',
     });
 
-    const claudeMem = {
-      getLastSession: () => ({
-        title: 'External history summary',
-        completed: 'Should not win',
-        nextSteps: 'Ignore me',
-        at: '2026-04-15',
-      }),
-      getObservations: () => [
-        {
-          id: 1,
-          title: 'External observation',
-          subtitle: null,
-          narrative: null,
-          type: 'bugfix',
-          filesModified: ['ui/src/office/Other.jsx'],
-          createdAt: '2026-04-15',
-        },
-      ],
-      close: () => {},
-    };
-
-    const historyFirstLauncher = createLauncher({
+    const historyLauncher = createLauncher({
       repo,
       bus,
       resolver,
       dryRun: true,
       projectHistory: historyStore,
-      claudeMem,
     });
-    const ctx = await historyFirstLauncher.prepareLaunch(personaId, projectId);
+    const ctx = await historyLauncher.prepareLaunch(personaId, projectId);
 
     assert.match(ctx.systemPrompt, /Internal history summary/);
     assert.match(ctx.systemPrompt, /Internal observation/);
-    assert.doesNotMatch(ctx.systemPrompt, /Should not win/);
   });
 });
 
