@@ -46,7 +46,14 @@ export function detectTerminal() {
  * @param {{ projectPath: string, scriptPath: string, promptPath: string, providerId?: string, model?: string }} opts
  * @returns {string} bash source
  */
-export function buildLaunchBashScript({ projectPath, scriptPath, promptPath, providerId, model }) {
+export function buildLaunchBashScript({
+  projectPath,
+  scriptPath,
+  promptPath,
+  providerId,
+  model,
+  historySessionId = null,
+}) {
   const q = JSON.stringify; // safe shell-quoting via JSON for paths
   const launchTarget = resolveLaunchTarget(providerId, model);
   let command = `exec claude --model ${q(launchTarget.model)} --append-system-prompt "$PROMPT"`;
@@ -56,10 +63,14 @@ export function buildLaunchBashScript({ projectPath, scriptPath, promptPath, pro
     command = `exec gemini --model ${q(launchTarget.model)} --prompt-interactive "$PROMPT"`;
   }
 
+  const exportLine = historySessionId != null
+    ? `export AGENT_OFFICE_HISTORY_SESSION_ID=${Number(historySessionId)}\n`
+    : '';
+
   return `#!/bin/bash
 cd ${q(projectPath)} || exit 1
 clear
-PROMPT="$(cat ${q(promptPath)})"
+${exportLine}PROMPT="$(cat ${q(promptPath)})"
 rm -f ${q(promptPath)} ${q(scriptPath)}
 ${command}
 `;
@@ -113,7 +124,13 @@ end tell`;
  *
  * @param {{ projectPath: string, systemPrompt: string, providerId?: string, model?: string }} opts
  */
-export async function spawnItermTab({ projectPath, systemPrompt, providerId, model }) {
+export async function spawnItermTab({
+  projectPath,
+  systemPrompt,
+  providerId,
+  model,
+  historySessionId = null,
+}) {
   if (process.platform !== 'darwin') {
     throw new Error(`Terminal spawn not supported on ${process.platform} yet`);
   }
@@ -127,6 +144,7 @@ export async function spawnItermTab({ projectPath, systemPrompt, providerId, mod
     promptPath,
     providerId,
     model,
+    historySessionId,
   });
   await writeFile(scriptPath, bash, { mode: 0o755, encoding: 'utf8' });
   const terminal = detectTerminal();
@@ -261,6 +279,26 @@ export function createLauncher({
     });
     repo.updateSession(Number(sessionId), { lastModel: launchTarget.model });
 
+    let historySessionId = null;
+    if (projectHistory && typeof repo.createHistorySession === 'function') {
+      try {
+        const inserted = repo.createHistorySession({
+          projectId,
+          personaId,
+          providerId: launchTarget.providerId,
+          providerSessionId: null,
+          startedAt,
+          status: 'in-progress',
+          model: launchTarget.model,
+          systemPrompt,
+          source: 'launcher',
+        });
+        historySessionId = Number(inserted);
+      } catch (err) {
+        console.warn('[launcher] pre-create history_session failed:', err.message);
+      }
+    }
+
     // 7. Emit SESSION_STARTED
     bus.emit(SESSION_STARTED, {
       sessionId: Number(sessionId),
@@ -285,6 +323,7 @@ export function createLauncher({
 
     return {
       sessionId: Number(sessionId),
+      historySessionId,
       projectPath: project.path,
       systemPrompt,
       skills: resolvedSkills,
@@ -322,6 +361,7 @@ export function createLauncher({
         systemPrompt: ctx.systemPrompt,
         providerId: ctx.providerId,
         model: ctx.model,
+        historySessionId: ctx.historySessionId,
       });
     }
 
