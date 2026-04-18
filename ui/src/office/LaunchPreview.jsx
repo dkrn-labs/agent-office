@@ -114,6 +114,11 @@ export default function LaunchPreview() {
   const observations = data?.personaObservations ?? [];
   const visible = observations.slice(0, obsVisible);
   const hasMore = observations.length > obsVisible;
+  const brief = data?.brief ?? null;
+  const briefActive = Boolean(brief?.enabled && brief?.markdown);
+  const briefPct = brief?.budgetTokens
+    ? Math.min(100, Math.round((brief.usedTokens / brief.budgetTokens) * 100))
+    : 0;
   const resolvedSkills = data?.resolvedSkills ?? data?.skills ?? [];
   const installedSkills = data?.installedSkills ?? [];
   const recommendedSkills = data?.recommendedSkills ?? [];
@@ -214,8 +219,35 @@ export default function LaunchPreview() {
             </section>
           )}
 
-          {/* Recent work */}
-          {observations.length > 0 && (
+          {/* Project brief — what actually gets injected */}
+          {briefActive && (
+            <section>
+              <div className="flex items-baseline justify-between mb-1.5">
+                <h3 className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
+                  Project brief
+                  <span className="text-gray-600 ml-1.5">({brief.sourceCount})</span>
+                </h3>
+                <span
+                  className="text-[10px] text-gray-400"
+                  title="Brief tokens used vs. budget (persona-scoped)"
+                >
+                  {brief.usedTokens}/{brief.budgetTokens} tok · {briefPct}%
+                </span>
+              </div>
+              <div className="rounded-lg border border-gray-800 bg-gray-950/60 px-3 py-2.5">
+                <pre className="whitespace-pre-wrap text-xs leading-relaxed text-gray-200 font-sans">
+                  {brief.markdown}
+                </pre>
+              </div>
+              <p className="mt-1.5 text-[10px] text-gray-500">
+                Vector-selected from {observations.length} persona-scoped observation{observations.length === 1 ? '' : 's'}.
+                Same content across Claude, Codex, Gemini.
+              </p>
+            </section>
+          )}
+
+          {/* Fallback: raw observations when brief is disabled or empty */}
+          {!briefActive && observations.length > 0 && (
             <section>
               <h3 className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1.5">
                 Recent work as {data.persona.label}
@@ -408,7 +440,7 @@ export default function LaunchPreview() {
           )}
 
           {/* Empty state */}
-          {data && observations.length === 0 && !data.lastSession && (
+          {data && observations.length === 0 && !data.lastSession && !briefActive && (
             <div className="rounded-lg border border-dashed border-gray-800 px-4 py-6 text-center">
               <p className="text-gray-500 italic text-sm">
                 No prior context for this persona on this project.

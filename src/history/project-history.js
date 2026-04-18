@@ -88,6 +88,7 @@ export function createProjectHistoryStore(repo, { db = null, brief = null } = {}
           section = parts.join('\n\n');
           briefMeta = {
             enabled: true,
+            markdown: result.markdown,
             usedTokens: result.usedTokens,
             budgetTokens: result.budgetTokens,
             sourceCount: result.sourceCount,

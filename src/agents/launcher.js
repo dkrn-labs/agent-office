@@ -216,11 +216,13 @@ export function createLauncher({
     let claudeMemSection = '';
     let lastSession = null;
     let personaObservations = [];
+    let brief = null;
     if (projectHistory) {
       const history = await projectHistory.getLaunchHistory(project.id, persona);
       lastSession = history.lastSession;
       personaObservations = history.personaObservations;
       claudeMemSection = history.section;
+      brief = history.brief ?? null;
     }
     if (!claudeMemSection && claudeMem) {
       lastSession = claudeMem.getLastSession(project.name);
@@ -250,6 +252,7 @@ export function createLauncher({
       memories,
       lastSession,
       personaObservations,
+      brief,
       systemPrompt,
       launchTarget,
       installedSkills: inventory.installed,
@@ -347,6 +350,7 @@ export function createLauncher({
       memories,
       lastSession,
       personaObservations,
+      brief,
       systemPrompt,
       launchTarget,
       installedSkills,
@@ -371,6 +375,7 @@ export function createLauncher({
       memories: memories.map((m) => ({ id: m.id, domain: m.domain, content: m.content })),
       lastSession,
       personaObservations,
+      brief,
     };
   }
 
