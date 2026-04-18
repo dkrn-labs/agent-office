@@ -9,9 +9,12 @@
   "main": "src/api/server.js",
   "scripts": {
     "start": "node bin/agent-office.js start",
+    "startup": "bash scripts/startup.sh",
+    "startup:dev": "bash scripts/dev-start.sh",
     "dev": "node --watch bin/agent-office.js start",
     "dev:ui": "cd ui && npm run dev",
     "build:ui": "cd ui && npm run build",
+    "linkedin": "node scripts/linkedin-capture.mjs",
     "doctor": "node bin/agent-office.js doctor",
     "test": "node --test 'test/**/*.test.js'",
     "test:watch": "node --test --watch 'test/**/*.test.js'"
@@ -21,11 +24,16 @@
   },
   "license": "MIT",
   "dependencies": {
+    "@huggingface/transformers": "^4.1.0",
     "better-sqlite3": "^12.9.0",
     "chokidar": "^5.0.0",
     "commander": "^14.0.3",
     "express": "^5.2.1",
     "node-cron": "^4.2.1",
+    "sqlite-vec": "^0.1.9",
     "ws": "^8.20.0"
+  },
+  "devDependencies": {
+    "playwright": "^1.59.1"
   }
 }
