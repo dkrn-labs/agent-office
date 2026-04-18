@@ -1,74 +1,112 @@
 # Agent Office
 
-`agent-office` is a local-first workspace for running multiple AI coding agents across your real projects.
+A local-first workspace where your AI coding agents live in a pixel-art office — and actually remember what they did.
 
-Instead of a chat list, it gives you:
-- a pixel-art office where each desk maps to a persona
+Instead of a chat list, you get:
+
+- a pixel-art office where each desk maps to a specialist persona (frontend, backend, debug, ops, review, docs…)
 - a launch flow with project selection, provider/model choice, and prompt preview
-- live session telemetry for Claude Code, Codex, and Gemini CLI
-- history and portfolio stats so you can see what your agents actually did
+- live session telemetry across Claude Code, Codex, and Gemini CLI — visible, not invisible
+- **persona-scoped memory** that gets pre-loaded at session start so agents don't re-learn your project every turn
+- portfolio stats and history so you can see what your agents actually did
 
-This is a hobby project built for solo developer workflows, not a hosted SaaS product.
+Built for solo developer workflows, not a hosted SaaS.
 
-## Value proposition
+---
 
-Most agent tooling is good at generating text and bad at making ongoing work legible.
+## Why it's different
 
-Agent Office focuses on the operator view:
-- launch the right agent into the right repo quickly
-- inspect the exact prompt before the session starts
-- see which project, provider, model, and token volume are active
-- keep multiple coding agents visible without treating them like invisible background jobs
+### 1. You can watch your AI work
 
-## Current capabilities
+Three rooms (the Boss, the Workspace, the Dungeon), a dozen personas, a Fixer who roams the floor. When a session goes live, the relevant persona walks from the Dungeon to the Workspace and sits at a desk. It's not decoration — it's a legible operator view. You see at a glance who is working on what.
 
-- Local project scan and active project inventory
-- Persona-based launch flow
-- Prompt preview with resolved skills, installed skills, and project context
-- Provider selection:
-  - Claude Code
-  - Codex
-  - Gemini CLI
-- Live telemetry ingestion:
-  - Claude Code JSONL
-  - Codex local sqlite state
-  - Gemini local session JSON
-- Session history, outcome inference, and recent-session views
-- Portfolio stats across local git repos and session history
+### 2. Unified memory across providers
 
-## What this is not
+One memory store per project. Observations captured from Claude Code, Codex, Gemini CLI, and Ollama flow into the same `history_observation` table. Switch providers mid-task without losing context. Memory lives in a local SQLite DB on your disk — you own your data, it doesn't leave your machine.
 
-- Not a cloud service
-- Not multi-user
-- Not production deployment infrastructure
-- Not a replacement for your provider CLIs
-- Not yet a polished npm-distributed consumer product
+### 3. Lower token bill per session
+
+Sessions don't inject raw memory. They inject a **persona-scoped brief** — a compact markdown rollup of the most recent and most semantically relevant observations for this persona on this project. Less context per turn → lower bill, faster answers.
+
+End-to-end measurement on a real Claude Code task shows **~35% lower cost per session** and **~44% faster wall-time** vs injecting the full raw memory, with no loss of answer quality. Benchmarks below.
+
+### 4. Runs local, on the subscription you already have
+
+No cloud account. No new license. Uses whichever provider CLIs you already have installed (`claude`, `codex`, `gemini`) — plus Ollama for local, offline models. Your subscriptions. Your machine. Your files.
+
+---
+
+## Benchmarks
+
+Measured on this machine, 141 real observations across three anonymised projects of different sizes.
+
+### Micro-benchmark — token counts at the injection point
+
+How much smaller is the brief than dumping all memory? Project IDs anonymised.
+
+| Project | Observations | Raw tokens | Brief tokens | Savings |
+| --- | ---: | ---: | ---: | ---: |
+| A (large)  | 107 | 5,333 | 768 | **85.6%** |
+| B (medium) |  29 | 1,161 | 644 | 44.5% |
+| C (small)  |   7 |   144 | 156 | –8.3% |
+| **Total**  | **141** | **6,638** | **1,568** | **76.4%** |
+
+Savings scale with memory size. Sub-10-observation projects don't benefit — brief overhead exceeds the raw memory it's trying to compress. At ~30 observations you're saving ~45%. Past 100, you're consistently above 80%.
+
+Reproduce:
+
+```bash
+node scripts/benchmark-brief.mjs --budget 1000
+```
+
+### End-to-end — real Claude Code session, real billing
+
+Same task prompt ("Summarise what I shipped this week and what's still in progress"), three variants, via `claude -p`:
+
+| Variant | Input cost | Turns | Elapsed | Answer quality |
+| --- | ---: | ---: | ---: | --- |
+| no-context | $0.2103 | 4 | 46 s | Decent from git log; misses uncommitted work |
+| raw-memory | $0.3118 | 3 | 82 s | Most detailed; cites memory IDs |
+| **brief**  | **$0.2022** | **2** | **46 s** | **On par with raw; tighter and cheaper** |
+
+The brief beat raw memory by:
+
+- **35% lower cost per session** ($0.20 vs $0.31)
+- **44% faster wall-time** (46 s vs 82 s)
+- **one fewer turn** (2 vs 3)
+- **comparable answer quality** — full transcripts under `bench/e2e/runs/`
+
+Single task, one project, one model. Not a production claim. Wider validation in progress.
+
+Reproduce:
+
+```bash
+node scripts/export-bench-contexts.mjs <project-name>
+echo "your task prompt" > bench/e2e/task.md
+bash scripts/bench-e2e.sh
+```
+
+---
 
 ## Requirements
 
 - Node.js 22+
-- macOS is the primary supported environment today
-- One or more local provider CLIs installed if you want to launch agents:
-  - `claude`
-  - `codex`
-  - `gemini`
+- macOS is the primary supported environment
+- One or more local provider CLIs if you want to launch agents:
+  - `claude`, `codex`, `gemini`
+- Optional: Ollama running locally, if you want offline embeddings or local models
 
-The office UI can still run without every provider installed, but launch paths and telemetry fidelity will vary.
+The office UI can run without every provider installed; launch paths and telemetry fidelity will vary.
 
-## Quick start
-
-Clone the repo and install dependencies:
+## Install
 
 ```bash
-git clone <your-repo-url>
+git clone git@github.com:dkrn-labs/agent-office.git
 cd agent-office
-npm install
-cd ui
-npm install
-cd ..
+npm install && (cd ui && npm install)
 ```
 
-Initialize the local data directory:
+Initialise the local data directory:
 
 ```bash
 node bin/agent-office.js init --projects-dir ~/Projects
@@ -80,103 +118,110 @@ Optional readiness check:
 npm run doctor
 ```
 
-Build the UI once:
+Build the UI once, start the backend:
 
 ```bash
 npm run build:ui
-```
-
-Start the app:
-
-```bash
 npm start
 ```
 
-Then open:
+Then open <http://127.0.0.1:3333>.
 
-```text
-http://127.0.0.1:3333
-```
+`npm run startup` does the full local bootstrap (init → build UI if stale → start backend).
 
 ## Development
 
-Backend with file watching:
+Run frontend and backend together:
 
 ```bash
-npm run dev
+npm run startup:dev      # backend :3334 + Vite :5173
 ```
 
-UI dev server:
+Or separately:
 
 ```bash
-cd ui
-npm run dev
+AGENT_OFFICE_PORT=3334 npm run dev           # backend with watch
+AGENT_OFFICE_BACKEND_PORT=3334 npm run dev:ui # UI only
 ```
 
-## CLI
-
-Initialize local state:
+Full test suite:
 
 ```bash
-agent-office init --projects-dir ~/Projects
+npm test
 ```
 
-Start the server:
+## Memory brief commands
 
 ```bash
-agent-office start
-```
+# Backfill embeddings for existing observations (first time).
+node scripts/backfill-embeddings.mjs
 
-Current placeholder command:
+# Measure brief savings on your local data.
+node scripts/benchmark-brief.mjs --budget 1000
 
-```bash
-agent-office garden
+# Dump a brief for a project so you can read/tune it.
+node scripts/benchmark-brief.mjs --budget 1000 --dump-briefs bench/briefs
 ```
 
 ## Architecture
 
-High level:
-- Node/Express backend for launch orchestration, telemetry, persistence, and APIs
-- React/Vite frontend for the office UI and dashboard surfaces
-- SQLite for local state
-- Local filesystem and provider-native state files as telemetry sources
+- **Backend**: Node/Express for launch orchestration, telemetry ingestion, persistence, and APIs.
+- **Frontend**: React + Vite for the pixel-art office and dashboard surfaces.
+- **Storage**: single SQLite DB under `~/.agent-office/`. Memory, sessions, portfolio stats, all local. WAL + foreign keys. [`sqlite-vec`](https://github.com/asg017/sqlite-vec) handles vector search.
+- **Embeddings**: `@huggingface/transformers` running all-MiniLM-L6-v2 locally (384-dim, offline after first download). Ollama is a drop-in alternative via the same provider interface.
+- **Telemetry**: ingested from each provider's native state (Claude Code JSONL, Codex local SQLite, Gemini session JSON).
 
-Important subsystems:
-- `src/agents/` for personas, launch orchestration, provider catalog, and skill resolution
-- `src/telemetry/` for Claude/Codex/Gemini ingestion and session tracking
-- `src/api/` for office, sessions, portfolio, config, skills, and memory routes
-- `ui/src/office/` for the pixel-art office and launch interactions
-- `ui/src/dashboard/` for history and operational telemetry views
+Key directories:
 
-## Third-party provenance
+```
+src/agents/         personas, launcher, skill resolver, provider catalog
+src/api/            office / sessions / portfolio / config / skills / memory routes
+src/db/             migrations + repository; migration 005 adds vec_observation
+src/memory/         claude-mem adapter, persona filter, and:
+  brief/            persona-scoped brief generator (embeddings + selector)
+src/telemetry/      Claude / Codex / Gemini ingestion + session tracking
+ui/src/office/      pixel-art office, engine, sprites, launch interactions
+ui/src/dashboard/   history + telemetry views
+scripts/            one-off utilities (benchmark, backfill, layout builder, capture)
+```
 
-This project builds directly on external work and assets.
+## CLI
 
-- The office engine in `ui/src/office/` was adapted in part from `pixel-agents`, including extraction/adaptation of engine structure and related modules from that upstream project:
-  - <https://github.com/pablodelucca/pixel-agents>
-- The pixel-art office also uses third-party art assets shipped in `ui/public/assets`.
-
-See [docs/ATTRIBUTION.md](docs/ATTRIBUTION.md) for the current provenance and licensing notes.
-There is also an asset-local provenance record in [ui/public/assets/PROVENANCE.md](ui/public/assets/PROVENANCE.md).
-
-## Important licensing note
-
-The code in this repository is MIT-licensed.
-
-Third-party engine ideas and art assets may have different licenses and restrictions. In particular, treat the included office art as hobby/demo assets unless you have independently verified their provenance and redistribution terms for your use case.
-
-If you plan to commercialize or broadly redistribute a derivative, audit and replace third-party assets as needed.
+```bash
+agent-office init --projects-dir ~/Projects   # create local data dir
+agent-office start                            # run the server
+agent-office doctor                           # readiness check
+```
 
 ## Limitations
 
-- Telemetry fidelity is provider-specific
-- Provider usage limits are not implemented yet
-- Setup is still developer-oriented
-- Public packaging is in progress
-- Asset provenance needs continued hardening for broader redistribution
+- Telemetry fidelity is provider-specific.
+- Provider usage limits are not implemented yet.
+- Setup is still developer-oriented; no published npm distribution yet.
+- Benchmarks above use one task prompt on one repo — treat them as directional, not guaranteed.
+- Asset provenance needs continued hardening if you plan to redistribute.
+
+## What this is not
+
+- Not a cloud service.
+- Not multi-user.
+- Not production deployment infrastructure.
+- Not a replacement for your provider CLIs.
+- Not yet a polished consumer product.
+
+## Third-party provenance
+
+This project builds on external work and assets:
+
+- The office engine in `ui/src/office/` was adapted in part from [`pixel-agents`](https://github.com/pablodelucca/pixel-agents).
+- The pixel-art office uses third-party art assets in `ui/public/assets`.
+
+See [`docs/ATTRIBUTION.md`](docs/ATTRIBUTION.md) and [`ui/public/assets/PROVENANCE.md`](ui/public/assets/PROVENANCE.md) for details.
+
+## Licensing
+
+The code in this repository is MIT-licensed. Third-party engine ideas and art assets may carry different terms. Treat the office art as hobby/demo assets unless you have independently verified redistribution rights for your use case.
 
 ## Why I built it
 
-I wanted a local workspace where multiple coding agents feel like a visible team instead of invisible terminal tabs.
-
-The office metaphor is not just decoration. It is a way to make launch decisions, live state, and recent output understandable at a glance.
+I wanted a local workspace where multiple coding agents feel like a visible team instead of invisible terminal tabs. The office metaphor isn't decoration — it's a way to make launch decisions, live state, and recent output legible at a glance. The memory layer is the quiet thing that keeps them useful turn after turn.
