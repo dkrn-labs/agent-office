@@ -84,7 +84,15 @@ async function main() {
     process.exit(0);
   }
 
-  const payload = buildHistoryIngestPayload(args.provider, input, { cwd: process.cwd() });
+  const historySessionIdEnv = Number(process.env.AGENT_OFFICE_HISTORY_SESSION_ID);
+  const historySessionId = Number.isInteger(historySessionIdEnv) && historySessionIdEnv > 0
+    ? historySessionIdEnv
+    : null;
+
+  const payload = buildHistoryIngestPayload(args.provider, input, {
+    cwd: process.cwd(),
+    historySessionId,
+  });
   if (!payload) {
     process.stdout.write('{}\n');
     process.exit(0);
