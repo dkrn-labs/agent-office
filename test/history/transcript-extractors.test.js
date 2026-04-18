@@ -290,4 +290,58 @@ describe('enrichCodexTurn', () => {
 
     assert.deepEqual(result.filesRead, ['/tmp/project/src/history/hook-bridge.js']);
   });
+
+  it('matches Codex notify session ids against submission ids in logs', () => {
+    const stateDbPath = join(dir, 'state-submission.sqlite');
+    const logsDbPath = join(dir, 'logs-submission.sqlite');
+    const stateDb = new Database(stateDbPath);
+    const logsDb = new Database(logsDbPath);
+
+    stateDb.exec(`
+      CREATE TABLE threads (
+        id TEXT PRIMARY KEY,
+        cwd TEXT NOT NULL,
+        updated_at INTEGER NOT NULL,
+        first_user_message TEXT NOT NULL DEFAULT '',
+        title TEXT NOT NULL DEFAULT ''
+      );
+    `);
+    logsDb.exec(`
+      CREATE TABLE logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ts INTEGER NOT NULL,
+        ts_nanos INTEGER NOT NULL,
+        thread_id TEXT,
+        feedback_log_body TEXT
+      );
+    `);
+
+    stateDb
+      .prepare(`INSERT INTO threads (id, cwd, updated_at, first_user_message, title) VALUES (?, ?, ?, ?, ?)`)
+      .run('thread-4', '/tmp/project', 400, 'Populate project history', 'Project history');
+    logsDb
+      .prepare(`INSERT INTO logs (ts, ts_nanos, thread_id, feedback_log_body) VALUES (?, ?, ?, ?)`)
+      .run(
+        400,
+        0,
+        'thread-4',
+        'session_loop{thread_id=thread-4}:submission_dispatch{submission.id=submission-1}: ToolCall: apply_patch *** Begin Patch\n*** Update File: /tmp/project/src/history/project-history.js\n*** End Patch\n',
+      );
+
+    stateDb.close();
+    logsDb.close();
+
+    const result = enrichCodexTurn({
+      logsDbPath,
+      stateDbPath,
+      cwd: '/tmp/project',
+      turnId: 'submission-1',
+      responseText: null,
+      createdAt: '2026-04-16T12:25:00.000Z',
+    });
+
+    assert.equal(result.request, 'Populate project history');
+    assert.equal(result.completed, 'Updated project-history.js.');
+    assert.deepEqual(result.filesEdited, ['/tmp/project/src/history/project-history.js']);
+  });
 });

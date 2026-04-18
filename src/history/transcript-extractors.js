@@ -222,10 +222,21 @@ function parseTurnIdFromBody(body) {
   return trimText(match?.[1]) ?? null;
 }
 
+function parseSubmissionIdFromBody(body) {
+  if (typeof body !== 'string') return null;
+  const match = body.match(/\bsubmission\.id=([^}\s]+)/i);
+  return trimText(match?.[1]) ?? null;
+}
+
 function parseThreadIdFromBody(body) {
   if (typeof body !== 'string') return null;
   const match = body.match(/\bthread_id=([^}\s:]+)/i);
   return trimText(match?.[1]) ?? trimText(body.match(/\bthread\.id=([^}\s:]+)/i)?.[1]) ?? null;
+}
+
+function bodyMatchesCodexEventId(body, eventId) {
+  if (typeof body !== 'string' || !trimText(eventId)) return false;
+  return parseTurnIdFromBody(body) === eventId || parseSubmissionIdFromBody(body) === eventId;
 }
 
 function parseCodexToolCallJson(body, marker) {
@@ -275,7 +286,7 @@ function findCodexThreadForTurn(logsDb, turnId) {
     `)
     .all(`%${turnId}%`);
   for (const row of rows) {
-    if (parseTurnIdFromBody(row?.feedback_log_body) !== turnId) continue;
+    if (!bodyMatchesCodexEventId(row?.feedback_log_body, turnId)) continue;
     return trimText(row?.thread_id) ?? null;
   }
   return null;
@@ -323,7 +334,7 @@ function extractCodexTurnActivity({ logsDbPath, stateDbPath, cwd, turnId }) {
             ORDER BY ts DESC, ts_nanos DESC, id DESC
             LIMIT 200
           `)
-          .all(thread.id, `%turn.id=${turnId}%`)
+          .all(thread.id, `%${turnId}%`)
       : logsDb
           .prepare(`
             SELECT feedback_log_body
@@ -341,9 +352,9 @@ function extractCodexTurnActivity({ logsDbPath, stateDbPath, cwd, turnId }) {
     for (const row of rows) {
       const body = row?.feedback_log_body;
       if (typeof body !== 'string') continue;
-      const bodyTurnId = parseTurnIdFromBody(body);
-      if (turnId && bodyTurnId && bodyTurnId !== turnId) continue;
-      if (turnId && bodyTurnId === turnId) matchedTurn = true;
+      const matchedEventId = turnId ? bodyMatchesCodexEventId(body, turnId) : false;
+      if (turnId && !matchedEventId) continue;
+      if (matchedEventId) matchedTurn = true;
 
       if (body.includes('ToolCall: exec_command')) {
         const parsed = parseCodexToolCallJson(body, 'ToolCall: exec_command');

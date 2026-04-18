@@ -114,7 +114,7 @@ describe('buildHistoryIngestPayload', () => {
         100,
         0,
         'thread-1',
-        'session_loop{thread_id=thread-1}:turn{turn.id=codex-turn-1}: ToolCall: exec_command {"cmd":"git add /tmp/project/src/hook.js","workdir":"/tmp/project"}',
+        'session_loop{thread_id=thread-1}:submission_dispatch{submission.id=codex-turn-1}: ToolCall: exec_command {"cmd":"git add /tmp/project/src/hook.js","workdir":"/tmp/project"}',
       );
 
     stateDb.close();
