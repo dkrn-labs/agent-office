@@ -134,6 +134,7 @@ export function createProjectHistoryStore(repo, { db = null, brief = null } = {}
   function ingest({
     projectId,
     projectPath,
+    historySessionId,
     personaId,
     providerId,
     providerSessionId,
@@ -152,8 +153,16 @@ export function createProjectHistoryStore(repo, { db = null, brief = null } = {}
     const project = projectId != null ? repo.getProject(Number(projectId)) : repo.getProjectByPath(projectPath);
     if (!project) throw new Error('Project not found');
 
-    let historySession =
-      providerSessionId != null ? repo.getHistorySessionByProvider(providerId, providerSessionId) : null;
+    let historySession = null;
+    if (historySessionId != null) {
+      historySession = repo.getHistorySession(Number(historySessionId));
+      if (historySession && historySession.projectId !== project.id) {
+        throw new Error('historySessionId belongs to a different project');
+      }
+    }
+    if (!historySession && providerSessionId != null) {
+      historySession = repo.getHistorySessionByProvider(providerId, providerSessionId);
+    }
 
     if (!historySession) {
       const historySessionId = repo.createHistorySession({
@@ -171,8 +180,9 @@ export function createProjectHistoryStore(repo, { db = null, brief = null } = {}
       historySession = repo.getHistorySession(Number(historySessionId));
     } else {
       repo.updateHistorySession(historySession.id, {
-        personaId: personaId != null ? Number(personaId) : null,
-        startedAt,
+        personaId: personaId != null ? Number(personaId) : historySession.personaId,
+        providerSessionId: providerSessionId ?? historySession.providerSessionId,
+        startedAt: startedAt ?? historySession.startedAt,
         endedAt,
         status,
         model,

@@ -764,6 +764,7 @@ export function createRepository(db) {
     update: db.prepare(`
       UPDATE history_session SET
         persona_id = COALESCE(@personaId, persona_id),
+        provider_session_id = COALESCE(@providerSessionId, provider_session_id),
         started_at = COALESCE(@startedAt, started_at),
         ended_at = COALESCE(@endedAt, ended_at),
         status = COALESCE(@status, status),
@@ -861,6 +862,7 @@ export function createRepository(db) {
     historySessionStmts.update.run({
       id,
       personaId: fields.personaId ?? null,
+      providerSessionId: fields.providerSessionId ?? null,
       startedAt: fields.startedAt ?? null,
       endedAt: fields.endedAt ?? null,
       status: fields.status ?? null,
