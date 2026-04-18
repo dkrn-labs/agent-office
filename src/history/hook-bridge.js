@@ -9,6 +9,11 @@ function toIsoNow() {
   return new Date().toISOString();
 }
 
+function toInt(value) {
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
 function buildClaudePayload(input, opts = {}) {
   const projectPath = trimText(input.cwd) ?? trimText(process.env.CLAUDE_PROJECT_DIR) ?? opts.cwd ?? null;
   const createdAt = trimText(input.timestamp) ?? toIsoNow();
@@ -24,6 +29,7 @@ function buildClaudePayload(input, opts = {}) {
     projectPath,
     providerId: 'claude-code',
     providerSessionId: trimText(input.session_id),
+    historySessionId: toInt(opts.historySessionId) ?? null,
     model: trimText(input.model) ?? null,
     status: 'completed',
     summary: {
@@ -55,6 +61,7 @@ function buildGeminiPayload(input, opts = {}) {
     projectPath,
     providerId: 'gemini-cli',
     providerSessionId: trimText(input.session_id),
+    historySessionId: toInt(opts.historySessionId) ?? null,
     status: 'completed',
     summary: {
       summaryKind: 'turn',
@@ -89,6 +96,7 @@ function buildCodexPayload(input, opts = {}) {
     projectPath,
     providerId: 'codex',
     providerSessionId: trimText(input.session_id) ?? trimText(input.turn_id) ?? trimText(input['turn-id']),
+    historySessionId: toInt(opts.historySessionId) ?? null,
     status: 'completed',
     summary: {
       summaryKind: 'turn',

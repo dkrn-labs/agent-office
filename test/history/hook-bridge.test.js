@@ -139,4 +139,30 @@ describe('buildHistoryIngestPayload', () => {
     delete process.env.CODEX_LOGS_DB_PATH;
     rmSync(dir, { recursive: true, force: true });
   });
+
+  it('propagates opts.historySessionId into the payload', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'agent-office-hook-bridge-'));
+    const transcriptPath = join(dir, 'claude.jsonl');
+    writeFileSync(
+      transcriptPath,
+      `${JSON.stringify({
+        type: 'assistant',
+        message: { role: 'assistant', content: [{ type: 'text', text: 'done' }] },
+      })}\n`,
+      'utf8',
+    );
+    const payload = buildHistoryIngestPayload(
+      'claude-code',
+      {
+        session_id: 'claude-x',
+        cwd: '/tmp/project',
+        hook_event_name: 'Stop',
+        transcript_path: transcriptPath,
+        last_assistant_message: 'done',
+      },
+      { historySessionId: 4242 },
+    );
+    assert.equal(payload.historySessionId, 4242);
+    rmSync(dir, { recursive: true, force: true });
+  });
 });
