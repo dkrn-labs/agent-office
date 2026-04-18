@@ -2,6 +2,7 @@ import { createRequire } from 'node:module';
 import { mkdirSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import * as sqliteVec from 'sqlite-vec';
 
 // better-sqlite3 is a CommonJS module; use createRequire to import it in ESM.
 const require = createRequire(import.meta.url);
@@ -24,6 +25,13 @@ export function openDatabase(dbPath) {
 
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
+
+  // Load sqlite-vec for vector search over history observations.
+  try {
+    sqliteVec.load(db);
+  } catch (err) {
+    console.warn('[db] sqlite-vec failed to load; vector features disabled:', err.message);
+  }
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS _migrations (
