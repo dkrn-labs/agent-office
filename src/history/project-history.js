@@ -1,4 +1,7 @@
 import { filterObservationsForPersona } from '../memory/persona-filter.js';
+import { getPersonaBrief } from '../memory/brief/brief.js';
+import { embedBatch } from '../memory/brief/embeddings.js';
+import { observationToText, upsertEmbedding } from '../memory/brief/embed-store.js';
 
 function toEpochMillis(value) {
   if (value == null) return null;
@@ -7,13 +10,17 @@ function toEpochMillis(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function buildLastSessionBlock(last) {
+  if (!last) return '';
+  const summary = last.completed ?? last.title ?? last.request ?? '';
+  const nextBit = last.nextSteps ? ` Next: ${last.nextSteps}.` : '';
+  return `## Last Session\n${summary}.${nextBit}`;
+}
+
 function buildHistorySection(last, personaObs, persona) {
   const parts = [];
-  if (last) {
-    const summary = last.completed ?? last.title ?? last.request ?? '';
-    const nextBit = last.nextSteps ? ` Next: ${last.nextSteps}.` : '';
-    parts.push(`## Last Session\n${summary}.${nextBit}`);
-  }
+  const lastBlock = buildLastSessionBlock(last);
+  if (lastBlock) parts.push(lastBlock);
   if (personaObs.length > 0) {
     const bullets = personaObs
       .map((o) => {
@@ -32,14 +39,64 @@ function buildHistorySection(last, personaObs, persona) {
  *
  * @param {ReturnType<import('../db/repository.js').createRepository>} repo
  */
-export function createProjectHistoryStore(repo) {
-  function getLaunchHistory(projectId, persona, { summaryLimit = 1, observationLimit = 50, personaObservationLimit = 10 } = {}) {
+export function createProjectHistoryStore(repo, { db = null, brief = null } = {}) {
+  const briefEnabled = Boolean(brief?.enabled && db);
+  const briefBudget = Number(brief?.budgetTokens) || 1000;
+
+  function scheduleObservationEmbedding(items) {
+    const batch = items
+      .map(({ id, observation }) => ({ id, text: observationToText(observation) }))
+      .filter((item) => item.text.length > 0);
+    if (batch.length === 0) return;
+
+    // Fire-and-forget: embedding shouldn't block ingest.
+    Promise.resolve()
+      .then(async () => {
+        const { vectors, model: usedModel, dims } = await embedBatch(batch.map((b) => b.text));
+        for (let i = 0; i < batch.length; i += 1) {
+          upsertEmbedding(db, batch[i].id, vectors[i], { model: usedModel, dims });
+        }
+      })
+      .catch((err) => {
+        console.warn('[history] embedding new observations failed:', err.message);
+      });
+  }
+
+  async function getLaunchHistory(projectId, persona, { summaryLimit = 1, observationLimit = 50, personaObservationLimit = 10 } = {}) {
     const summaries = repo.listHistorySummaries({ projectId, limit: summaryLimit });
     const observations = repo.listHistoryObservations({ projectId, limit: observationLimit });
     const lastSummary = summaries[0] ?? null;
     const personaObservations = filterObservationsForPersona(observations, persona, {
       limit: personaObservationLimit,
     });
+
+    let section = buildHistorySection(lastSummary, personaObservations, persona);
+    let briefMeta = null;
+
+    if (briefEnabled) {
+      try {
+        const result = await getPersonaBrief(db, {
+          projectId,
+          personaId: persona?.id ?? null,
+          budgetTokens: briefBudget,
+        });
+        if (result.sourceCount > 0) {
+          const parts = [];
+          const lastBlock = buildLastSessionBlock(lastSummary);
+          if (lastBlock) parts.push(lastBlock);
+          parts.push(result.markdown);
+          section = parts.join('\n\n');
+          briefMeta = {
+            enabled: true,
+            usedTokens: result.usedTokens,
+            budgetTokens: result.budgetTokens,
+            sourceCount: result.sourceCount,
+          };
+        }
+      } catch (err) {
+        console.warn('[history] brief generation failed; falling back to raw section:', err.message);
+      }
+    }
 
     return {
       lastSession: lastSummary
@@ -51,7 +108,8 @@ export function createProjectHistoryStore(repo) {
           }
         : null,
       personaObservations,
-      section: buildHistorySection(lastSummary, personaObservations, persona),
+      section,
+      brief: briefMeta,
     };
   }
 
@@ -128,8 +186,9 @@ export function createProjectHistoryStore(repo) {
       );
     }
 
-    const observationIds = observations.map((observation) =>
-      Number(
+    const createdObservations = [];
+    const observationIds = observations.map((observation) => {
+      const id = Number(
         repo.createHistoryObservation({
           historySessionId: historySession.id,
           projectId: project.id,
@@ -151,8 +210,14 @@ export function createProjectHistoryStore(repo) {
           createdAtEpoch: toEpochMillis(observation.createdAtEpoch ?? observation.createdAt),
           expiresAt: observation.expiresAt,
         }),
-      ),
-    );
+      );
+      createdObservations.push({ id, observation });
+      return id;
+    });
+
+    if (briefEnabled && createdObservations.length > 0) {
+      scheduleObservationEmbedding(createdObservations);
+    }
 
     return {
       project,

@@ -217,7 +217,7 @@ export function createLauncher({
     let lastSession = null;
     let personaObservations = [];
     if (projectHistory) {
-      const history = projectHistory.getLaunchHistory(project.id, persona);
+      const history = await projectHistory.getLaunchHistory(project.id, persona);
       lastSession = history.lastSession;
       personaObservations = history.personaObservations;
       claudeMemSection = history.section;

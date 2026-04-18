@@ -67,7 +67,15 @@ export function createApp({
   // Skill resolver uses repo.listSkills() — pass repo as the "db" argument
   // (createSkillResolver's param is named db but only calls .listSkills())
   const memoryEngine = createMemoryEngine(repo);
-  const projectHistory = createProjectHistoryStore(repo);
+  const briefEnabled = process.env.AGENT_OFFICE_BRIEF_ENABLED !== '0';
+  const briefBudget = Number(process.env.AGENT_OFFICE_BRIEF_BUDGET) || 1000;
+  const projectHistory = createProjectHistoryStore(repo, {
+    db,
+    brief: { enabled: briefEnabled, budgetTokens: briefBudget },
+  });
+  if (briefEnabled) {
+    console.log(`[server] persona brief enabled (budget=${briefBudget} tokens)`);
+  }
   const localSkillInventory = scanLocalSkills(config.skillRoots);
   const resolver = createSkillResolver(repo, { localSkillInventory });
 
