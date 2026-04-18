@@ -54,6 +54,7 @@ export function historyRoutes(historyStore) {
       const result = historyStore.ingest({
         projectId: payload.projectId,
         projectPath: payload.projectPath,
+        historySessionId: payload.historySessionId,
         personaId: payload.personaId,
         providerId: payload.providerId,
         providerSessionId: payload.providerSessionId,
