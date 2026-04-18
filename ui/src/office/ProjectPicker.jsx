@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useOfficeStore } from '../stores/office-store.js';
 import { DEFAULT_LAUNCH_PROVIDER_ID, getLaunchProviderById, LAUNCH_PROVIDERS } from '../lib/launch-options.js';
 import { isSessionLive, useSessionClock } from '../lib/session-status.js';
+import { fetchJSON } from '../lib/api.js';
 
 const BADGE_COLORS = {
   node: 'bg-blue-900 text-blue-300',
@@ -63,6 +64,10 @@ export default function ProjectPicker() {
   const [selectedModel, setSelectedModel] = useState(getLaunchProviderById(DEFAULT_LAUNCH_PROVIDER_ID).defaultModel);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [personaStats, setPersonaStats] = useState(null);
+  const [memQuery, setMemQuery] = useState('');
+  const [memHits, setMemHits] = useState([]);
+  const [memSearching, setMemSearching] = useState(false);
   const searchRef = useRef(null);
   const backdropRef = useRef(null);
   const now = useSessionClock();
@@ -143,6 +148,29 @@ export default function ProjectPicker() {
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, [pickerOpen, closePicker]);
+
+  useEffect(() => {
+    setMemQuery('');
+    setMemHits([]);
+  }, [selectedProject]);
+
+  useEffect(() => {
+    if (!selectedProject) {
+      setPersonaStats(null);
+      return undefined;
+    }
+    let cancelled = false;
+    fetchJSON(`/api/projects/${selectedProject.id}/personas/memory-stats`)
+      .then((data) => {
+        if (!cancelled) setPersonaStats(data);
+      })
+      .catch(() => {
+        if (!cancelled) setPersonaStats(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedProject]);
 
   if (!pickerOpen) return null;
 
@@ -425,6 +453,17 @@ export default function ProjectPicker() {
                   <p className="mt-1 font-mono text-xs text-gray-500" title={selectedProject.path}>
                     {truncatePath(selectedProject.path, 68)}
                   </p>
+                  {persona && (() => {
+                    const stat = personaStats?.stats?.find((s) => s.personaId === persona.id);
+                    const count = stat?.observationCount ?? 0;
+                    return (
+                      <p className="mt-1.5 text-[10px] text-gray-500">
+                        <span className="text-gray-400">{persona.label}</span> has{' '}
+                        <span className="text-gray-300">{count}</span> observation{count === 1 ? '' : 's'} on this project
+                        {stat?.providerCount > 1 && <> across {stat.providerCount} providers</>}
+                      </p>
+                    );
+                  })()}
                 </>
               ) : (
                 <p className="mt-1 text-sm text-gray-400">
@@ -464,6 +503,64 @@ export default function ProjectPicker() {
               </datalist>
             </label>
           </div>
+
+          {selectedProject && (
+            <div className="mt-3 rounded-lg border border-gray-800 bg-gray-950/50 px-3 py-2">
+              <label className="flex items-center gap-2">
+                <span className="text-[10px] uppercase tracking-widest text-gray-500 shrink-0">
+                  Search memory
+                </span>
+                <input
+                  type="text"
+                  value={memQuery}
+                  onChange={(e) => setMemQuery(e.target.value)}
+                  onKeyDown={async (e) => {
+                    if (e.key !== 'Enter') return;
+                    const q = memQuery.trim();
+                    if (!q) {
+                      setMemHits([]);
+                      return;
+                    }
+                    setMemSearching(true);
+                    try {
+                      const params = new URLSearchParams({
+                        q,
+                        projectId: String(selectedProject.id),
+                        k: '5',
+                      });
+                      if (persona?.id != null) params.set('personaId', String(persona.id));
+                      const data = await fetchJSON(`/api/memory/search?${params.toString()}`);
+                      setMemHits(data?.hits ?? []);
+                    } catch {
+                      setMemHits([]);
+                    } finally {
+                      setMemSearching(false);
+                    }
+                  }}
+                  placeholder='"auth middleware rewrite", "that sqlite-vec bug"…'
+                  className="w-full rounded border border-gray-700 bg-gray-900 px-2 py-1 text-xs text-gray-100 outline-none focus:border-blue-500"
+                />
+                {memSearching && (
+                  <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-gray-600 border-t-blue-400" />
+                )}
+              </label>
+              {memHits.length > 0 && (
+                <ul className="mt-2 space-y-1 max-h-40 overflow-y-auto">
+                  {memHits.map((hit) => (
+                    <li key={hit.id} className="rounded border border-gray-800 bg-gray-900/60 px-2 py-1">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="text-[11px] font-semibold text-gray-200 truncate">{hit.title}</span>
+                        <span className="text-[9px] uppercase text-gray-500 shrink-0">{hit.providerId}</span>
+                      </div>
+                      {hit.subtitle && (
+                        <p className="text-[10px] text-gray-400 line-clamp-1">{hit.subtitle}</p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
 
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
             <p className="text-xs text-gray-500">

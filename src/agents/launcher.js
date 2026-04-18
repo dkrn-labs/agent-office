@@ -239,7 +239,7 @@ export function createLauncher({
    * @returns {Promise<{ sessionId: number, projectPath: string, systemPrompt: string, skills: object[], memories: object[] }>}
    */
   async function prepareLaunch(personaId, projectId, options = {}) {
-    const { persona, project, systemPrompt, resolvedSkills, memories, launchTarget } = await buildLaunchContext(
+    const { persona, project, systemPrompt, resolvedSkills, memories, launchTarget, brief } = await buildLaunchContext(
       personaId,
       projectId,
       options,
@@ -268,6 +268,14 @@ export function createLauncher({
       personaDomain: persona.domain,
       providerId: launchTarget.providerId,
       lastModel: launchTarget.model,
+      brief: brief
+        ? {
+            enabled: brief.enabled,
+            usedTokens: brief.usedTokens,
+            budgetTokens: brief.budgetTokens,
+            sourceCount: brief.sourceCount,
+          }
+        : null,
     });
 
     return {
@@ -276,6 +284,7 @@ export function createLauncher({
       systemPrompt,
       skills: resolvedSkills,
       memories,
+      brief,
       startedAt,
       launchTarget,
       providerId: launchTarget.providerId,
