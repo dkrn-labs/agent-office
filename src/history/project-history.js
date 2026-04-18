@@ -1,5 +1,5 @@
 import { filterObservationsForPersona } from '../memory/persona-filter.js';
-import { getPersonaBrief } from '../memory/brief/brief.js';
+import { getPersonaBrief, buildManualBrief } from '../memory/brief/brief.js';
 import { embedBatch } from '../memory/brief/embeddings.js';
 import { observationToText, upsertEmbedding } from '../memory/brief/embed-store.js';
 
@@ -62,7 +62,13 @@ export function createProjectHistoryStore(repo, { db = null, brief = null } = {}
       });
   }
 
-  async function getLaunchHistory(projectId, persona, { summaryLimit = 1, observationLimit = 50, personaObservationLimit = 10 } = {}) {
+  async function getLaunchHistory(projectId, persona, {
+    summaryLimit = 1,
+    observationLimit = 50,
+    personaObservationLimit = 10,
+    overrideObservationIds = null,
+    customInstructions = null,
+  } = {}) {
     const summaries = repo.listHistorySummaries({ projectId, limit: summaryLimit });
     const observations = repo.listHistoryObservations({ projectId, limit: observationLimit });
     const lastSummary = summaries[0] ?? null;
@@ -75,11 +81,13 @@ export function createProjectHistoryStore(repo, { db = null, brief = null } = {}
 
     if (briefEnabled) {
       try {
-        const result = await getPersonaBrief(db, {
-          projectId,
-          personaId: persona?.id ?? null,
-          budgetTokens: briefBudget,
-        });
+        const result = Array.isArray(overrideObservationIds)
+          ? buildManualBrief(db, overrideObservationIds)
+          : await getPersonaBrief(db, {
+              projectId,
+              personaId: persona?.id ?? null,
+              budgetTokens: briefBudget,
+            });
         if (result.sourceCount > 0) {
           const parts = [];
           const lastBlock = buildLastSessionBlock(lastSummary);
@@ -90,13 +98,21 @@ export function createProjectHistoryStore(repo, { db = null, brief = null } = {}
             enabled: true,
             markdown: result.markdown,
             usedTokens: result.usedTokens,
-            budgetTokens: result.budgetTokens,
+            budgetTokens: result.budgetTokens ?? briefBudget,
             sourceCount: result.sourceCount,
+            observationIds: result.observationIds ?? [],
+            manual: Array.isArray(overrideObservationIds),
           };
         }
       } catch (err) {
         console.warn('[history] brief generation failed; falling back to raw section:', err.message);
       }
+    }
+
+    const trimmedInstructions = typeof customInstructions === 'string' ? customInstructions.trim() : '';
+    if (trimmedInstructions) {
+      const userIntentBlock = `## User intent\n${trimmedInstructions}`;
+      section = section ? `${section}\n\n${userIntentBlock}` : userIntentBlock;
     }
 
     return {
@@ -111,6 +127,7 @@ export function createProjectHistoryStore(repo, { db = null, brief = null } = {}
       personaObservations,
       section,
       brief: briefMeta,
+      customInstructions: trimmedInstructions || null,
     };
   }
 

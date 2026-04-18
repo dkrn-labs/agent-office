@@ -3,8 +3,7 @@ import { useOfficeStore } from './stores/office-store.js';
 import { createWsClient } from './lib/ws-client.js';
 import DashboardLayout from './layout/DashboardLayout.jsx';
 import OfficeCanvas from './office/OfficeCanvas.jsx';
-import ProjectPicker from './office/ProjectPicker.jsx';
-import LaunchPreview from './office/LaunchPreview.jsx';
+import LaunchWizard from './office/LaunchWizard.jsx';
 
 export default function App() {
   const fetchPersonas = useOfficeStore((s) => s.fetchPersonas);
@@ -35,8 +34,7 @@ export default function App() {
       <DashboardLayout>
         <OfficeCanvas />
       </DashboardLayout>
-      <ProjectPicker />
-      <LaunchPreview />
+      <LaunchWizard />
     </>
   );
 }

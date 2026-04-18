@@ -123,13 +123,6 @@ export const useOfficeStore = create((set, get) => ({
     outcome: null,
   },
 
-  // Preview flow (Phase 4.6)
-  previewOpen:    false,     // true when showing the preview card
-  previewLoading: false,
-  previewData:    null,      // server response from /api/office/preview
-  previewError:   null,
-  previewProject: null,      // the project the user clicked (for display while loading)
-
   // ── async actions ───────────────────────────────────────────────────────────
 
   async fetchPersonas() {
@@ -275,43 +268,14 @@ export const useOfficeStore = create((set, get) => ({
     });
   },
 
-  async previewLaunch(personaId, project, launchConfig = {}) {
-    set({
-      previewOpen:    true,
-      previewLoading: true,
-      previewError:   null,
-      previewData:    null,
-      previewProject: project,
-    });
-    try {
-      const data = await fetchJSONWithQuery('/api/office/preview', {
-        personaId,
-        projectId: project.id,
-        providerId: launchConfig.providerId,
-        model: launchConfig.model,
-      });
-      set({ previewData: data, previewLoading: false });
-    } catch (err) {
-      set({ previewError: err.message ?? 'Failed to load preview', previewLoading: false });
-    }
-  },
-
-  closePreview() {
-    set({
-      previewOpen:    false,
-      previewLoading: false,
-      previewData:    null,
-      previewError:   null,
-      previewProject: null,
-    });
-  },
-
   async launchAgent(personaId, projectId, launchConfig = {}) {
     const result = await postJSON('/api/office/launch', {
       personaId,
       projectId,
       providerId: launchConfig.providerId,
       model: launchConfig.model,
+      selectedObservationIds: launchConfig.selectedObservationIds,
+      customInstructions: launchConfig.customInstructions,
     });
     set((state) => {
       const nextState = {

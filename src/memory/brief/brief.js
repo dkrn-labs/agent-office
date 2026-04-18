@@ -41,6 +41,38 @@ function observationLine(obs, perObsBudget) {
 }
 
 /**
+ * Build a brief from explicitly-chosen observation IDs. Used by the launch
+ * wizard when the user hand-picks which observations to inject.
+ *
+ * @param {import('better-sqlite3').Database} db
+ * @param {number[]} observationIds  Selected observation IDs.
+ * @param {{perObsBudget?: number}} [opts]
+ * @returns {{markdown: string, usedTokens: number, sourceCount: number, observationIds: number[]}}
+ */
+export function buildManualBrief(db, observationIds, { perObsBudget = 400 } = {}) {
+  if (!observationIds || observationIds.length === 0) {
+    return { markdown: '', usedTokens: 0, sourceCount: 0, observationIds: [] };
+  }
+  const placeholders = observationIds.map(() => '?').join(',');
+  const rows = db.prepare(
+    `SELECT * FROM history_observation
+     WHERE history_observation_id IN (${placeholders})
+     ORDER BY created_at_epoch DESC`,
+  ).all(...observationIds);
+
+  const lines = rows.map((r) => observationLine(r, perObsBudget));
+  const header = '## Project brief\n';
+  const body = lines.join('\n');
+  const markdown = header + body;
+  return {
+    markdown,
+    usedTokens: estimateTokens(markdown),
+    sourceCount: rows.length,
+    observationIds: rows.map((r) => r.history_observation_id),
+  };
+}
+
+/**
  * Return the raw memory as a markdown list (the "no brief" baseline that the
  * benchmark compares against). Scoped to project + persona if given.
  *
@@ -137,12 +169,14 @@ export async function getPersonaBrief(db, {
 
   const perObsBudget = Math.max(60, Math.floor(remaining / Math.max(ordered.length, 1)));
   const lines = [];
+  const observationIds = [];
   let used = 0;
   for (const { obs } of ordered) {
     const line = observationLine(obs, perObsBudget);
     const lineTokens = estimateTokens(line) + 1;
     if (used + lineTokens > remaining) break;
     lines.push(line);
+    observationIds.push(obs.history_observation_id);
     used += lineTokens;
   }
 
@@ -152,5 +186,6 @@ export async function getPersonaBrief(db, {
     budgetTokens,
     sourceCount: lines.length,
     candidateCount: ordered.length,
+    observationIds,
   };
 }

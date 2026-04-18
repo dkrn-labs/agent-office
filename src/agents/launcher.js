@@ -196,7 +196,12 @@ export function createLauncher({
     let personaObservations = [];
     let brief = null;
     if (projectHistory) {
-      const history = await projectHistory.getLaunchHistory(project.id, persona);
+      const history = await projectHistory.getLaunchHistory(project.id, persona, {
+        overrideObservationIds: Array.isArray(options.selectedObservationIds)
+          ? options.selectedObservationIds
+          : null,
+        customInstructions: options.customInstructions ?? null,
+      });
       lastSession = history.lastSession;
       personaObservations = history.personaObservations;
       historySection = history.section;
@@ -360,5 +365,36 @@ export function createLauncher({
     };
   }
 
-  return { prepareLaunch, launch, preview };
+  /**
+   * Return the candidate observations the launch wizard's Step 3 renders as
+   * checkboxes, plus the IDs the auto-brief would default-select.
+   */
+  async function memoryCandidates(personaId, projectId, { limit = 10 } = {}) {
+    const persona = repo.getPersona(personaId);
+    if (!persona) throw new Error(`Persona not found: ${personaId}`);
+    const project = repo.getProject(projectId);
+    if (!project) throw new Error(`Project not found: ${projectId}`);
+
+    const history = projectHistory
+      ? await projectHistory.getLaunchHistory(project.id, persona, {
+          personaObservationLimit: limit,
+        })
+      : { personaObservations: [], brief: null };
+
+    return {
+      candidates: history.personaObservations.map((o) => ({
+        id: o.id,
+        type: o.type,
+        title: o.title,
+        subtitle: o.subtitle,
+        providerId: o.providerId,
+        filesModified: o.filesModified ?? [],
+        createdAt: o.createdAt,
+      })),
+      defaultSelectedIds: history.brief?.observationIds ?? [],
+      lastSession: history.lastSession,
+    };
+  }
+
+  return { prepareLaunch, launch, preview, memoryCandidates };
 }
