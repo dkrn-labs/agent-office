@@ -29,13 +29,26 @@ function formatEnded(value) {
   });
 }
 
-function formatBoolean(value) {
-  if (value == null) return '—';
-  return value ? 'yes' : 'no';
-}
-
 function providerLabel(providerId) {
   return PROVIDER_LABELS[providerId] ?? providerId ?? '—';
+}
+
+function hasTelemetry(d) {
+  if (!d) return false;
+  return (
+    (d.tokensIn ?? 0) > 0 ||
+    (d.tokensOut ?? 0) > 0 ||
+    (d.tokensCacheRead ?? 0) > 0 ||
+    (d.tokensCacheWrite ?? 0) > 0 ||
+    (d.totalTokens ?? 0) > 0 ||
+    (d.costUsd ?? null) != null ||
+    (d.commitsProduced ?? 0) > 0 ||
+    d.diffExists != null ||
+    (d.outcome ?? null) != null ||
+    (d.durationSec ?? null) != null ||
+    (d.endedAt ?? null) != null ||
+    (d.lastModel ?? null) != null
+  );
 }
 
 export default function HistoryView() {
@@ -58,102 +71,131 @@ export default function HistoryView() {
     }
   }, [historyPage, fetchHistory]);
 
-  const breakdownAvailable =
+  const telemetryPresent = hasTelemetry(historyDetail);
+  const tokenBreakdownAvailable =
     historyDetail &&
     historyDetail.providerId !== 'codex' &&
-    (
-      (historyDetail.tokensIn ?? 0) > 0 ||
+    ((historyDetail.tokensIn ?? 0) > 0 ||
       (historyDetail.tokensOut ?? 0) > 0 ||
       (historyDetail.tokensCacheRead ?? 0) > 0 ||
-      (historyDetail.tokensCacheWrite ?? 0) > 0
-    );
+      (historyDetail.tokensCacheWrite ?? 0) > 0);
+
+  const hasSummaryContent =
+    historyDetail &&
+    (historyDetail.summaryRequest ||
+      historyDetail.summaryCompleted ||
+      historyDetail.summaryNextSteps);
 
   return (
     <div className="history-view">
-      <div className="history-toolbar">
-        <div className="history-filter-group">
-          <label>
-            Persona
-            <select
-              value={historyFilters.personaId ?? ''}
-              onChange={(e) => setHistoryFilters({ personaId: e.target.value || null })}
-            >
-              <option value="">All</option>
-              {personas.map((persona) => (
-                <option key={persona.id} value={persona.id}>{persona.label}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Project
-            <select
-              value={historyFilters.projectId ?? ''}
-              onChange={(e) => setHistoryFilters({ projectId: e.target.value || null })}
-            >
-              <option value="">All</option>
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>{project.name}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Source
-            <select
-              value={historyFilters.source ?? ''}
-              onChange={(e) => setHistoryFilters({ source: e.target.value || null })}
-            >
-              <option value="">All</option>
-              <option value="launcher">launcher</option>
-              <option value="provider-hook">provider-hook</option>
-              <option value="unassigned">Unassigned</option>
-            </select>
-          </label>
-        </div>
-      </div>
-
-      <div className="history-summary">
-        <span>{historyPage?.totalItems ?? 0} sessions</span>
-      </div>
-
-      <div className="history-table">
-        <div className="history-row history-row--head">
-          <span>Persona</span>
-          <span>Project</span>
-          <span>Provider</span>
-          <span>Started</span>
-          <span>Source</span>
-          <span>Status</span>
+      <div className="history-main">
+        <div className="history-intro">
+          <div className="history-detail-eyebrow">Session History</div>
+          <p>Browse past agent runs, inspect what was completed, and follow the trail of observations each persona left behind.</p>
         </div>
 
-        {historyLoading && <div className="panel-placeholder">Loading session history…</div>}
+        <div className="history-toolbar">
+          <div className="history-filter-group">
+            <label>
+              Persona
+              <select
+                value={historyFilters.personaId ?? ''}
+                onChange={(e) => setHistoryFilters({ personaId: e.target.value || null })}
+              >
+                <option value="">All</option>
+                {personas.map((persona) => (
+                  <option key={persona.id} value={persona.id}>{persona.label}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Project
+              <select
+                value={historyFilters.projectId ?? ''}
+                onChange={(e) => setHistoryFilters({ projectId: e.target.value || null })}
+              >
+                <option value="">All</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>{project.name}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Source
+              <select
+                value={historyFilters.source ?? ''}
+                onChange={(e) => setHistoryFilters({ source: e.target.value || null })}
+              >
+                <option value="">All</option>
+                <option value="launcher">launcher</option>
+                <option value="provider-hook">provider-hook</option>
+                <option value="unassigned">Unassigned</option>
+              </select>
+            </label>
+          </div>
+          <div className="history-summary">{historyPage?.totalItems ?? 0} sessions</div>
+        </div>
 
-        {!historyLoading && (historyPage?.items ?? []).length === 0 && (
-          <div className="panel-placeholder">No sessions match the current filters</div>
-        )}
+        <div className="history-table">
+          <div className="history-row history-row--head">
+            <span>Persona</span>
+            <span>Project</span>
+            <span>Provider</span>
+            <span>Started</span>
+            <span>Source</span>
+            <span>Status</span>
+          </div>
 
-        {!historyLoading && (historyPage?.items ?? []).map((session) => (
+          {historyLoading && <div className="panel-placeholder">Loading session history…</div>}
+
+          {!historyLoading && (historyPage?.items ?? []).length === 0 && (
+            <div className="panel-placeholder">No sessions match the current filters</div>
+          )}
+
+          {!historyLoading && (historyPage?.items ?? []).map((session) => (
+            <button
+              key={session.id}
+              type="button"
+              className={[
+                'history-row',
+                selectedHistorySessionId === session.id ? 'history-row--selected' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              onClick={() => openHistorySession(session.id)}
+            >
+              <span>{session.personaLabel ?? 'Unassigned'}</span>
+              <span>{session.projectName}</span>
+              <span>{providerLabel(session.providerId)}</span>
+              <span>{formatStarted(session.startedAt)}</span>
+              <span>{session.source ?? '—'}</span>
+              <span>{session.status ?? '—'}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="history-pagination">
           <button
-            key={session.id}
-            type="button"
-            className={[
-              'history-row',
-              selectedHistorySessionId === session.id ? 'history-row--selected' : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-            onClick={() => openHistorySession(session.id)}
+            className="tab-button"
+            disabled={!historyPage || historyPage.page <= 1}
+            onClick={() => fetchHistory((historyPage?.page ?? 1) - 1)}
           >
-            <span>{session.personaLabel ?? 'Unassigned'}</span>
-            <span>{session.projectName}</span>
-            <span>{providerLabel(session.providerId)}</span>
-            <span>{formatStarted(session.startedAt)}</span>
-            <span>{session.source ?? '—'}</span>
-            <span>{session.status ?? '—'}</span>
+            PREV
           </button>
-        ))}
+          <span>
+            Page {historyPage?.page ?? 1} / {historyPage?.totalPages ?? 1}
+          </span>
+          <button
+            className="tab-button"
+            disabled={!historyPage || historyPage.page >= historyPage.totalPages}
+            onClick={() => fetchHistory((historyPage?.page ?? 1) + 1)}
+          >
+            NEXT
+          </button>
+        </div>
       </div>
 
-      <div className="history-detail">
+      <aside className="history-detail-pane">
         <div className="history-detail-header">
           <div>
             <div className="history-detail-eyebrow">Session Detail</div>
@@ -172,62 +214,29 @@ export default function HistoryView() {
         {historyDetailLoading && <div className="panel-placeholder">Loading session detail…</div>}
 
         {!historyDetailLoading && !historyDetail && (
-          <div className="panel-placeholder">
-            Pick a session from the table or Recent Sessions to inspect its telemetry.
+          <div className="panel-placeholder history-empty-detail">
+            <p>Pick a row on the left to inspect what that agent session did.</p>
+            <p className="panel-placeholder-hint">
+              You&apos;ll see the completion summary, next steps, telemetry when
+              available, and the system prompt that seeded the run.
+            </p>
           </div>
         )}
 
         {!historyDetailLoading && historyDetail && (
           <>
-            <div className="history-detail-grid">
-              <div className="history-detail-card">
-                <span className="history-detail-label">Source</span>
-                <span>{historyDetail.source ?? '—'}</span>
-              </div>
-              <div className="history-detail-card">
-                <span className="history-detail-label">Status</span>
-                <span>{historyDetail.status ?? '—'}</span>
-              </div>
-              <div className="history-detail-card">
-                <span className="history-detail-label">Provider</span>
-                <span>{providerLabel(historyDetail.providerId)}</span>
-              </div>
-              <div className="history-detail-card">
-                <span className="history-detail-label">Outcome</span>
-                <OutcomeBadge outcome={historyDetail.outcome} />
-              </div>
-              <div className="history-detail-card">
-                <span className="history-detail-label">Token Cost</span>
-                <CostFormatter costUsd={historyDetail.costUsd} tokens={historyDetail.totalTokens} />
-              </div>
-              <div className="history-detail-card">
-                <span className="history-detail-label">Started</span>
-                <span>{formatStarted(historyDetail.startedAt)}</span>
-              </div>
-              <div className="history-detail-card">
-                <span className="history-detail-label">Ended</span>
-                <span>{formatEnded(historyDetail.endedAt)}</span>
-              </div>
-              <div className="history-detail-card">
-                <span className="history-detail-label">Duration</span>
-                <span>{historyDetail.durationSec != null ? `${historyDetail.durationSec}s` : '—'}</span>
-              </div>
-              <div className="history-detail-card">
-                <span className="history-detail-label">Model</span>
-                <span>{historyDetail.lastModel ?? '—'}</span>
-              </div>
-              <div className="history-detail-card">
-                <span className="history-detail-label">Commits Produced</span>
-                <span>{historyDetail.commitsProduced ?? 0}</span>
-              </div>
-              <div className="history-detail-card">
-                <span className="history-detail-label">Diff Exists</span>
-                <span>{formatBoolean(historyDetail.diffExists)}</span>
-              </div>
+            <div className="history-chip-row">
+              <span className="history-chip">{providerLabel(historyDetail.providerId)}</span>
+              {historyDetail.source && <span className="history-chip">{historyDetail.source}</span>}
+              {historyDetail.status && <span className="history-chip history-chip--status">{historyDetail.status}</span>}
+              {historyDetail.outcome && (
+                <span className="history-chip"><OutcomeBadge outcome={historyDetail.outcome} /></span>
+              )}
             </div>
 
-            {(historyDetail.summaryCompleted || historyDetail.summaryNextSteps || historyDetail.summaryRequest) && (
-              <div className="history-summary-block">
+            {hasSummaryContent ? (
+              <section className="history-summary-block">
+                <div className="history-section-title">Summary</div>
                 {historyDetail.summaryRequest && (
                   <div className="history-summary-line">
                     <span className="history-detail-label">Request</span>
@@ -246,34 +255,88 @@ export default function HistoryView() {
                     <p>{historyDetail.summaryNextSteps}</p>
                   </div>
                 )}
-              </div>
+              </section>
+            ) : (
+              <section className="history-summary-block history-summary-block--empty">
+                <div className="history-section-title">Summary</div>
+                <p className="panel-placeholder-hint">No summary was captured for this session.</p>
+              </section>
             )}
 
-            {breakdownAvailable ? (
-              <div className="history-token-breakdown">
-                <div className="history-detail-card">
-                  <span className="history-detail-label">Input</span>
-                  <span>{historyDetail.tokensIn ?? 0}</span>
+            {telemetryPresent ? (
+              <section className="history-telemetry-section">
+                <div className="history-section-title">Telemetry</div>
+                <div className="history-detail-grid">
+                  {historyDetail.startedAt && (
+                    <div className="history-detail-card">
+                      <span className="history-detail-label">Started</span>
+                      <span>{formatStarted(historyDetail.startedAt)}</span>
+                    </div>
+                  )}
+                  {historyDetail.endedAt && (
+                    <div className="history-detail-card">
+                      <span className="history-detail-label">Ended</span>
+                      <span>{formatEnded(historyDetail.endedAt)}</span>
+                    </div>
+                  )}
+                  {historyDetail.durationSec != null && (
+                    <div className="history-detail-card">
+                      <span className="history-detail-label">Duration</span>
+                      <span>{historyDetail.durationSec}s</span>
+                    </div>
+                  )}
+                  {historyDetail.lastModel && (
+                    <div className="history-detail-card">
+                      <span className="history-detail-label">Model</span>
+                      <span>{historyDetail.lastModel}</span>
+                    </div>
+                  )}
+                  {((historyDetail.totalTokens ?? 0) > 0 || historyDetail.costUsd != null) && (
+                    <div className="history-detail-card">
+                      <span className="history-detail-label">Cost</span>
+                      <CostFormatter costUsd={historyDetail.costUsd} tokens={historyDetail.totalTokens} />
+                    </div>
+                  )}
+                  {(historyDetail.commitsProduced ?? 0) > 0 && (
+                    <div className="history-detail-card">
+                      <span className="history-detail-label">Commits</span>
+                      <span>{historyDetail.commitsProduced}</span>
+                    </div>
+                  )}
+                  {historyDetail.diffExists != null && (
+                    <div className="history-detail-card">
+                      <span className="history-detail-label">Diff</span>
+                      <span>{historyDetail.diffExists ? 'yes' : 'no'}</span>
+                    </div>
+                  )}
                 </div>
-                <div className="history-detail-card">
-                  <span className="history-detail-label">Output</span>
-                  <span>{historyDetail.tokensOut ?? 0}</span>
-                </div>
-                <div className="history-detail-card">
-                  <span className="history-detail-label">Cache Read</span>
-                  <span>{historyDetail.tokensCacheRead ?? 0}</span>
-                </div>
-                <div className="history-detail-card">
-                  <span className="history-detail-label">Cache Write</span>
-                  <span>{historyDetail.tokensCacheWrite ?? 0}</span>
-                </div>
-              </div>
+
+                {tokenBreakdownAvailable && (
+                  <div className="history-token-breakdown">
+                    <div className="history-detail-card">
+                      <span className="history-detail-label">Input</span>
+                      <span>{historyDetail.tokensIn ?? 0}</span>
+                    </div>
+                    <div className="history-detail-card">
+                      <span className="history-detail-label">Output</span>
+                      <span>{historyDetail.tokensOut ?? 0}</span>
+                    </div>
+                    <div className="history-detail-card">
+                      <span className="history-detail-label">Cache Read</span>
+                      <span>{historyDetail.tokensCacheRead ?? 0}</span>
+                    </div>
+                    <div className="history-detail-card">
+                      <span className="history-detail-label">Cache Write</span>
+                      <span>{historyDetail.tokensCacheWrite ?? 0}</span>
+                    </div>
+                  </div>
+                )}
+              </section>
             ) : (
-              <div className="history-telemetry-note">
-                {historyDetail.providerId === 'codex'
-                  ? 'Codex sessions currently expose trustworthy total-token telemetry only.'
-                  : 'Detailed token breakdown is not available for this session.'}
-              </div>
+              <section className="history-telemetry-section history-telemetry-section--empty">
+                <div className="history-section-title">Telemetry</div>
+                <p className="panel-placeholder-hint">No telemetry was captured for this session.</p>
+              </section>
             )}
 
             <details className="history-diagnostics">
@@ -283,36 +346,22 @@ export default function HistoryView() {
                   <span className="history-detail-label">Provider Session</span>
                   <span>{historyDetail.providerSessionId ?? '—'}</span>
                 </div>
+                <div className="history-detail-card">
+                  <span className="history-detail-label">History Session ID</span>
+                  <span>{historyDetail.id}</span>
+                </div>
               </div>
             </details>
 
-            <details className="history-prompt">
-              <summary>System Prompt</summary>
-              <pre>{historyDetail.systemPrompt ?? '—'}</pre>
-            </details>
+            {historyDetail.systemPrompt && (
+              <details className="history-prompt">
+                <summary>System Prompt</summary>
+                <pre>{historyDetail.systemPrompt}</pre>
+              </details>
+            )}
           </>
         )}
-      </div>
-
-      <div className="history-pagination">
-        <button
-          className="tab-button"
-          disabled={!historyPage || historyPage.page <= 1}
-          onClick={() => fetchHistory((historyPage?.page ?? 1) - 1)}
-        >
-          PREV
-        </button>
-        <span>
-          Page {historyPage?.page ?? 1} / {historyPage?.totalPages ?? 1}
-        </span>
-        <button
-          className="tab-button"
-          disabled={!historyPage || historyPage.page >= historyPage.totalPages}
-          onClick={() => fetchHistory((historyPage?.page ?? 1) + 1)}
-        >
-          NEXT
-        </button>
-      </div>
+      </aside>
     </div>
   );
 }
