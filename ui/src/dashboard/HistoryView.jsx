@@ -97,16 +97,15 @@ export default function HistoryView() {
             </select>
           </label>
           <label>
-            Outcome
+            Source
             <select
-              value={historyFilters.outcome ?? ''}
-              onChange={(e) => setHistoryFilters({ outcome: e.target.value || null })}
+              value={historyFilters.source ?? ''}
+              onChange={(e) => setHistoryFilters({ source: e.target.value || null })}
             >
               <option value="">All</option>
-              <option value="accepted">accepted</option>
-              <option value="partial">partial</option>
-              <option value="rejected">rejected</option>
-              <option value="unknown">unknown</option>
+              <option value="launcher">launcher</option>
+              <option value="provider-hook">provider-hook</option>
+              <option value="unassigned">Unassigned</option>
             </select>
           </label>
         </div>
@@ -122,8 +121,8 @@ export default function HistoryView() {
           <span>Project</span>
           <span>Provider</span>
           <span>Started</span>
-          <span>Tokens</span>
-          <span>Outcome</span>
+          <span>Source</span>
+          <span>Status</span>
         </div>
 
         {historyLoading && <div className="panel-placeholder">Loading session history…</div>}
@@ -144,12 +143,12 @@ export default function HistoryView() {
               .join(' ')}
             onClick={() => openHistorySession(session.id)}
           >
-            <span>{session.personaLabel}</span>
+            <span>{session.personaLabel ?? 'Unassigned'}</span>
             <span>{session.projectName}</span>
             <span>{providerLabel(session.providerId)}</span>
             <span>{formatStarted(session.startedAt)}</span>
-            <span><CostFormatter costUsd={session.costUsd} tokens={session.totalTokens} /></span>
-            <span><OutcomeBadge outcome={session.outcome} /></span>
+            <span>{session.source ?? '—'}</span>
+            <span>{session.status ?? '—'}</span>
           </button>
         ))}
       </div>
@@ -159,7 +158,7 @@ export default function HistoryView() {
           <div>
             <div className="history-detail-eyebrow">Session Detail</div>
             <h3>
-              {historyDetail?.personaLabel ?? 'Select a session'}
+              {historyDetail ? (historyDetail.personaLabel ?? 'Unassigned') : 'Select a session'}
               {historyDetail?.projectName ? ` · ${historyDetail.projectName}` : ''}
             </h3>
           </div>
@@ -182,12 +181,20 @@ export default function HistoryView() {
           <>
             <div className="history-detail-grid">
               <div className="history-detail-card">
-                <span className="history-detail-label">Outcome</span>
-                <OutcomeBadge outcome={historyDetail.outcome} />
+                <span className="history-detail-label">Source</span>
+                <span>{historyDetail.source ?? '—'}</span>
+              </div>
+              <div className="history-detail-card">
+                <span className="history-detail-label">Status</span>
+                <span>{historyDetail.status ?? '—'}</span>
               </div>
               <div className="history-detail-card">
                 <span className="history-detail-label">Provider</span>
                 <span>{providerLabel(historyDetail.providerId)}</span>
+              </div>
+              <div className="history-detail-card">
+                <span className="history-detail-label">Outcome</span>
+                <OutcomeBadge outcome={historyDetail.outcome} />
               </div>
               <div className="history-detail-card">
                 <span className="history-detail-label">Token Cost</span>
@@ -218,6 +225,29 @@ export default function HistoryView() {
                 <span>{formatBoolean(historyDetail.diffExists)}</span>
               </div>
             </div>
+
+            {(historyDetail.summaryCompleted || historyDetail.summaryNextSteps || historyDetail.summaryRequest) && (
+              <div className="history-summary-block">
+                {historyDetail.summaryRequest && (
+                  <div className="history-summary-line">
+                    <span className="history-detail-label">Request</span>
+                    <p>{historyDetail.summaryRequest}</p>
+                  </div>
+                )}
+                {historyDetail.summaryCompleted && (
+                  <div className="history-summary-line">
+                    <span className="history-detail-label">Completed</span>
+                    <p>{historyDetail.summaryCompleted}</p>
+                  </div>
+                )}
+                {historyDetail.summaryNextSteps && (
+                  <div className="history-summary-line">
+                    <span className="history-detail-label">Next Steps</span>
+                    <p>{historyDetail.summaryNextSteps}</p>
+                  </div>
+                )}
+              </div>
+            )}
 
             {breakdownAvailable ? (
               <div className="history-token-breakdown">

@@ -15,7 +15,7 @@ pick up without re-reading the whole conversation.
 |-------|---------------------------------------------|-------------|-----------------------------------------------------|
 | 1     | Launcher-owned `history_session`            | ✅ Shipped  | `2026-04-19-unified-history-phase-1.md`             |
 | 2     | Ingest writes through one path              | ✅ Shipped  | `2026-04-19-unified-history-phase-2.md`             |
-| 3     | HistoryView reads `history_session`         | 🚧 In progress | `2026-04-19-unified-history-phase-3.md`          |
+| 3     | HistoryView reads `history_session`         | ✅ Shipped  | `2026-04-19-unified-history-phase-3.md`             |
 | 4     | Telemetry columns on `history_session`      | ⏳ Pending  | _TBD_                                               |
 | 5     | Deprecate `session` table                   | ⏳ Pending  | _TBD_                                               |
 

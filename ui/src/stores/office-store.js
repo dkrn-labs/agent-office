@@ -120,7 +120,7 @@ export const useOfficeStore = create((set, get) => ({
   historyFilters: {
     personaId: null,
     projectId: null,
-    outcome: null,
+    source: null,
   },
 
   // ── async actions ───────────────────────────────────────────────────────────
@@ -195,12 +195,14 @@ export const useOfficeStore = create((set, get) => ({
     set({ historyLoading: true });
     try {
       const filters = get().historyFilters;
-      const historyPage = await fetchJSONWithQuery('/api/sessions', {
+      const isUnassigned = filters.source === 'unassigned';
+      const historyPage = await fetchJSONWithQuery('/api/history/sessions', {
         page,
         pageSize: 20,
-        personaId: filters.personaId,
+        personaId: isUnassigned ? null : filters.personaId,
         projectId: filters.projectId,
-        outcome: filters.outcome,
+        source: isUnassigned ? null : filters.source,
+        unassigned: isUnassigned ? 1 : null,
       });
       set({ historyPage, historyLoading: false });
     } catch (err) {
@@ -215,7 +217,7 @@ export const useOfficeStore = create((set, get) => ({
       historyDetailLoading: true,
     });
     try {
-      const historyDetail = await fetchJSON(`/api/sessions/${sessionId}`);
+      const historyDetail = await fetchJSON(`/api/history/sessions/${sessionId}`);
       set({
         selectedHistorySessionId: sessionId,
         historyDetail,
