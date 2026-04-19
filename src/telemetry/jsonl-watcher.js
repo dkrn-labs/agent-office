@@ -44,6 +44,7 @@ export function createJsonlWatcher({
   rootPath = defaultClaudeProjectsRoot(),
   idleMs = 10_000,
   expiryMs = Math.max(idleMs, 5 * 60 * 1000),
+  createUnattended = null,
 } = {}) {
   const emitter = new EventEmitter();
   const fileCursors = new Map();
@@ -94,6 +95,7 @@ export function createJsonlWatcher({
       lastModel: entry.lastModel,
       working: !entry.isIdle,
       totals: { ...entry.totals },
+      unattended: entry.unattended === true,
     };
   }
 
@@ -113,23 +115,51 @@ export function createJsonlWatcher({
     let entry = sessionsByProvider.get(providerSessionId);
     if (!entry) {
       const claimed = claimLaunch(projectPath);
-      if (!claimed) return null;
-
-      entry = {
-        providerSessionId,
-        providerId: claimed.providerId ?? 'claude-code',
-        sessionId: claimed.sessionId,
-        personaId: claimed.personaId,
-        projectId: claimed.projectId,
-        projectPath,
-        startedAt: claimed.launchedAt,
-        lastActivity: claimed.launchedAt,
-        lastModel: null,
-        totals: emptyTotals(),
-        idleTimer: null,
-        expiryTimer: null,
-        isIdle: false,
-      };
+      if (claimed) {
+        entry = {
+          providerSessionId,
+          providerId: claimed.providerId ?? 'claude-code',
+          sessionId: claimed.sessionId,
+          personaId: claimed.personaId,
+          projectId: claimed.projectId,
+          projectPath,
+          startedAt: claimed.launchedAt,
+          lastActivity: claimed.launchedAt,
+          lastModel: null,
+          totals: emptyTotals(),
+          idleTimer: null,
+          expiryTimer: null,
+          isIdle: false,
+          unattended: false,
+        };
+      } else if (typeof createUnattended === 'function') {
+        const nowIso = new Date().toISOString();
+        const registration = createUnattended({
+          providerId: 'claude-code',
+          providerSessionId,
+          projectPath,
+          lastActivity: nowIso,
+        });
+        if (!registration) return null;
+        entry = {
+          providerSessionId,
+          providerId: 'claude-code',
+          sessionId: registration.sessionId,
+          personaId: registration.personaId ?? null,
+          projectId: registration.projectId ?? null,
+          projectPath,
+          startedAt: registration.startedAt ?? nowIso,
+          lastActivity: nowIso,
+          lastModel: null,
+          totals: emptyTotals(),
+          idleTimer: null,
+          expiryTimer: null,
+          isIdle: false,
+          unattended: true,
+        };
+      } else {
+        return null;
+      }
       sessionsByProvider.set(providerSessionId, entry);
     }
 

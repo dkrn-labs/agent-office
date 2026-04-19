@@ -21,8 +21,9 @@ export function createCodexWatcher({
   idleMs = DEFAULT_CODEX_IDLE_MS,
   expiryMs,
   pollMs = 2_000,
+  createUnattended = null,
 } = {}) {
-  const tracker = createLiveSessionTracker({ idleMs, expiryMs, providerId: 'codex' });
+  const tracker = createLiveSessionTracker({ idleMs, expiryMs, providerId: 'codex', createUnattended });
   let timer = null;
   let db = null;
   const seen = new Map();

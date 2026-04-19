@@ -84,15 +84,53 @@ export function createApp({
     console.log('[server] claude-mem adapter connected');
   }
 
+  /**
+   * Fallback registrar for sessions the watcher sees without a matching
+   * launcher entry (e.g. agents started from a raw terminal). Creates a
+   * history_session row so the live list + future hook ingest converge on
+   * a single record.
+   */
+  function registerUnattendedSession({ providerId, providerSessionId, projectPath, lastActivity }) {
+    if (!providerId || !providerSessionId || !projectPath) return null;
+    const project = repo.getProjectByPath(projectPath);
+    if (!project) return null;
+    const startedAt = lastActivity ?? new Date().toISOString();
+    const { historySessionId } = projectHistory.createLaunch({
+      projectId: project.id,
+      personaId: null,
+      providerId,
+      providerSessionId,
+      startedAt,
+      status: 'in-progress',
+      source: 'telemetry-watcher',
+    });
+    if (!historySessionId) return null;
+    return {
+      sessionId: historySessionId,
+      projectId: project.id,
+      personaId: null,
+      startedAt,
+    };
+  }
+
   const watcher = telemetry
     ? createCompositeWatcher([
         createJsonlWatcher({
           rootPath: telemetryRoot,
           idleMs: telemetryIdleMs,
           expiryMs: telemetryExpiryMs,
+          createUnattended: registerUnattendedSession,
         }),
-        createCodexWatcher({ idleMs: telemetryIdleMs, expiryMs: telemetryExpiryMs }),
-        createGeminiWatcher({ idleMs: telemetryIdleMs, expiryMs: telemetryExpiryMs }),
+        createCodexWatcher({
+          idleMs: telemetryIdleMs,
+          expiryMs: telemetryExpiryMs,
+          createUnattended: registerUnattendedSession,
+        }),
+        createGeminiWatcher({
+          idleMs: telemetryIdleMs,
+          expiryMs: telemetryExpiryMs,
+          createUnattended: registerUnattendedSession,
+        }),
       ])
     : null;
   const launcher = createLauncher({
@@ -150,7 +188,7 @@ export function createApp({
     });
 
     const detail = repo.getSessionDetail(payload.sessionId);
-    mirrorMetrics(detail?.providerId ?? null, payload.providerSessionId, payload.sessionId, {
+    mirrorMetrics(detail?.providerId ?? payload.providerId ?? null, payload.providerSessionId, payload.sessionId, {
       tokensIn: payload.totals.tokensIn,
       tokensOut: payload.totals.tokensOut,
       tokensCacheRead: payload.totals.cacheRead,
@@ -207,25 +245,30 @@ export function createApp({
 
   watcher?.on('session:expired', async (payload) => {
     const session = repo.getSession(payload.sessionId);
-    if (!session) return;
     const endedAt = new Date().toISOString();
+    const startedAt = session?.startedAt ?? payload.startedAt ?? endedAt;
     const inferred = await inferOutcome({
       projectPath: payload.projectPath,
-      startedAt: session.startedAt ?? endedAt,
+      startedAt,
       endedAt,
     });
 
-    repo.updateSession(payload.sessionId, {
-      endedAt,
-      commitsProduced: inferred.signals?.commitsProduced ?? null,
-      diffExists: inferred.signals?.diffExists ?? null,
-      outcome: inferred.outcome,
-    });
+    if (session) {
+      repo.updateSession(payload.sessionId, {
+        endedAt,
+        commitsProduced: inferred.signals?.commitsProduced ?? null,
+        diffExists: inferred.signals?.diffExists ?? null,
+        outcome: inferred.outcome,
+      });
+    }
 
-    const detail = repo.getSessionDetail(payload.sessionId);
+    const detail = session ? repo.getSessionDetail(payload.sessionId) : null;
+    const resolvedProviderId = detail?.providerId ?? payload.providerId ?? null;
+    const resolvedProviderSessionId =
+      payload.providerSessionId ?? detail?.providerSessionId ?? null;
     mirrorMetrics(
-      detail?.providerId ?? null,
-      payload.providerSessionId ?? detail?.providerSessionId ?? null,
+      resolvedProviderId,
+      resolvedProviderSessionId,
       payload.sessionId,
       {
         commitsProduced: inferred.signals?.commitsProduced ?? null,
@@ -233,6 +276,21 @@ export function createApp({
         outcome: inferred.outcome,
       },
     );
+
+    // For unattended sessions the history_session row has no legacy session
+    // pair — close it out directly so the list shows a final ended_at/status.
+    if (payload.unattended) {
+      const historySessionId = repo.findHistorySessionIdByProvider(
+        resolvedProviderId,
+        resolvedProviderSessionId,
+      );
+      if (historySessionId) {
+        repo.updateHistorySession(historySessionId, {
+          endedAt,
+          status: 'completed',
+        });
+      }
+    }
     bus.emit(SESSION_ENDED, {
       sessionId: payload.sessionId,
       providerSessionId: payload.providerSessionId,

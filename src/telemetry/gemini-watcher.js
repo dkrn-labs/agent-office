@@ -62,8 +62,9 @@ export function createGeminiWatcher({
   idleMs = DEFAULT_GEMINI_IDLE_MS,
   expiryMs,
   pollMs = 2_000,
+  createUnattended = null,
 } = {}) {
-  const tracker = createLiveSessionTracker({ idleMs, expiryMs, providerId: 'gemini-cli' });
+  const tracker = createLiveSessionTracker({ idleMs, expiryMs, providerId: 'gemini-cli', createUnattended });
   const fileState = new Map();
   let timer = null;
 

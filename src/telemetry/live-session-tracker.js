@@ -29,6 +29,7 @@ export function createLiveSessionTracker({
   idleMs = 10_000,
   expiryMs = Math.max(idleMs, 5 * 60 * 1000),
   providerId,
+  createUnattended = null,
 } = {}) {
   const emitter = new EventEmitter();
   const pendingLaunches = [];
@@ -47,6 +48,7 @@ export function createLiveSessionTracker({
       lastModel: entry.lastModel,
       working: !entry.isIdle,
       totals: cloneTotals(entry.totals),
+      unattended: entry.unattended === true,
     };
   }
 
@@ -120,22 +122,51 @@ export function createLiveSessionTracker({
     let entry = sessionsByProvider.get(providerSessionId);
     if (!entry) {
       const claimed = claimLaunch({ providerId: candidateProviderId, projectPath, lastActivity });
-      if (!claimed) return null;
-      entry = {
-        providerSessionId,
-        providerId: candidateProviderId ?? providerId ?? null,
-        sessionId: claimed.sessionId,
-        personaId: claimed.personaId,
-        projectId: claimed.projectId,
-        projectPath,
-        startedAt: claimed.launchedAt,
-        lastActivity: claimed.launchedAt,
-        lastModel: null,
-        totals: cloneTotals(),
-        idleTimer: null,
-        expiryTimer: null,
-        isIdle: false,
-      };
+      if (claimed) {
+        entry = {
+          providerSessionId,
+          providerId: candidateProviderId ?? providerId ?? null,
+          sessionId: claimed.sessionId,
+          personaId: claimed.personaId,
+          projectId: claimed.projectId,
+          projectPath,
+          startedAt: claimed.launchedAt,
+          lastActivity: claimed.launchedAt,
+          lastModel: null,
+          totals: cloneTotals(),
+          idleTimer: null,
+          expiryTimer: null,
+          isIdle: false,
+          unattended: false,
+        };
+      } else if (typeof createUnattended === 'function') {
+        const resolvedProviderId = candidateProviderId ?? providerId ?? null;
+        const registration = createUnattended({
+          providerId: resolvedProviderId,
+          providerSessionId,
+          projectPath,
+          lastActivity,
+        });
+        if (!registration) return null;
+        entry = {
+          providerSessionId,
+          providerId: resolvedProviderId,
+          sessionId: registration.sessionId,
+          personaId: registration.personaId ?? null,
+          projectId: registration.projectId ?? null,
+          projectPath,
+          startedAt: registration.startedAt ?? lastActivity ?? new Date().toISOString(),
+          lastActivity: lastActivity ?? registration.startedAt ?? new Date().toISOString(),
+          lastModel: null,
+          totals: cloneTotals(),
+          idleTimer: null,
+          expiryTimer: null,
+          isIdle: false,
+          unattended: true,
+        };
+      } else {
+        return null;
+      }
       sessionsByProvider.set(providerSessionId, entry);
     }
 
