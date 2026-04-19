@@ -280,23 +280,16 @@ export function createLauncher({
     repo.updateSession(Number(sessionId), { lastModel: launchTarget.model });
 
     let historySessionId = null;
-    if (projectHistory && typeof repo.createHistorySession === 'function') {
-      try {
-        const inserted = repo.createHistorySession({
-          projectId,
-          personaId,
-          providerId: launchTarget.providerId,
-          providerSessionId: null,
-          startedAt,
-          status: 'in-progress',
-          model: launchTarget.model,
-          systemPrompt,
-          source: 'launcher',
-        });
-        historySessionId = Number(inserted);
-      } catch (err) {
-        console.warn('[launcher] pre-create history_session failed:', err.message);
-      }
+    if (projectHistory && typeof projectHistory.createLaunch === 'function') {
+      const created = projectHistory.createLaunch({
+        projectId,
+        personaId,
+        providerId: launchTarget.providerId,
+        startedAt,
+        model: launchTarget.model,
+        systemPrompt,
+      });
+      historySessionId = created.historySessionId;
     }
 
     // 7. Emit SESSION_STARTED
