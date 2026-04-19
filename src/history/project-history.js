@@ -262,9 +262,42 @@ export function createProjectHistoryStore(repo, { db = null, brief = null } = {}
     };
   }
 
+  function createLaunch({
+    projectId,
+    personaId = null,
+    providerId,
+    providerSessionId = null,
+    startedAt = new Date().toISOString(),
+    status = 'in-progress',
+    model = null,
+    systemPrompt = null,
+    source = 'launcher',
+  }) {
+    if (!projectId) throw new Error('projectId is required');
+    if (!providerId) throw new Error('providerId is required');
+    try {
+      const id = repo.createHistorySession({
+        projectId,
+        personaId,
+        providerId,
+        providerSessionId,
+        startedAt,
+        status,
+        model,
+        systemPrompt,
+        source,
+      });
+      return { historySessionId: Number(id) };
+    } catch (err) {
+      console.warn('[history] createLaunch failed:', err.message);
+      return { historySessionId: null };
+    }
+  }
+
   return {
     getLaunchHistory,
     ingest,
     listProjectHistory,
+    createLaunch,
   };
 }
