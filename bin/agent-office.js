@@ -192,16 +192,39 @@ program
     log.info('Server started', { port, dataDir });
     console.log(`agent-office running on http://127.0.0.1:${port}`);
 
-    // SIGINT handler: graceful shutdown
-    process.on('SIGINT', () => {
-      log.info('Shutting down...');
+    // Graceful shutdown — idempotent, with a hard-exit fallback in case
+    // keep-alive connections block server.close(). A second signal >500ms
+    // after the first forces exit.
+    let shutdownStartedAt = 0;
+    const shutdown = (signal) => {
+      const now = Date.now();
+      if (shutdownStartedAt > 0) {
+        if (now - shutdownStartedAt > 500) {
+          log.info('Force exit', { signal });
+          process.exit(1);
+        }
+        return;
+      }
+      shutdownStartedAt = now;
+      log.info('Shutting down...', { signal });
+      app.locals.stopTelemetry?.();
+      if (typeof server.closeAllConnections === 'function') {
+        server.closeAllConnections();
+      }
+      const hardExit = setTimeout(() => {
+        log.warn('Shutdown timeout — forcing exit');
+        process.exit(1);
+      }, 3000);
+      hardExit.unref();
       server.close(() => {
-        app.locals.stopTelemetry?.();
-        db.close();
+        clearTimeout(hardExit);
+        try { db.close(); } catch (err) { log.warn('db.close failed', { err: err.message }); }
         log.info('Shutdown complete');
         process.exit(0);
       });
-    });
+    };
+    process.on('SIGINT', () => shutdown('SIGINT'));
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
   });
 
 // ── doctor ───────────────────────────────────────────────────────────────────
