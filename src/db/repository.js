@@ -942,6 +942,87 @@ export function createRepository(db) {
     return row ? row.history_session_id : null;
   }
 
+  const findLauncherHistorySessionStmt = db.prepare(`
+    SELECT history_session_id
+    FROM history_session
+    WHERE project_id = @projectId
+      AND persona_id = @personaId
+      AND started_at = @startedAt
+      AND source = 'launcher'
+    ORDER BY history_session_id DESC
+    LIMIT 1
+  `);
+
+  /**
+   * Resolves the launcher-created history_session for a legacy session row
+   * (matches by project_id + persona_id + started_at). Used by the telemetry
+   * watcher handlers to bridge into history_session_metrics before the
+   * provider hook has assigned a provider_session_id.
+   */
+  function findLauncherHistorySessionId({ projectId, personaId, startedAt }) {
+    if (projectId == null || personaId == null || !startedAt) return null;
+    const row = findLauncherHistorySessionStmt.get({
+      projectId: Number(projectId),
+      personaId: Number(personaId),
+      startedAt,
+    });
+    return row ? row.history_session_id : null;
+  }
+
+  const historyStatsStmts = {
+    countSince: db.prepare(`
+      SELECT COUNT(*) AS count
+      FROM history_session
+      WHERE started_at IS NOT NULL AND started_at >= ?
+    `),
+    sumTokensSince: db.prepare(`
+      SELECT COALESCE(SUM(
+        hsm.tokens_in + hsm.tokens_out + hsm.tokens_cache_read + hsm.tokens_cache_write
+      ), 0) AS total
+      FROM history_session hs
+      JOIN history_session_metrics hsm ON hsm.history_session_id = hs.history_session_id
+      WHERE hs.started_at IS NOT NULL AND hs.started_at >= ?
+    `),
+    sumCommitsSince: db.prepare(`
+      SELECT COALESCE(SUM(hsm.commits_produced), 0) AS total
+      FROM history_session hs
+      JOIN history_session_metrics hsm ON hsm.history_session_id = hs.history_session_id
+      WHERE hs.ended_at IS NOT NULL AND hs.ended_at >= ?
+    `),
+    pulseSince: db.prepare(`
+      SELECT
+        strftime('%Y-%m-%dT%H:00:00.000Z', COALESCE(hs.ended_at, hs.started_at)) AS hour_start,
+        COALESCE(SUM(
+          hsm.tokens_in + hsm.tokens_out + hsm.tokens_cache_read + hsm.tokens_cache_write
+        ), 0) AS tokens
+      FROM history_session hs
+      JOIN history_session_metrics hsm ON hsm.history_session_id = hs.history_session_id
+      WHERE COALESCE(hs.ended_at, hs.started_at) IS NOT NULL
+        AND COALESCE(hs.ended_at, hs.started_at) >= ?
+      GROUP BY hour_start
+      ORDER BY hour_start ASC
+    `),
+  };
+
+  function countHistorySessionsSince(isoTimestamp) {
+    return historyStatsStmts.countSince.get(isoTimestamp).count;
+  }
+
+  function sumHistoryTokensSince(isoTimestamp) {
+    return historyStatsStmts.sumTokensSince.get(isoTimestamp).total;
+  }
+
+  function sumHistoryCommitsSince(isoTimestamp) {
+    return historyStatsStmts.sumCommitsSince.get(isoTimestamp).total;
+  }
+
+  function getHistoryPulseBucketsSince(isoTimestamp) {
+    return historyStatsStmts.pulseSince.all(isoTimestamp).map((row) => ({
+      hourStart: row.hour_start,
+      tokens: row.tokens,
+    }));
+  }
+
   function updateHistorySession(id, fields) {
     historySessionStmts.update.run({
       id,
@@ -1479,6 +1560,11 @@ export function createRepository(db) {
     upsertHistorySessionMetrics,
     getHistorySessionMetrics,
     findHistorySessionIdByProvider,
+    findLauncherHistorySessionId,
+    countHistorySessionsSince,
+    sumHistoryTokensSince,
+    sumHistoryCommitsSince,
+    getHistoryPulseBucketsSince,
     updateHistorySession,
     createHistorySummary,
     listHistorySummaries,

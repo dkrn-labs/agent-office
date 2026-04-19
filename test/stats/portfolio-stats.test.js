@@ -58,6 +58,21 @@ describe('createPortfolioStatsService', () => {
       tokensOut: 500_000,
       commitsProduced: 1,
     });
+    const historySessionId = Number(repo.createHistorySession({
+      projectId,
+      personaId,
+      providerId: 'claude-code',
+      providerSessionId: 'pf-test-a',
+      startedAt: '2026-04-15T09:00:00.000Z',
+      endedAt: '2026-04-15T09:10:00.000Z',
+      status: 'completed',
+      source: 'launcher',
+    }));
+    repo.upsertHistorySessionMetrics(historySessionId, {
+      tokensIn: 1_000_000,
+      tokensOut: 500_000,
+      commitsProduced: 1,
+    });
 
     const service = createPortfolioStatsService({ repo, projectsDir: root, ttlMs: 0 });
     const stats = await service.getAll({ force: true });

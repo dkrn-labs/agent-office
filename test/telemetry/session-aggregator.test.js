@@ -31,9 +31,26 @@ before(async () => {
   }));
 
   const now = new Date().toISOString();
+  // Legacy session row (kept as shim — Phase 5a leaves writes intact).
   const sessionId = repo.createSession({ projectId, personaId, startedAt: now });
   repo.updateSession(sessionId, {
     endedAt: now,
+    tokensIn: 100,
+    tokensOut: 50,
+    commitsProduced: 2,
+  });
+  // Authoritative row for stats after Phase 5a.
+  const historySessionId = Number(repo.createHistorySession({
+    projectId,
+    personaId,
+    providerId: 'claude-code',
+    providerSessionId: 'aggregator-test-1',
+    startedAt: now,
+    endedAt: now,
+    status: 'completed',
+    source: 'launcher',
+  }));
+  repo.upsertHistorySessionMetrics(historySessionId, {
     tokensIn: 100,
     tokensOut: 50,
     commitsProduced: 2,

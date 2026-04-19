@@ -111,8 +111,21 @@ export function createApp({
     projectsDir: config.projectsDir,
   });
 
-  const mirrorMetrics = (providerId, providerSessionId, fields) => {
-    const historySessionId = repo.findHistorySessionIdByProvider(providerId, providerSessionId);
+  const mirrorMetrics = (providerId, providerSessionId, legacySessionId, fields) => {
+    let historySessionId = repo.findHistorySessionIdByProvider(providerId, providerSessionId);
+    if (!historySessionId && legacySessionId != null) {
+      const legacy = repo.getSession(Number(legacySessionId));
+      if (legacy) {
+        historySessionId = repo.findLauncherHistorySessionId({
+          projectId: legacy.projectId,
+          personaId: legacy.personaId,
+          startedAt: legacy.startedAt,
+        });
+        if (historySessionId && providerSessionId) {
+          repo.updateHistorySession(historySessionId, { providerSessionId });
+        }
+      }
+    }
     if (!historySessionId) return;
     repo.upsertHistorySessionMetrics(historySessionId, fields);
   };
@@ -137,7 +150,7 @@ export function createApp({
     });
 
     const detail = repo.getSessionDetail(payload.sessionId);
-    mirrorMetrics(detail?.providerId ?? null, payload.providerSessionId, {
+    mirrorMetrics(detail?.providerId ?? null, payload.providerSessionId, payload.sessionId, {
       tokensIn: payload.totals.tokensIn,
       tokensOut: payload.totals.tokensOut,
       tokensCacheRead: payload.totals.cacheRead,
@@ -210,11 +223,16 @@ export function createApp({
     });
 
     const detail = repo.getSessionDetail(payload.sessionId);
-    mirrorMetrics(detail?.providerId ?? null, payload.providerSessionId ?? detail?.providerSessionId ?? null, {
-      commitsProduced: inferred.signals?.commitsProduced ?? null,
-      diffExists: inferred.signals?.diffExists ?? null,
-      outcome: inferred.outcome,
-    });
+    mirrorMetrics(
+      detail?.providerId ?? null,
+      payload.providerSessionId ?? detail?.providerSessionId ?? null,
+      payload.sessionId,
+      {
+        commitsProduced: inferred.signals?.commitsProduced ?? null,
+        diffExists: inferred.signals?.diffExists ?? null,
+        outcome: inferred.outcome,
+      },
+    );
     bus.emit(SESSION_ENDED, {
       sessionId: payload.sessionId,
       providerSessionId: payload.providerSessionId,

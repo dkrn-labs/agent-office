@@ -117,8 +117,8 @@ export function createPortfolioStatsService({ repo, projectsDir, ttlMs = 10 * 60
       repoCount: repoPaths.length,
       commitCount: repoStats.reduce((sum, item) => sum + item.commitCount, 0),
       fileCount: repoStats.reduce((sum, item) => sum + item.fileCount, 0),
-      sessionCount: repo.countSessionsSince(since),
-      tokenTotal: repo.sumTokensSince(since),
+      sessionCount: repo.countHistorySessionsSince(since),
+      tokenTotal: repo.sumHistoryTokensSince(since),
     };
     repo.upsertPortfolioStatsSnapshot(snapshot);
     return snapshot;

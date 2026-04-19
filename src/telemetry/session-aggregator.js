@@ -38,10 +38,10 @@ export function createAggregator({ repo, claudeMem, bus, watcher, tickMs = 60_00
     const today = startOfToday();
     const active = watcher?.snapshot?.() ?? [];
     return {
-      sessionsToday: repo.countSessionsSince(today),
+      sessionsToday: repo.countHistorySessionsSince(today),
       filesToday: getDistinctFilesToday(),
-      commitsToday: repo.sumCommitsSince(today),
-      allTimeTokens: repo.sumTokensSince('1970-01-01T00:00:00.000Z'),
+      commitsToday: repo.sumHistoryCommitsSince(today),
+      allTimeTokens: repo.sumHistoryTokensSince('1970-01-01T00:00:00.000Z'),
       activeSessions: active.length,
     };
   }
@@ -51,7 +51,7 @@ export function createAggregator({ repo, claudeMem, bus, watcher, tickMs = 60_00
     const merged = new Map(buckets.map((bucket) => [bucket.hourStart, { ...bucket }]));
     const since = buckets[0]?.hourStart ?? startOfToday();
 
-    for (const bucket of repo.getPulseBucketsSince(since)) {
+    for (const bucket of repo.getHistoryPulseBucketsSince(since)) {
       const target = merged.get(bucket.hourStart);
       if (target) target.tokens += bucket.tokens;
     }
