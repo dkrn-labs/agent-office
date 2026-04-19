@@ -71,6 +71,17 @@ before(async () => {
     createdAtEpoch: Date.parse('2026-04-19T08:01:00.000Z'),
   });
 
+  // Telemetry mirrored into the new metrics table for the launcher row.
+  repo.upsertHistorySessionMetrics(launcherSessionId, {
+    tokensIn: 111,
+    tokensOut: 222,
+    costUsd: 0.075,
+    commitsProduced: 2,
+    diffExists: true,
+    outcome: 'accepted',
+    lastModel: 'claude-opus-4-7',
+  });
+
   // 2) Hook-only row with NULL persona (terminal launch)
   unassignedSessionId = Number(
     repo.createHistorySession({
@@ -137,6 +148,17 @@ describe('GET /api/history/sessions', () => {
     assert.equal(body.totalItems, 1);
     assert.equal(body.items[0].personaLabel, null);
     assert.equal(body.items[0].personaId, null);
+  });
+
+  it('surfaces telemetry from history_session_metrics', async () => {
+    const { body } = await get(`${base}/api/history/sessions?projectId=${projectId}&pageSize=10`);
+    const launcherItem = body.items.find((item) => item.id === launcherSessionId);
+    assert.equal(launcherItem.tokensIn, 111);
+    assert.equal(launcherItem.tokensOut, 222);
+    assert.equal(launcherItem.costUsd, 0.075);
+    assert.equal(launcherItem.commitsProduced, 2);
+    assert.equal(launcherItem.diffExists, true);
+    assert.equal(launcherItem.outcome, 'accepted');
   });
 
   it('filters by personaId and excludes unassigned rows', async () => {

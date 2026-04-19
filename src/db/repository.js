@@ -858,6 +858,90 @@ export function createRepository(db) {
     return rowToHistorySession(historySessionStmts.getByProvider.get(providerId, providerSessionId));
   }
 
+  const historyMetricsStmts = {
+    get: db.prepare(`SELECT * FROM history_session_metrics WHERE history_session_id = ?`),
+    upsert: db.prepare(`
+      INSERT INTO history_session_metrics (
+        history_session_id,
+        tokens_in, tokens_out, tokens_cache_read, tokens_cache_write,
+        cost_usd, commits_produced, diff_exists, outcome, error,
+        last_model, recorded_at
+      ) VALUES (
+        @historySessionId,
+        COALESCE(@tokensIn, 0),
+        COALESCE(@tokensOut, 0),
+        COALESCE(@tokensCacheRead, 0),
+        COALESCE(@tokensCacheWrite, 0),
+        @costUsd,
+        COALESCE(@commitsProduced, 0),
+        @diffExists,
+        @outcome,
+        @error,
+        @lastModel,
+        @recordedAt
+      )
+      ON CONFLICT(history_session_id) DO UPDATE SET
+        tokens_in          = COALESCE(@tokensIn, tokens_in),
+        tokens_out         = COALESCE(@tokensOut, tokens_out),
+        tokens_cache_read  = COALESCE(@tokensCacheRead, tokens_cache_read),
+        tokens_cache_write = COALESCE(@tokensCacheWrite, tokens_cache_write),
+        cost_usd           = COALESCE(@costUsd, cost_usd),
+        commits_produced   = COALESCE(@commitsProduced, commits_produced),
+        diff_exists        = COALESCE(@diffExists, diff_exists),
+        outcome            = COALESCE(@outcome, outcome),
+        error              = COALESCE(@error, error),
+        last_model         = COALESCE(@lastModel, last_model),
+        recorded_at        = @recordedAt
+    `),
+  };
+
+  function rowToHistorySessionMetrics(row) {
+    if (!row) return null;
+    return {
+      historySessionId: row.history_session_id,
+      tokensIn: row.tokens_in ?? 0,
+      tokensOut: row.tokens_out ?? 0,
+      tokensCacheRead: row.tokens_cache_read ?? 0,
+      tokensCacheWrite: row.tokens_cache_write ?? 0,
+      costUsd: row.cost_usd ?? null,
+      commitsProduced: row.commits_produced ?? 0,
+      diffExists: row.diff_exists === 1 ? true : row.diff_exists === 0 ? false : null,
+      outcome: row.outcome ?? null,
+      error: row.error ?? null,
+      lastModel: row.last_model ?? null,
+      recordedAt: row.recorded_at,
+    };
+  }
+
+  function upsertHistorySessionMetrics(historySessionId, fields = {}) {
+    const diffExists =
+      fields.diffExists === true ? 1 : fields.diffExists === false ? 0 : fields.diffExists ?? null;
+    historyMetricsStmts.upsert.run({
+      historySessionId: Number(historySessionId),
+      tokensIn: fields.tokensIn ?? null,
+      tokensOut: fields.tokensOut ?? null,
+      tokensCacheRead: fields.tokensCacheRead ?? null,
+      tokensCacheWrite: fields.tokensCacheWrite ?? null,
+      costUsd: fields.costUsd ?? null,
+      commitsProduced: fields.commitsProduced ?? null,
+      diffExists,
+      outcome: fields.outcome ?? null,
+      error: fields.error ?? null,
+      lastModel: fields.lastModel ?? null,
+      recordedAt: fields.recordedAt ?? new Date().toISOString(),
+    });
+  }
+
+  function getHistorySessionMetrics(historySessionId) {
+    return rowToHistorySessionMetrics(historyMetricsStmts.get.get(Number(historySessionId)));
+  }
+
+  function findHistorySessionIdByProvider(providerId, providerSessionId) {
+    if (!providerId || !providerSessionId) return null;
+    const row = historySessionStmts.getByProvider.get(providerId, providerSessionId);
+    return row ? row.history_session_id : null;
+  }
+
   function updateHistorySession(id, fields) {
     historySessionStmts.update.run({
       id,
@@ -973,15 +1057,15 @@ export function createRepository(db) {
           p.path AS project_path,
           pe.label AS persona_label,
           pe.domain AS persona_domain,
-          s.tokens_in,
-          s.tokens_out,
-          s.tokens_cache_read,
-          s.tokens_cache_write,
-          s.cost_usd,
-          s.commits_produced,
-          s.diff_exists,
-          s.outcome,
-          s.last_model,
+          hsm.tokens_in,
+          hsm.tokens_out,
+          hsm.tokens_cache_read,
+          hsm.tokens_cache_write,
+          hsm.cost_usd,
+          hsm.commits_produced,
+          hsm.diff_exists,
+          hsm.outcome,
+          hsm.last_model,
           hsum.request AS summary_request,
           hsum.completed AS summary_completed,
           hsum.next_steps AS summary_next_steps,
@@ -989,10 +1073,8 @@ export function createRepository(db) {
         FROM history_session hs
         LEFT JOIN project p ON p.project_id = hs.project_id
         LEFT JOIN persona pe ON pe.persona_id = hs.persona_id
-        LEFT JOIN session s
-          ON s.provider_id = hs.provider_id
-         AND s.provider_session_id = hs.provider_session_id
-         AND hs.provider_session_id IS NOT NULL
+        LEFT JOIN history_session_metrics hsm
+          ON hsm.history_session_id = hs.history_session_id
         LEFT JOIN history_summary hsum
           ON hsum.history_summary_id = (
             SELECT history_summary_id FROM history_summary
@@ -1026,15 +1108,15 @@ export function createRepository(db) {
           p.path AS project_path,
           pe.label AS persona_label,
           pe.domain AS persona_domain,
-          s.tokens_in,
-          s.tokens_out,
-          s.tokens_cache_read,
-          s.tokens_cache_write,
-          s.cost_usd,
-          s.commits_produced,
-          s.diff_exists,
-          s.outcome,
-          s.last_model,
+          hsm.tokens_in,
+          hsm.tokens_out,
+          hsm.tokens_cache_read,
+          hsm.tokens_cache_write,
+          hsm.cost_usd,
+          hsm.commits_produced,
+          hsm.diff_exists,
+          hsm.outcome,
+          hsm.last_model,
           hsum.request AS summary_request,
           hsum.completed AS summary_completed,
           hsum.next_steps AS summary_next_steps,
@@ -1045,10 +1127,8 @@ export function createRepository(db) {
         FROM history_session hs
         LEFT JOIN project p ON p.project_id = hs.project_id
         LEFT JOIN persona pe ON pe.persona_id = hs.persona_id
-        LEFT JOIN session s
-          ON s.provider_id = hs.provider_id
-         AND s.provider_session_id = hs.provider_session_id
-         AND hs.provider_session_id IS NOT NULL
+        LEFT JOIN history_session_metrics hsm
+          ON hsm.history_session_id = hs.history_session_id
         LEFT JOIN history_summary hsum
           ON hsum.history_summary_id = (
             SELECT history_summary_id FROM history_summary
@@ -1396,6 +1476,9 @@ export function createRepository(db) {
     getHistorySessionByProvider,
     getHistorySessionWithContext,
     listHistorySessionsPage,
+    upsertHistorySessionMetrics,
+    getHistorySessionMetrics,
+    findHistorySessionIdByProvider,
     updateHistorySession,
     createHistorySummary,
     listHistorySummaries,

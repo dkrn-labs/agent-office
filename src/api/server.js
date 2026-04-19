@@ -111,6 +111,12 @@ export function createApp({
     projectsDir: config.projectsDir,
   });
 
+  const mirrorMetrics = (providerId, providerSessionId, fields) => {
+    const historySessionId = repo.findHistorySessionIdByProvider(providerId, providerSessionId);
+    if (!historySessionId) return;
+    repo.upsertHistorySessionMetrics(historySessionId, fields);
+  };
+
   watcher?.on('session:update', (payload) => {
     const costUsd = computeCostUsd({
       model: payload.lastModel,
@@ -131,6 +137,14 @@ export function createApp({
     });
 
     const detail = repo.getSessionDetail(payload.sessionId);
+    mirrorMetrics(detail?.providerId ?? null, payload.providerSessionId, {
+      tokensIn: payload.totals.tokensIn,
+      tokensOut: payload.totals.tokensOut,
+      tokensCacheRead: payload.totals.cacheRead,
+      tokensCacheWrite: payload.totals.cacheWrite,
+      costUsd,
+      lastModel: payload.lastModel,
+    });
 
     bus.emit(SESSION_UPDATE, {
       sessionId: payload.sessionId,
@@ -196,6 +210,11 @@ export function createApp({
     });
 
     const detail = repo.getSessionDetail(payload.sessionId);
+    mirrorMetrics(detail?.providerId ?? null, payload.providerSessionId ?? detail?.providerSessionId ?? null, {
+      commitsProduced: inferred.signals?.commitsProduced ?? null,
+      diffExists: inferred.signals?.diffExists ?? null,
+      outcome: inferred.outcome,
+    });
     bus.emit(SESSION_ENDED, {
       sessionId: payload.sessionId,
       providerSessionId: payload.providerSessionId,
