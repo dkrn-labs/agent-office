@@ -250,7 +250,7 @@ export function createApp({
   app.use(officeRoutes(launcher));
   app.use(sessionRoutes({ repo, watcher, aggregator }));
   app.use(memoryRoutes(memoryEngine, repo, importFromClaudeProjects, db));
-  app.use(historyRoutes(projectHistory));
+  app.use(historyRoutes(projectHistory, { repo }));
 
   // Static file serving for production builds.
   // In dev, Vite's dev server handles assets via proxy instead.

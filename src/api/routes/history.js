@@ -20,8 +20,40 @@ function parseProjectId(value) {
  * @param {ReturnType<import('../../history/project-history.js').createProjectHistoryStore>} historyStore
  * @returns {import('express').Router}
  */
-export function historyRoutes(historyStore) {
+function parseBool(value) {
+  if (value === true || value === 1) return true;
+  if (typeof value !== 'string') return false;
+  return value === '1' || value.toLowerCase() === 'true';
+}
+
+export function historyRoutes(historyStore, { repo } = {}) {
   const router = Router();
+
+  router.get('/api/history/sessions', (req, res) => {
+    if (!repo) return fail(res, 500, 'repo not wired into historyRoutes');
+    const { page, pageSize, personaId, projectId, source } = req.query ?? {};
+    const unassigned = parseBool(req.query?.unassigned) || source === 'unassigned';
+    const result = repo.listHistorySessionsPage({
+      page,
+      pageSize,
+      personaId,
+      projectId,
+      source,
+      unassigned,
+    });
+    return res.json(result);
+  });
+
+  router.get('/api/history/sessions/:id', (req, res) => {
+    if (!repo) return fail(res, 500, 'repo not wired into historyRoutes');
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return fail(res, 400, 'id must be a positive integer');
+    }
+    const detail = repo.getHistorySessionWithContext(id);
+    if (!detail) return fail(res, 404, 'History session not found');
+    return res.json(detail);
+  });
 
   router.get('/api/projects/:projectId/history', (req, res) => {
     const projectId = parseProjectId(req.params.projectId);

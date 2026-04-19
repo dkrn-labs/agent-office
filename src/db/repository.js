@@ -873,6 +873,213 @@ export function createRepository(db) {
     });
   }
 
+  function buildHistorySessionFilters({ personaId, projectId, source, unassigned } = {}) {
+    const clauses = [];
+    const params = {};
+    if (unassigned) {
+      clauses.push('hs.persona_id IS NULL');
+    } else if (personaId != null) {
+      clauses.push('hs.persona_id = @personaId');
+      params.personaId = Number(personaId);
+    }
+    if (projectId != null) {
+      clauses.push('hs.project_id = @projectId');
+      params.projectId = Number(projectId);
+    }
+    if (source != null && source !== 'unassigned') {
+      clauses.push('hs.source = @source');
+      params.source = String(source);
+    }
+    return {
+      where: clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '',
+      params,
+    };
+  }
+
+  function rowToHistorySessionSummary(row) {
+    if (!row) return null;
+    const tokensIn = row.tokens_in ?? 0;
+    const tokensOut = row.tokens_out ?? 0;
+    const tokensCacheRead = row.tokens_cache_read ?? 0;
+    const tokensCacheWrite = row.tokens_cache_write ?? 0;
+    const startedAt = row.started_at ?? null;
+    const endedAt = row.ended_at ?? null;
+    return {
+      id: row.history_session_id,
+      projectId: row.project_id,
+      projectName: row.project_name ?? null,
+      projectPath: row.project_path ?? null,
+      personaId: row.persona_id ?? null,
+      personaLabel: row.persona_label ?? null,
+      personaDomain: row.persona_domain ?? null,
+      providerId: row.provider_id,
+      providerSessionId: row.provider_session_id ?? null,
+      source: row.source,
+      status: row.status,
+      model: row.model ?? null,
+      startedAt,
+      endedAt,
+      durationSec:
+        startedAt && endedAt
+          ? Math.max(
+              0,
+              Math.round((new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 1000),
+            )
+          : null,
+      tokensIn,
+      tokensOut,
+      tokensCacheRead,
+      tokensCacheWrite,
+      totalTokens: tokensIn + tokensOut + tokensCacheRead + tokensCacheWrite,
+      costUsd: row.cost_usd ?? null,
+      commitsProduced: row.commits_produced ?? 0,
+      diffExists: row.diff_exists === 1 ? true : row.diff_exists === 0 ? false : null,
+      outcome: row.outcome ?? null,
+      lastModel: row.last_model ?? row.model ?? null,
+      summaryRequest: row.summary_request ?? null,
+      summaryCompleted: row.summary_completed ?? null,
+      summaryNextSteps: row.summary_next_steps ?? null,
+      summaryCreatedAt: row.summary_created_at ?? null,
+    };
+  }
+
+  function listHistorySessionsPage({
+    page = 1,
+    pageSize = 20,
+    personaId,
+    projectId,
+    source,
+    unassigned,
+  } = {}) {
+    const safePage = Math.max(1, Number(page) || 1);
+    const safePageSize = Math.min(100, Math.max(1, Number(pageSize) || 20));
+    const offset = (safePage - 1) * safePageSize;
+    const { where, params } = buildHistorySessionFilters({
+      personaId,
+      projectId,
+      source,
+      unassigned,
+    });
+
+    const totalItems = db
+      .prepare(`SELECT COUNT(*) AS count FROM history_session hs ${where}`)
+      .get(params).count;
+
+    const items = db
+      .prepare(`
+        SELECT
+          hs.*,
+          p.name AS project_name,
+          p.path AS project_path,
+          pe.label AS persona_label,
+          pe.domain AS persona_domain,
+          s.tokens_in,
+          s.tokens_out,
+          s.tokens_cache_read,
+          s.tokens_cache_write,
+          s.cost_usd,
+          s.commits_produced,
+          s.diff_exists,
+          s.outcome,
+          s.last_model,
+          hsum.request AS summary_request,
+          hsum.completed AS summary_completed,
+          hsum.next_steps AS summary_next_steps,
+          hsum.created_at AS summary_created_at
+        FROM history_session hs
+        LEFT JOIN project p ON p.project_id = hs.project_id
+        LEFT JOIN persona pe ON pe.persona_id = hs.persona_id
+        LEFT JOIN session s
+          ON s.provider_id = hs.provider_id
+         AND s.provider_session_id = hs.provider_session_id
+         AND hs.provider_session_id IS NOT NULL
+        LEFT JOIN history_summary hsum
+          ON hsum.history_summary_id = (
+            SELECT history_summary_id FROM history_summary
+            WHERE history_session_id = hs.history_session_id
+            ORDER BY created_at_epoch DESC, history_summary_id DESC
+            LIMIT 1
+          )
+        ${where}
+        ORDER BY COALESCE(hs.ended_at, hs.started_at, hs.created_at) DESC,
+                 hs.history_session_id DESC
+        LIMIT @limit OFFSET @offset
+      `)
+      .all({ ...params, limit: safePageSize, offset })
+      .map(rowToHistorySessionSummary);
+
+    return {
+      page: safePage,
+      pageSize: safePageSize,
+      totalItems,
+      totalPages: Math.max(1, Math.ceil(totalItems / safePageSize)),
+      items,
+    };
+  }
+
+  function getHistorySessionWithContext(id) {
+    const row = db
+      .prepare(`
+        SELECT
+          hs.*,
+          p.name AS project_name,
+          p.path AS project_path,
+          pe.label AS persona_label,
+          pe.domain AS persona_domain,
+          s.tokens_in,
+          s.tokens_out,
+          s.tokens_cache_read,
+          s.tokens_cache_write,
+          s.cost_usd,
+          s.commits_produced,
+          s.diff_exists,
+          s.outcome,
+          s.last_model,
+          hsum.request AS summary_request,
+          hsum.completed AS summary_completed,
+          hsum.next_steps AS summary_next_steps,
+          hsum.created_at AS summary_created_at,
+          hsum.notes AS summary_notes,
+          hsum.files_read AS summary_files_read,
+          hsum.files_edited AS summary_files_edited
+        FROM history_session hs
+        LEFT JOIN project p ON p.project_id = hs.project_id
+        LEFT JOIN persona pe ON pe.persona_id = hs.persona_id
+        LEFT JOIN session s
+          ON s.provider_id = hs.provider_id
+         AND s.provider_session_id = hs.provider_session_id
+         AND hs.provider_session_id IS NOT NULL
+        LEFT JOIN history_summary hsum
+          ON hsum.history_summary_id = (
+            SELECT history_summary_id FROM history_summary
+            WHERE history_session_id = hs.history_session_id
+            ORDER BY created_at_epoch DESC, history_summary_id DESC
+            LIMIT 1
+          )
+        WHERE hs.history_session_id = ?
+      `)
+      .get(id);
+    if (!row) return null;
+    const summary = rowToHistorySessionSummary(row);
+    const observations = db
+      .prepare(`
+        SELECT * FROM history_observation
+        WHERE history_session_id = ?
+        ORDER BY created_at_epoch DESC, history_observation_id DESC
+        LIMIT 50
+      `)
+      .all(id)
+      .map(rowToHistoryObservation);
+    return {
+      ...summary,
+      systemPrompt: row.system_prompt ?? null,
+      summaryNotes: row.summary_notes ?? null,
+      summaryFilesRead: parseJson(row.summary_files_read, []),
+      summaryFilesEdited: parseJson(row.summary_files_edited, []),
+      observations,
+    };
+  }
+
   function createHistorySummary({
     historySessionId,
     projectId,
@@ -1187,6 +1394,8 @@ export function createRepository(db) {
     createHistorySession,
     getHistorySession,
     getHistorySessionByProvider,
+    getHistorySessionWithContext,
+    listHistorySessionsPage,
     updateHistorySession,
     createHistorySummary,
     listHistorySummaries,
