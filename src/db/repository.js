@@ -936,6 +936,44 @@ export function createRepository(db) {
     return rowToHistorySessionMetrics(historyMetricsStmts.get.get(Number(historySessionId)));
   }
 
+  const getHistorySessionDetailStmt = db.prepare(`
+    SELECT
+      hs.history_session_id AS sessionId,
+      hs.project_id         AS projectId,
+      hs.persona_id         AS personaId,
+      hs.provider_id        AS providerId,
+      hs.provider_session_id AS providerSessionId,
+      hs.started_at         AS startedAt,
+      hs.ended_at           AS endedAt,
+      hs.status             AS status,
+      hs.source             AS source,
+      hs.system_prompt      AS systemPrompt,
+      p.name                AS projectName,
+      p.path                AS projectPath,
+      pe.label              AS personaLabel,
+      pe.domain             AS personaDomain,
+      COALESCE(m.tokens_in, 0)          AS tokensIn,
+      COALESCE(m.tokens_out, 0)         AS tokensOut,
+      COALESCE(m.tokens_cache_read, 0)  AS tokensCacheRead,
+      COALESCE(m.tokens_cache_write, 0) AS tokensCacheWrite,
+      (COALESCE(m.tokens_in,0)+COALESCE(m.tokens_out,0)+COALESCE(m.tokens_cache_read,0)+COALESCE(m.tokens_cache_write,0)) AS totalTokens,
+      m.cost_usd            AS costUsd,
+      m.last_model          AS lastModel,
+      m.commits_produced    AS commitsProduced,
+      m.diff_exists         AS diffExists,
+      m.outcome             AS outcome,
+      m.error               AS error
+    FROM history_session hs
+    LEFT JOIN project p ON p.project_id = hs.project_id
+    LEFT JOIN persona pe ON pe.persona_id = hs.persona_id
+    LEFT JOIN history_session_metrics m ON m.history_session_id = hs.history_session_id
+    WHERE hs.history_session_id = ?
+  `);
+
+  function getHistorySessionDetail(id) {
+    return getHistorySessionDetailStmt.get(id) ?? null;
+  }
+
   function findHistorySessionIdByProvider(providerId, providerSessionId) {
     if (!providerId || !providerSessionId) return null;
     const row = historySessionStmts.getByProvider.get(providerId, providerSessionId);
@@ -1559,6 +1597,7 @@ export function createRepository(db) {
     listHistorySessionsPage,
     upsertHistorySessionMetrics,
     getHistorySessionMetrics,
+    getHistorySessionDetail,
     findHistorySessionIdByProvider,
     findLauncherHistorySessionId,
     countHistorySessionsSince,

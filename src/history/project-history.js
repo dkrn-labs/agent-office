@@ -294,10 +294,16 @@ export function createProjectHistoryStore(repo, { db = null, brief = null } = {}
     }
   }
 
+  function getDetail(historySessionId) {
+    if (historySessionId == null) return null;
+    return repo.getHistorySessionDetail(Number(historySessionId));
+  }
+
   return {
     getLaunchHistory,
     ingest,
     listProjectHistory,
     createLaunch,
+    getDetail,
   };
 }
