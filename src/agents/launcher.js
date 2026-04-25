@@ -16,7 +16,7 @@ import { writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SESSION_STARTED } from '../core/events.js';
+import { SESSION_STARTED, SAVINGS_TICK } from '../core/events.js';
 import { createMemoryEngine } from '../memory/memory-engine.js';
 import { formatForContext } from '../memory/memory-injector.js';
 import { listLaunchProviders, resolveLaunchTarget } from './provider-catalog.js';
@@ -357,6 +357,16 @@ export function createLauncher({
           costDollars: budget.costDollars,
           cloudEquivalentDollars: budget.cloudEquivalentDollars,
           createdAtEpoch: Math.floor(Date.now() / 1000),
+        });
+        // P1-10 — savings:tick on every new launch_budget row so the UI's
+        // savings pill reflects the new baseline/optimized counts as soon
+        // as a session is launched, not only after it ends.
+        bus.emit(SAVINGS_TICK, {
+          reason: 'launch-budget-created',
+          sessionId: Number(sessionId),
+          historySessionId,
+          baselineTokens: budget.baselineTokens,
+          optimizedTokens: budget.optimizedTokens,
         });
       } catch (err) {
         console.warn('[launcher] launch_budget persist failed:', err.message);

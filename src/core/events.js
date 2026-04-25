@@ -19,3 +19,13 @@ export const GARDEN_RUN_FAILED = 'garden:run-failed';
 
 export const SKILL_MATCHED = 'skill:matched';
 export const SKILL_UPDATED = 'skill:updated';
+
+// P1-10 — WS bus minimum.
+//
+// `session:started` / `session:update` / `session:ended` already cover the
+// session lifecycle. `savings:tick` fires on launch_budget changes so the
+// UI's savings pill can refresh without polling. `quota:tick` is reserved
+// for P4 (abtop-bridge) — declared here so the WS hub broadcasts it the
+// instant a producer starts firing it; no need to redeploy the wire format.
+export const SAVINGS_TICK = 'savings:tick';
+export const QUOTA_TICK = 'quota:tick';

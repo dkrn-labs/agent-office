@@ -24,7 +24,7 @@ import { createAggregator } from '../telemetry/session-aggregator.js';
 import { computeCostUsd } from '../telemetry/pricing.js';
 import { inferOutcome } from '../telemetry/outcome-inference.js';
 import { sessionRoutes } from './routes/sessions.js';
-import { SESSION_ENDED, SESSION_IDLE, SESSION_UPDATE } from '../core/events.js';
+import { SESSION_ENDED, SESSION_IDLE, SESSION_UPDATE, SAVINGS_TICK } from '../core/events.js';
 import { scanLocalSkills } from '../skills/local-skill-index.js';
 import { createPortfolioStatsService } from '../stats/portfolio-stats.js';
 import { createProjectHistoryStore } from '../history/project-history.js';
@@ -35,6 +35,7 @@ import { ptyRoutes } from './routes/pty.js';
 import { quotaRoutes } from './routes/quota.js';
 import { createPtyHost } from '../pty/node-pty-host.js';
 import { createProjectSyncService } from '../projects/project-sync.js';
+import { getDefaultSettings, enabledProviderIds } from '../core/settings.js';
 
 /**
  * Creates and configures the Fastify application.
@@ -69,7 +70,12 @@ export function createApp({
   telemetryIdleMs,
   telemetryExpiryMs,
   startTelemetryWatcher = true,
+  settings,
 }) {
+  // Tests construct createApp without going through bin/agent-office.js
+  // so they don't pass `settings`. Falling back to defaults keeps every
+  // settings consumer below (frontdesk, savings cap, etc.) working.
+  const effectiveSettings = settings ?? getDefaultSettings();
   const app = Fastify({ logger: false });
 
   // Test/back-compat shim — code (and tests) read `app.locals.launcher` etc.
@@ -261,7 +267,17 @@ export function createApp({
     });
 
     if (inferred.outcome && typeof repo.setLaunchBudgetOutcome === 'function') {
-      try { repo.setLaunchBudgetOutcome(payload.sessionId, inferred.outcome); } catch {}
+      try {
+        repo.setLaunchBudgetOutcome(payload.sessionId, inferred.outcome);
+        // P1-10 — savings:tick lets the UI's savings pill refresh without
+        // polling. Outcome flips can flip a row in/out of the rollup
+        // (rejected is excluded), so this is the right moment to emit.
+        bus.emit(SAVINGS_TICK, {
+          reason: 'outcome-resolved',
+          sessionId: payload.sessionId,
+          outcome: inferred.outcome,
+        });
+      } catch {}
     }
 
     const detail = detailBefore ? projectHistory.getDetail(payload.sessionId) : null;
@@ -332,7 +348,13 @@ export function createApp({
     repo,
     getActiveSessions: () => watcher?.snapshot?.() ?? [],
     getQuotaForProvider: async () => null,
-    getPrefs: () => ({ privacyMode: 'normal' }),
+    getPrefs: () => ({
+      privacyMode: 'normal',
+      // P1-11 — frontdesk respects providers[id].enabled. Disabled
+      // providers are filtered out of the candidate set before the rule
+      // chain runs, so they never appear in `pick.provider`.
+      enabledProviders: enabledProviderIds(effectiveSettings),
+    }),
     getSignals: () => ({}),
   }), { prefix: '/api/frontdesk/route' });
 

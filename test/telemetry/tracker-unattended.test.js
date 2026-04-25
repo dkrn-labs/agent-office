@@ -33,7 +33,9 @@ describe('live session tracker — unattended fallback', () => {
     const updates = [];
     tracker.on('session:update', (snap) => updates.push(snap));
 
-    const lastActivity = '2026-04-19T10:00:00.000Z';
+    // Use "now" so the tracker's staleness gate (rejects unattended
+    // registrations whose lastActivity is past expiryMs) doesn't drop this.
+    const lastActivity = new Date().toISOString();
     const snap = tracker.updateAbsolute({
       providerId: 'claude-code',
       providerSessionId: 'term-abc',

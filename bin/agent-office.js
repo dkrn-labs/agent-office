@@ -8,6 +8,7 @@ import { createCommand } from 'commander';
 import { openDatabase, runMigrations } from '../src/db/database.js';
 import { createRepository } from '../src/db/repository.js';
 import { getDefault, loadConfig, saveConfig } from '../src/core/config.js';
+import { loadSettings } from '../src/core/settings.js';
 import { createEventBus } from '../src/core/event-bus.js';
 import { createApp } from '../src/api/server.js';
 import { createWsHub } from '../src/api/ws-hub.js';
@@ -151,9 +152,11 @@ program
       process.exit(1);
     }
 
-    // Load config
+    // Load config + settings. CLI flag wins over settings.json which wins
+    // over config.json which wins over the hard default.
     const config = loadConfig(dataDir);
-    const port = opts.port ?? config.port ?? 3333;
+    const settings = loadSettings(dataDir);
+    const port = opts.port ?? settings.core?.port ?? config.port ?? 3333;
 
     // Open DB and run migrations
     const dbPath = join(dataDir, 'agent-office.db');
@@ -174,6 +177,7 @@ program
       db,
       dryRun: opts.dryRun ?? false,
       telemetry: true,
+      settings,
     });
 
     // Wait for plugins to register so app.server has Fastify's request

@@ -530,6 +530,12 @@ export function enrichCodexTurn({
     (thread.threadTitle ? `Worked on ${thread.threadTitle}.` : null);
   const nextSteps = extractNextSteps(responseText);
   return {
+    // P1-3 — expose the resolved Codex thread id so the hook payload can use
+    // it as `providerSessionId`. Codex emits a turn_id per `notify` event but
+    // the watcher polls `state_5.sqlite threads.id` (a thread spans many
+    // turns). Without this plumbing, every turn produced a distinct
+    // history_session row that never merged with the watcher's row.
+    threadId: activity.threadId ?? null,
     request: thread.request,
     completed,
     nextSteps,

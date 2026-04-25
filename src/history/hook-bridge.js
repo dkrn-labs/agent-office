@@ -97,10 +97,18 @@ function buildCodexPayload(input, opts = {}) {
   const completed = enrichment.completed ?? fallbackMessage ?? 'Codex turn completed.';
   if (!projectPath) return null;
 
+  // P1-3 — prefer the resolved thread id over the turn id so the hook row
+  // collides on the same (providerId, providerSessionId) UNIQUE key as the
+  // watcher's row (the watcher polls state_5.sqlite threads.id). Falling
+  // back to turn_id keeps the old behavior when enrichment can't find a
+  // matching thread (e.g. logs DB unavailable in tests).
+  const turnId = trimText(input.session_id) ?? trimText(input.turn_id) ?? trimText(input['turn-id']);
+  const providerSessionId = trimText(enrichment.threadId) ?? turnId;
+
   return {
     projectPath,
     providerId: 'codex',
-    providerSessionId: trimText(input.session_id) ?? trimText(input.turn_id) ?? trimText(input['turn-id']),
+    providerSessionId,
     historySessionId: toInt(opts.historySessionId) ?? null,
     model: trimText(input.model) ?? null,
     startedAt: createdAt,

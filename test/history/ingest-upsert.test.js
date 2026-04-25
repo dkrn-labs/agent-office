@@ -71,6 +71,45 @@ describe('historyStore.ingest upsert by historySessionId', () => {
     }
   });
 
+  it('preserves the launcher-set system_prompt when a hook ingests against the same row (P1-12)', async () => {
+    const ctx = await setup();
+    const { repo, store, projectId, personaId } = ctx;
+    try {
+      const launcherPrompt = 'You are a Debug Specialist working on agent-office.\nFocus on root cause.';
+      const preId = repo.createHistorySession({
+        projectId,
+        personaId,
+        providerId: 'claude-code',
+        providerSessionId: null,
+        startedAt: new Date().toISOString(),
+        status: 'in-progress',
+        systemPrompt: launcherPrompt,
+        source: 'launcher',
+      });
+
+      // Hook ingest carries a different (smaller) systemPrompt — must NOT
+      // overwrite. The launcher's full assembled prompt is the truth source.
+      store.ingest({
+        projectId,
+        historySessionId: preId,
+        providerId: 'claude-code',
+        providerSessionId: 'claude-xyz',
+        status: 'completed',
+        source: 'provider-hook',
+        systemPrompt: 'shorter prompt from hook',
+        summary: { summaryKind: 'turn', completed: 'done', createdAt: new Date().toISOString() },
+        observations: [],
+      });
+
+      const row = repo.getHistorySession(preId);
+      assert.equal(row.systemPrompt, launcherPrompt, 'launcher system_prompt must survive the hook upsert');
+      assert.equal(row.status, 'completed');
+      assert.equal(row.providerSessionId, 'claude-xyz');
+    } finally {
+      cleanup(ctx);
+    }
+  });
+
   it('falls back to provider-session lookup when no historySessionId is given', async () => {
     const ctx = await setup();
     const { store, projectId } = ctx;

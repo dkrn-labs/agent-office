@@ -56,7 +56,14 @@ export async function route({ repo, getActiveSessions, getQuotaForProvider, pref
   const personas = typeof repo?.listPersonas === 'function' ? repo.listPersonas() : [];
   const projects = typeof repo?.listProjects === 'function' ? repo.listProjects() : [];
   const adapters = listAdapters();
-  const providers = await Promise.all(adapters.map(async (a) => ({
+  // P1-11 — filter to providers enabled in settings.json. When prefs
+  // doesn't carry an enabled-set (e.g. tests calling route() directly),
+  // every adapter is admitted.
+  const enabled = prefs?.enabledProviders;
+  const allowedAdapters = enabled instanceof Set
+    ? adapters.filter((a) => enabled.has(a.id))
+    : adapters;
+  const providers = await Promise.all(allowedAdapters.map(async (a) => ({
     id: a.id,
     label: a.label,
     kind: a.kind,

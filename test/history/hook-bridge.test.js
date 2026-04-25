@@ -130,10 +130,55 @@ describe('buildHistoryIngestPayload', () => {
 
     assert.equal(payload.providerId, 'codex');
     assert.equal(payload.projectPath, '/tmp/project');
-    assert.equal(payload.providerSessionId, 'codex-turn-1');
+    // P1-3 — providerSessionId now reports the resolved thread id (matches
+    // the watcher's row), not the turn id from the notify payload.
+    assert.equal(payload.providerSessionId, 'thread-1');
     assert.equal(payload.summary.request, 'Make Codex history useful');
     assert.equal(payload.summary.completed, 'Updated hook.js.');
     assert.deepEqual(payload.summary.filesEdited, ['/tmp/project/src/hook.js']);
+
+    delete process.env.CODEX_STATE_DB_PATH;
+    delete process.env.CODEX_LOGS_DB_PATH;
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('falls back to turn_id when the codex thread cannot be resolved (P1-3)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'agent-office-hook-bridge-'));
+    const stateDbPath = join(dir, 'state.sqlite');
+    const logsDbPath = join(dir, 'logs.sqlite');
+    const stateDb = new Database(stateDbPath);
+    const logsDb = new Database(logsDbPath);
+    stateDb.exec(`
+      CREATE TABLE threads (
+        id TEXT PRIMARY KEY,
+        cwd TEXT NOT NULL,
+        updated_at INTEGER NOT NULL,
+        first_user_message TEXT NOT NULL DEFAULT '',
+        title TEXT NOT NULL DEFAULT ''
+      );
+    `);
+    // Empty logs table — no thread can be resolved from the turn id.
+    logsDb.exec(`
+      CREATE TABLE logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ts INTEGER NOT NULL,
+        ts_nanos INTEGER NOT NULL,
+        thread_id TEXT,
+        feedback_log_body TEXT
+      );
+    `);
+    stateDb.close();
+    logsDb.close();
+
+    process.env.CODEX_STATE_DB_PATH = stateDbPath;
+    process.env.CODEX_LOGS_DB_PATH = logsDbPath;
+    const payload = buildHistoryIngestPayload(
+      'codex',
+      { type: 'agent-turn-complete', session_id: 'orphan-turn-9' },
+      { cwd: '/tmp/project' },
+    );
+
+    assert.equal(payload.providerSessionId, 'orphan-turn-9');
 
     delete process.env.CODEX_STATE_DB_PATH;
     delete process.env.CODEX_LOGS_DB_PATH;
