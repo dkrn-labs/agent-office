@@ -1,0 +1,68 @@
+{
+  "name": "planning__raw-memory__0",
+  "task": "planning",
+  "condition": "raw-memory",
+  "repeat": 0,
+  "wallMs": 43465,
+  "exitCode": 0,
+  "stderrTail": "",
+  "result": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "api_error_status": null,
+    "duration_ms": 37031,
+    "duration_api_ms": 26065,
+    "num_turns": 3,
+    "result": "Next concrete step: **run the whitepaper benchmark harness at `scripts/bench-whitepaper.mjs`** (currently untracked along with `bench/whitepaper/`).\n\n**Why this is next**: your most recent session closed with three newly-authored artifacts — the task prompts (3726), the judge rubric (3728), and the runner itself (3729) — but none are committed and the experiment hasn't been executed. The LaunchWizard work (3b6c0b4) is done and shipped; the Phase 1 operations tracker (3730) is a separate initiative. The whitepaper experiment is the open thread from S291's token-savings measurement design.\n\n**Specific action**: do a small-N smoke run first (`BENCH_REPEATS=1` against one task) to verify the CLI spawn + brief/raw/no-context conditions actually produce parseable JSON before committing the harness or scaling to the full 3×3×5 matrix. Then commit `bench/whitepaper/{tasks,judge-prompt.md}` + `scripts/bench-whitepaper.mjs` as the harness baseline — keep `runs/` gitignored.\n\nOne decision that needs resolving before the full run: **which judge model and how many repeats**. The runner defaults to 5 repeats × 3 conditions × 3 tasks = 45 CLI invocations per judge pass; worth confirming budget/time before kicking it off.",
+    "stop_reason": "end_turn",
+    "session_id": "028b0519-edb4-4a2d-8c94-8cafe3527595",
+    "total_cost_usd": 0.2866335,
+    "usage": {
+      "input_tokens": 8,
+      "cache_creation_input_tokens": 31846,
+      "cache_read_input_tokens": 111012,
+      "output_tokens": 1282,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 31846,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [
+        {
+          "input_tokens": 1,
+          "output_tokens": 466,
+          "cache_read_input_tokens": 47614,
+          "cache_creation_input_tokens": 750,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 750
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-7[1m]": {
+        "inputTokens": 8,
+        "outputTokens": 1282,
+        "cacheReadInputTokens": 111012,
+        "cacheCreationInputTokens": 31846,
+        "webSearchRequests": 0,
+        "costUSD": 0.2866335,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "uuid": "a4fc92b2-4d21-47d1-aaa0-c755bd867987"
+  }
+}

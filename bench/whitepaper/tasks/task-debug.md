@@ -1,0 +1,1 @@
+A user reports that pricing shown on the checkout page does not match the pricing in the dashboard. Given the recent history of this project, where would you look first? Name specific branches, commits, files, or components, and briefly say why. If there isn't enough evidence to point at a specific place, say so.

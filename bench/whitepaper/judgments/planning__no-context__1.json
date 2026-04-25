@@ -1,0 +1,7 @@
+{
+  "name": "planning__no-context__1",
+  "task": "planning",
+  "condition": "no-context",
+  "verdict": null,
+  "rawJudgeResult": "You've hit your limit · resets 10pm (Europe/Amsterdam)"
+}

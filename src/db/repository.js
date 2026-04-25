@@ -774,7 +774,107 @@ export function createRepository(db) {
         updated_at = @updatedAt
       WHERE history_session_id = @id
     `),
+    drainStuck: db.prepare(`
+      UPDATE history_session SET
+        status = 'completed',
+        ended_at = COALESCE(ended_at, datetime('now')),
+        updated_at = datetime('now')
+      WHERE status = 'in-progress'
+        AND (
+          started_at IS NULL
+          OR julianday('now') - julianday(started_at) > @ageDays
+        )
+    `),
   };
+
+  // ── launch_budget ──────────────────────────────────────────────────────
+  const launchBudgetStmts = {
+    upsert: db.prepare(`
+      INSERT INTO launch_budget (
+        history_session_id, provider_id, model,
+        baseline_tokens, optimized_tokens,
+        baseline_breakdown, optimized_breakdown,
+        cost_dollars, cloud_equivalent_dollars,
+        created_at_epoch
+      ) VALUES (
+        @historySessionId, @providerId, @model,
+        @baselineTokens, @optimizedTokens,
+        @baselineBreakdown, @optimizedBreakdown,
+        @costDollars, @cloudEquivalentDollars,
+        @createdAtEpoch
+      )
+      ON CONFLICT(history_session_id) DO UPDATE SET
+        provider_id              = excluded.provider_id,
+        model                    = COALESCE(excluded.model, launch_budget.model),
+        baseline_tokens          = excluded.baseline_tokens,
+        optimized_tokens         = excluded.optimized_tokens,
+        baseline_breakdown       = excluded.baseline_breakdown,
+        optimized_breakdown      = excluded.optimized_breakdown,
+        cost_dollars             = COALESCE(excluded.cost_dollars, launch_budget.cost_dollars),
+        cloud_equivalent_dollars = COALESCE(excluded.cloud_equivalent_dollars, launch_budget.cloud_equivalent_dollars)
+    `),
+    setOutcome: db.prepare(`
+      UPDATE launch_budget SET outcome = @outcome WHERE history_session_id = @historySessionId
+    `),
+    listSince: db.prepare(`
+      SELECT history_session_id, provider_id, model,
+             baseline_tokens, optimized_tokens,
+             baseline_breakdown, optimized_breakdown,
+             outcome, cost_dollars, cloud_equivalent_dollars, created_at_epoch
+        FROM launch_budget
+       WHERE created_at_epoch >= @since
+       ORDER BY created_at_epoch DESC
+    `),
+  };
+
+  function rowToLaunchBudget(row) {
+    if (!row) return null;
+    return {
+      historySessionId: row.history_session_id,
+      providerId: row.provider_id,
+      model: row.model ?? null,
+      baselineTokens: row.baseline_tokens ?? 0,
+      optimizedTokens: row.optimized_tokens ?? 0,
+      baselineBreakdown: parseJson(row.baseline_breakdown, null),
+      optimizedBreakdown: parseJson(row.optimized_breakdown, null),
+      outcome: row.outcome ?? null,
+      costDollars: row.cost_dollars ?? null,
+      cloudEquivalentDollars: row.cloud_equivalent_dollars ?? null,
+      createdAtEpoch: row.created_at_epoch,
+    };
+  }
+
+  function upsertLaunchBudget({
+    historySessionId, providerId, model,
+    baselineTokens, optimizedTokens,
+    baselineBreakdown, optimizedBreakdown,
+    costDollars, cloudEquivalentDollars,
+    createdAtEpoch,
+  }) {
+    launchBudgetStmts.upsert.run({
+      historySessionId: Number(historySessionId),
+      providerId,
+      model: model ?? null,
+      baselineTokens: Number(baselineTokens) || 0,
+      optimizedTokens: Number(optimizedTokens) || 0,
+      baselineBreakdown: toJson(baselineBreakdown ?? null),
+      optimizedBreakdown: toJson(optimizedBreakdown ?? null),
+      costDollars: costDollars ?? null,
+      cloudEquivalentDollars: cloudEquivalentDollars ?? null,
+      createdAtEpoch: Number(createdAtEpoch) || Math.floor(Date.now() / 1000),
+    });
+  }
+
+  function setLaunchBudgetOutcome(historySessionId, outcome) {
+    launchBudgetStmts.setOutcome.run({
+      historySessionId: Number(historySessionId),
+      outcome,
+    });
+  }
+
+  function listLaunchBudgetsSince(sinceEpoch) {
+    return launchBudgetStmts.listSince.all({ since: Number(sinceEpoch) || 0 }).map(rowToLaunchBudget);
+  }
 
   const historySummaryStmts = {
     insert: db.prepare(`
@@ -1059,6 +1159,12 @@ export function createRepository(db) {
       hourStart: row.hour_start,
       tokens: row.tokens,
     }));
+  }
+
+  function drainStuckHistorySessions({ ageHours = 1 } = {}) {
+    const ageDays = Number(ageHours) / 24;
+    const result = historySessionStmts.drainStuck.run({ ageDays });
+    return { drained: result.changes ?? 0 };
   }
 
   function updateHistorySession(id, fields) {
@@ -1605,6 +1711,10 @@ export function createRepository(db) {
     sumHistoryCommitsSince,
     getHistoryPulseBucketsSince,
     updateHistorySession,
+    drainStuckHistorySessions,
+    upsertLaunchBudget,
+    setLaunchBudgetOutcome,
+    listLaunchBudgetsSince,
     createHistorySummary,
     listHistorySummaries,
     createHistoryObservation,

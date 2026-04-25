@@ -1,0 +1,11 @@
+{
+  "name": "debug__brief__4",
+  "task": "debug",
+  "condition": "brief",
+  "verdict": {
+    "grounded": 4,
+    "useful": 5,
+    "rationale": "Claims about commit 13cf2be, lens-dev-5574c deploy, stale /upgrade prices/missing Platinum, and unpushed feat/max-platforms-and-openrouter-catalog branch are all supported; concrete actionable steps given, though specific file paths are speculative."
+  },
+  "rawJudgeResult": "{\"grounded\":4,\"useful\":5,\"rationale\":\"Claims about commit 13cf2be, lens-dev-5574c deploy, stale /upgrade prices/missing Platinum, and unpushed feat/max-platforms-and-openrouter-catalog branch are all supported; concrete actionable steps given, though specific file paths are speculative.\"}"
+}

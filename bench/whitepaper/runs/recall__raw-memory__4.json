@@ -1,0 +1,68 @@
+{
+  "name": "recall__raw-memory__4",
+  "task": "recall",
+  "condition": "raw-memory",
+  "repeat": 4,
+  "wallMs": 82958,
+  "exitCode": 0,
+  "stderrTail": "",
+  "result": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "api_error_status": null,
+    "duration_ms": 76322,
+    "duration_api_ms": 25068,
+    "num_turns": 2,
+    "result": "## Shipped this week on agent-office (Apr 13–18)\n\nWent from empty repo to a running v0 in one week. Four phases landed plus a memory/brief pivot at the end.\n\n**Foundation (Apr 13)** — `bd59458` Phase 1, `6a1ede2` Phase 2 (personas/skills/resolver/launcher), `ca066d7` Phase 3 (memory engine with domain-scoped queries + importer), `eaebe7c` Phase 4 Office UI (React + animated scene).\n\n**Pixel-art office engine (Apr 14)** — extracted from `pixel-agents` into reusable modules in a burst: `a88a3c6` → `fd62f21` (constants, sprites, floors/walls, layout, engine core, browser asset loader). Wired into a 3-column dashboard (`68467b0`) with `OfficeCanvas` (`c8c8f57`, `6ac04c0`). Merged as Phase 4.5/4.6 in `6b61356`. Launcher now spawns Claude Code in iTerm2 (`64ed75e`) and injects claude-mem context (`1c875a4`, `d109f26`, `e079b4f`). LaunchPreview UI added (`27cb1d3`, `c0f0d86`, `91ae92e`).\n\n**Phase 5 telemetry (Apr 15)** — `2534692` + merge `3199451`, plus provider adapters and portfolio stats in `4d9806d`, launch picker redesign `42aab52`, skills inventory `a4cb528`.\n\n**Provider-neutral history + stability (Apr 16)** — `9c4afb4` provider-neutral history ingestion, `3b9f1a9` doctor command, plus fixes for live session presence (`a8f6bd4`, `aaa47ed`), codex summaries (`fc03de3`, `1b6fbb5` on 18th), port resolution (`ef1cec2`).\n\n**Unified memory + brief (Apr 18)** — the pivot: `4d9a58a` persona-scoped memory brief generator, `17bf243` wires it into live launch, `ec56fb9` renders it in LaunchPreview, `2dbef00` unified memory stats + semantic search (dropped claude-mem fallback), `3c1cf94` exposes them in the project picker, `3b6c0b4` consolidates LaunchWizard into a single 4-step modal. Bench harness `40c5014`, Playwright LinkedIn carousel capture `01f2a70`, README rewrite `18e1cbb`, office simplified to Boss/Workspace/Dungeon + Fixer `d5da889`.\n\n**Uncommitted** — `bench/` directory and three scripts (`bench-aggregate.mjs`, `bench-judge.mjs`, `bench-whitepaper.mjs`) are still untracked per git status. Memory S294/3830 flagged this as the next concrete step — not resolved yet as far as I can see.\n\n**Caveats** — I'm reading commit subjects, not diffs, so claims at that level of granularity are trustworthy; anything about how well features *work* I can't verify from here. The memory context loaded at session start is almost entirely from a different project (lens), so I ignored it for this summary.",
+    "stop_reason": "end_turn",
+    "session_id": "73aaa091-bec8-4236-b313-30e0c0fbfdaf",
+    "total_cost_usd": 0.27175375,
+    "usage": {
+      "input_tokens": 7,
+      "cache_creation_input_tokens": 32981,
+      "cache_read_input_tokens": 63475,
+      "output_tokens": 1354,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 32981,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [
+        {
+          "input_tokens": 1,
+          "output_tokens": 1089,
+          "cache_read_input_tokens": 46957,
+          "cache_creation_input_tokens": 2542,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 2542
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-7[1m]": {
+        "inputTokens": 7,
+        "outputTokens": 1354,
+        "cacheReadInputTokens": 63475,
+        "cacheCreationInputTokens": 32981,
+        "webSearchRequests": 0,
+        "costUSD": 0.27175375,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "uuid": "be0c7b3a-a2c2-4ef0-a22c-9332d3dfe765"
+  }
+}

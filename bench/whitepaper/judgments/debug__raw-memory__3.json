@@ -1,0 +1,11 @@
+{
+  "name": "debug__raw-memory__3",
+  "task": "debug",
+  "condition": "raw-memory",
+  "verdict": {
+    "grounded": 5,
+    "useful": 5,
+    "rationale": "Claims (tier-pricing branch, 13cf2be, lens-dev-5574c deploy, hard-coded pricing, stale /upgrade prices/no Platinum, test-mode Stripe products) are all supported by observations, and the answer gives specific, actionable investigation steps."
+  },
+  "rawJudgeResult": "{\"grounded\":5,\"useful\":5,\"rationale\":\"Claims (tier-pricing branch, 13cf2be, lens-dev-5574c deploy, hard-coded pricing, stale /upgrade prices/no Platinum, test-mode Stripe products) are all supported by observations, and the answer gives specific, actionable investigation steps.\"}"
+}

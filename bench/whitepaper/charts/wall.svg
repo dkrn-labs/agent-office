@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="360" viewBox="0 0 720 360" font-family="Inter, system-ui, sans-serif">
+<rect width="720" height="360" fill="#ffffff"/>
+<text x="360" y="26" font-size="16" font-weight="600" text-anchor="middle" fill="#111">Wall-time per run</text>
+<text x="360" y="350" font-size="11" text-anchor="middle" fill="#555">task (within-task and overall)</text>
+<text x="16" y="170" font-size="11" text-anchor="middle" fill="#555" transform="rotate(-90 16 170)">seconds</text>
+<line x1="80" y1="290" x2="690" y2="290" stroke="#eee"/>
+<text x="74" y="293" font-size="10" text-anchor="end" fill="#777">0s</text>
+<line x1="80" y1="242" x2="690" y2="242" stroke="#eee"/>
+<text x="74" y="245" font-size="10" text-anchor="end" fill="#777">22s</text>
+<line x1="80" y1="194" x2="690" y2="194" stroke="#eee"/>
+<text x="74" y="197" font-size="10" text-anchor="end" fill="#777">45s</text>
+<line x1="80" y1="146" x2="690" y2="146" stroke="#eee"/>
+<text x="74" y="149" font-size="10" text-anchor="end" fill="#777">67s</text>
+<line x1="80" y1="98" x2="690" y2="98" stroke="#eee"/>
+<text x="74" y="101" font-size="10" text-anchor="end" fill="#777">89s</text>
+<line x1="80" y1="50" x2="690" y2="50" stroke="#eee"/>
+<text x="74" y="53" font-size="10" text-anchor="end" fill="#777">112s</text>
+<rect x="99.0625" y="166.97012398443587" width="36.125" height="123.02987601556414" fill="#888" opacity="0.85"/>
+<line x1="117.125" y1="137.50693185527268" x2="117.125" y2="196.43331611359906" stroke="#222" stroke-width="1"/>
+<line x1="114.125" y1="137.50693185527268" x2="120.125" y2="137.50693185527268" stroke="#222" stroke-width="1"/>
+<line x1="114.125" y1="196.43331611359906" x2="120.125" y2="196.43331611359906" stroke="#222" stroke-width="1"/>
+<rect x="137.1875" y="92.0481529155314" width="36.125" height="197.9518470844686" fill="#c0392b" opacity="0.85"/>
+<line x1="155.25" y1="71.81818181818181" x2="155.25" y2="112.278124012881" stroke="#222" stroke-width="1"/>
+<line x1="152.25" y1="71.81818181818181" x2="158.25" y2="71.81818181818181" stroke="#222" stroke-width="1"/>
+<line x1="152.25" y1="112.278124012881" x2="158.25" y2="112.278124012881" stroke="#222" stroke-width="1"/>
+<rect x="175.3125" y="188.30303722422903" width="36.125" height="101.69696277577097" fill="#27ae60" opacity="0.85"/>
+<line x1="193.375" y1="177.37300582969118" x2="193.375" y2="199.23306861876688" stroke="#222" stroke-width="1"/>
+<line x1="190.375" y1="177.37300582969118" x2="196.375" y2="177.37300582969118" stroke="#222" stroke-width="1"/>
+<line x1="190.375" y1="199.23306861876688" x2="196.375" y2="199.23306861876688" stroke="#222" stroke-width="1"/>
+<text x="156.25" y="308" font-size="11" text-anchor="middle" fill="#333">recall</text>
+<rect x="251.5625" y="220.99114732860755" width="36.125" height="69.00885267139243" fill="#888" opacity="0.85"/>
+<line x1="269.625" y1="208.0251974774901" x2="269.625" y2="233.957097179725" stroke="#222" stroke-width="1"/>
+<line x1="266.625" y1="208.0251974774901" x2="272.625" y2="208.0251974774901" stroke="#222" stroke-width="1"/>
+<line x1="266.625" y1="233.957097179725" x2="272.625" y2="233.957097179725" stroke="#222" stroke-width="1"/>
+<rect x="289.6875" y="193.34449558638056" width="36.125" height="96.65550441361945" fill="#c0392b" opacity="0.85"/>
+<line x1="307.75" y1="141.2187922006494" x2="307.75" y2="245.4701989721117" stroke="#222" stroke-width="1"/>
+<line x1="304.75" y1="141.2187922006494" x2="310.75" y2="141.2187922006494" stroke="#222" stroke-width="1"/>
+<line x1="304.75" y1="245.4701989721117" x2="310.75" y2="245.4701989721117" stroke="#222" stroke-width="1"/>
+<rect x="327.8125" y="227.76562042116052" width="36.125" height="62.234379578839466" fill="#27ae60" opacity="0.85"/>
+<line x1="345.875" y1="211.16722420400924" x2="345.875" y2="244.36401663831185" stroke="#222" stroke-width="1"/>
+<line x1="342.875" y1="211.16722420400924" x2="348.875" y2="211.16722420400924" stroke="#222" stroke-width="1"/>
+<line x1="342.875" y1="244.36401663831185" x2="348.875" y2="244.36401663831185" stroke="#222" stroke-width="1"/>
+<text x="308.75" y="308" font-size="11" text-anchor="middle" fill="#333">planning</text>
+<rect x="404.0625" y="208.96739151079248" width="36.125" height="81.0326084892075" fill="#888" opacity="0.85"/>
+<line x1="422.125" y1="188.0199729433584" x2="422.125" y2="229.9148100782266" stroke="#222" stroke-width="1"/>
+<line x1="419.125" y1="188.0199729433584" x2="425.125" y2="188.0199729433584" stroke="#222" stroke-width="1"/>
+<line x1="419.125" y1="229.9148100782266" x2="425.125" y2="229.9148100782266" stroke="#222" stroke-width="1"/>
+<rect x="442.1875" y="229.806936582788" width="36.125" height="60.193063417211974" fill="#c0392b" opacity="0.85"/>
+<line x1="460.25" y1="228.12639125950943" x2="460.25" y2="231.48748190606662" stroke="#222" stroke-width="1"/>
+<line x1="457.25" y1="228.12639125950943" x2="463.25" y2="228.12639125950943" stroke="#222" stroke-width="1"/>
+<line x1="457.25" y1="231.48748190606662" x2="463.25" y2="231.48748190606662" stroke="#222" stroke-width="1"/>
+<rect x="480.3125" y="225.79343591750992" width="36.125" height="64.20656408249008" fill="#27ae60" opacity="0.85"/>
+<line x1="498.375" y1="218.18458901260863" x2="498.375" y2="233.40228282241122" stroke="#222" stroke-width="1"/>
+<line x1="495.375" y1="218.18458901260863" x2="501.375" y2="218.18458901260863" stroke="#222" stroke-width="1"/>
+<line x1="495.375" y1="233.40228282241122" x2="501.375" y2="233.40228282241122" stroke="#222" stroke-width="1"/>
+<text x="461.25" y="308" font-size="11" text-anchor="middle" fill="#333">debug</text>
+<rect x="556.5625" y="198.97622094127865" width="36.125" height="91.02377905872136" fill="#888" opacity="0.85"/>
+<line x1="574.625" y1="166.9145064611264" x2="574.625" y2="231.03793542143086" stroke="#222" stroke-width="1"/>
+<line x1="571.625" y1="166.9145064611264" x2="577.625" y2="166.9145064611264" stroke="#222" stroke-width="1"/>
+<line x1="571.625" y1="231.03793542143086" x2="577.625" y2="231.03793542143086" stroke="#222" stroke-width="1"/>
+<rect x="594.6875" y="171.73319502823333" width="36.125" height="118.26680497176667" fill="#c0392b" opacity="0.85"/>
+<line x1="612.75" y1="105.10367548645846" x2="612.75" y2="238.3627145700082" stroke="#222" stroke-width="1"/>
+<line x1="609.75" y1="105.10367548645846" x2="615.75" y2="105.10367548645846" stroke="#222" stroke-width="1"/>
+<line x1="609.75" y1="238.3627145700082" x2="615.75" y2="238.3627145700082" stroke="#222" stroke-width="1"/>
+<rect x="632.8125" y="213.95403118763318" width="36.125" height="76.04596881236684" fill="#27ae60" opacity="0.85"/>
+<line x1="650.875" y1="192.03165382785556" x2="650.875" y2="235.87640854741073" stroke="#222" stroke-width="1"/>
+<line x1="647.875" y1="192.03165382785556" x2="653.875" y2="192.03165382785556" stroke="#222" stroke-width="1"/>
+<line x1="647.875" y1="235.87640854741073" x2="653.875" y2="235.87640854741073" stroke="#222" stroke-width="1"/>
+<text x="613.75" y="308" font-size="11" text-anchor="middle" fill="#333">ALL</text>
+<rect x="80" y="23" width="11" height="11" fill="#888"/>
+<text x="96" y="32" font-size="11" fill="#333">no-context</text>
+<rect x="190" y="23" width="11" height="11" fill="#c0392b"/>
+<text x="206" y="32" font-size="11" fill="#333">raw-memory</text>
+<rect x="300" y="23" width="11" height="11" fill="#27ae60"/>
+<text x="316" y="32" font-size="11" fill="#333">brief</text>
+</svg>

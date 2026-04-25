@@ -1,0 +1,11 @@
+{
+  "name": "debug__raw-memory__2",
+  "task": "debug",
+  "condition": "raw-memory",
+  "verdict": {
+    "grounded": 4,
+    "useful": 5,
+    "rationale": "Answer correctly cites commit 13cf2be, lens-dev-5574c, and the /upgrade stale-prices note from memory; hypothesis about dual sources of truth is actionable though file names are speculative."
+  },
+  "rawJudgeResult": "{\"grounded\":4,\"useful\":5,\"rationale\":\"Answer correctly cites commit 13cf2be, lens-dev-5574c, and the /upgrade stale-prices note from memory; hypothesis about dual sources of truth is actionable though file names are speculative.\"}"
+}

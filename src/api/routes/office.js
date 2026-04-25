@@ -1,11 +1,13 @@
 import { Router } from 'express';
+import { getAdapter } from '../../providers/manifest.js';
 
 /**
  * Returns an Express Router for office endpoints.
  * @param {ReturnType<import('../../agents/launcher.js').createLauncher>} launcher
+ * @param {{ ptyHost?: ReturnType<import('../../pty/node-pty-host.js').createPtyHost> }} [deps]
  * @returns {import('express').Router}
  */
-export function officeRoutes(launcher) {
+export function officeRoutes(launcher, { ptyHost } = {}) {
   const router = Router();
 
   function parseIdList(value) {
@@ -64,6 +66,62 @@ export function officeRoutes(launcher) {
         customInstructions: customInstructions ?? null,
       });
       res.json({ sessionId: ctx.sessionId });
+    } catch (err) {
+      const status =
+        err.message?.startsWith('Persona not found') ||
+        err.message?.startsWith('Project not found')
+          ? 404
+          : 500;
+      res.status(status).json({ error: err.message });
+    }
+  });
+
+  // POST /api/office/launch-pty — assemble context (launch_budget, history row,
+  // SESSION_STARTED), then spawn the agent into an in-browser PTY instead of
+  // iTerm. Returns { sessionId, historySessionId, ptyId, label } so the UI can
+  // mount an XTermPane bound to the new session.
+  router.post('/api/office/launch-pty', async (req, res) => {
+    if (!ptyHost) {
+      return res.status(501).json({ error: 'pty host not available' });
+    }
+    const { personaId, projectId, providerId, model, selectedObservationIds, customInstructions, cols, rows } = req.body ?? {};
+    if (personaId == null || projectId == null) {
+      return res.status(400).json({ error: 'personaId and projectId are required' });
+    }
+    try {
+      const ctx = await launcher.prepareLaunch(Number(personaId), Number(projectId), {
+        providerId: providerId ?? undefined,
+        model: model ?? undefined,
+        selectedObservationIds: Array.isArray(selectedObservationIds)
+          ? selectedObservationIds.map((n) => Number(n)).filter(Number.isInteger)
+          : null,
+        customInstructions: customInstructions ?? null,
+      });
+      const adapter = getAdapter(ctx.providerId);
+      const recipe = adapter.spawn({
+        projectPath: ctx.projectPath,
+        systemPrompt: ctx.systemPrompt,
+        model: ctx.model,
+        historySessionId: ctx.historySessionId,
+      });
+      const argv = recipe.argv.map((tok) => (tok === '$PROMPT' ? (ctx.systemPrompt ?? '') : tok));
+      const label = `${adapter.id}:${ctx.model ?? adapter.defaultModel}`;
+      const { ptyId } = ptyHost.create({
+        argv,
+        env: recipe.env,
+        cwd: recipe.cwd,
+        cols: Number.isInteger(cols) ? cols : 100,
+        rows: Number.isInteger(rows) ? rows : 30,
+        label,
+      });
+      res.json({
+        sessionId: ctx.sessionId,
+        historySessionId: ctx.historySessionId,
+        ptyId,
+        label,
+        providerId: ctx.providerId,
+        model: ctx.model,
+      });
     } catch (err) {
       const status =
         err.message?.startsWith('Persona not found') ||

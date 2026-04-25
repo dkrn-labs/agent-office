@@ -1,0 +1,11 @@
+{
+  "name": "planning__brief__0",
+  "task": "planning",
+  "condition": "brief",
+  "verdict": {
+    "grounded": 1,
+    "useful": 3,
+    "rationale": "Answer fabricates specific memory IDs (3717, 3729, 3762), missing file names, and matrix details not supported by the observations, though the general direction (bench work, commit/gitignore per S294) has some plausibility."
+  },
+  "rawJudgeResult": "{\"grounded\":1,\"useful\":3,\"rationale\":\"Answer fabricates specific memory IDs (3717, 3729, 3762), missing file names, and matrix details not supported by the observations, though the general direction (bench work, commit/gitignore per S294) has some plausibility.\"}"
+}

@@ -31,6 +31,8 @@ function buildClaudePayload(input, opts = {}) {
     providerSessionId: trimText(input.session_id),
     historySessionId: toInt(opts.historySessionId) ?? null,
     model: trimText(input.model) ?? null,
+    startedAt: createdAt,
+    endedAt: createdAt,
     status: 'completed',
     summary: {
       summaryKind: 'turn',
@@ -62,6 +64,9 @@ function buildGeminiPayload(input, opts = {}) {
     providerId: 'gemini-cli',
     providerSessionId: trimText(input.session_id),
     historySessionId: toInt(opts.historySessionId) ?? null,
+    model: trimText(input.model) ?? null,
+    startedAt: createdAt,
+    endedAt: createdAt,
     status: 'completed',
     summary: {
       summaryKind: 'turn',
@@ -97,6 +102,9 @@ function buildCodexPayload(input, opts = {}) {
     providerId: 'codex',
     providerSessionId: trimText(input.session_id) ?? trimText(input.turn_id) ?? trimText(input['turn-id']),
     historySessionId: toInt(opts.historySessionId) ?? null,
+    model: trimText(input.model) ?? null,
+    startedAt: createdAt,
+    endedAt: createdAt,
     status: 'completed',
     summary: {
       summaryKind: 'turn',

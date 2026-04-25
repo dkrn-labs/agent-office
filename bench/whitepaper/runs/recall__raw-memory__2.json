@@ -1,0 +1,77 @@
+{
+  "name": "recall__raw-memory__2",
+  "task": "recall",
+  "condition": "raw-memory",
+  "repeat": 2,
+  "wallMs": 88229,
+  "exitCode": 0,
+  "stderrTail": "",
+  "result": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "api_error_status": null,
+    "duration_ms": 82056,
+    "duration_api_ms": 36835,
+    "num_turns": 3,
+    "result": "## Shipped this week on agent-office (2026-04-13 → 04-18)\n\n**Phase 1–3 foundations (Apr 13, bd59458 → ca066d7)** — Foundation, Agent Core (personas/skills/resolver/launcher), Memory Engine (domain-scoped queries, injector, importer).\n\n**Phase 4 Office UI (Apr 13–14)** — React frontend with animated office scene (eaebe7c), swapped placeholder squares for pixel-art sprites (69510ec). Extracted pixel-agents into a standalone engine across 54fcd13…fd62f21 (constants/types, sprites, floors/walls, layout modules, core engine, browser asset loader). Wired OfficeCanvas + 3-column dashboard (c8c8f57, 68467b0, 6ac04c0); default 25×20 layout with 7 themed zones (a4ef81e); fixes for click→world transform, zone pinning, label rendering.\n\n**Launcher + preview (Apr 14)** — iTerm2 tab spawn (64ed75e), `GET /api/office/preview` + full `launch()` on POST (acdddfa), LaunchPreview component with last session + persona memories + skills (27cb1d3), ProjectPicker opens preview instead of launching directly (c0f0d86). Hardened with terminal detection, prompt-to-file, `execFile` (af527f8).\n\n**Claude-mem integration (Apr 14)** — read-only SQLite adapter (d109f26), heuristic persona filter (e079b4f), boot-time connection (3842a50), context injection into launcher (1c875a4). Merged as Phase 4.5/4.6 in 6b61356.\n\n**Phase 5 Telemetry (Apr 15)** — provider adapters, office state, portfolio stats (4d9806d); redesigned picker with provider-aware preview (42aab52); local skill roots + launch inventory (a4cb528); merged 3199451.\n\n**Provider-neutral history (Apr 16)** — ingestion (9c4afb4), Codex history summary enrichment (fc03de3), idle-grace live sessions (aaa47ed, a8f6bd4), doctor command (3b9f1a9), local port resolution from config (ef1cec2).\n\n**Persona-scoped memory brief + unified memory (Apr 18)** — brief generator (4d9a58a), bench harness for brief vs raw-memory token savings (40c5014), wired brief into live launch (17bf243) and LaunchPreview (ec56fb9). Unified memory stats + semantic search exposed, claude-mem fallback dropped (2dbef00); surfaced in project picker (3c1cf94). Floor simplified to Boss/Workspace/Dungeon + Fixer persona (d5da889). LaunchWizard consolidated to a single 4-step modal (3b6c0b4). README rewritten around unified-memory USP + brief benchmarks (18e1cbb).\n\n**Marketing/tooling** — Playwright LinkedIn carousel capture (01f2a70); dep adds: sqlite-vec, @huggingface/transformers, playwright (0c3dfbd).\n\n## Uncertain / not verified\n- **Bench results**: `bench/` dir and `scripts/bench-{aggregate,judge,whitepaper}.mjs` are **untracked** (per git status at session start). The whitepaper/blog drafts (S288/S289 in memory) cite these numbers but the artifacts aren't committed — so I can't confirm the specific savings figures from git alone.\n- **Deployment/release**: I didn't verify whether any of this was tagged or published — only that it's on `main`.\n- Memory context also references lens-dev-5574c work (Stripe tiers, brand management, quota system) — that's a **different repo**, not agent-office, and I excluded it from this summary.",
+    "stop_reason": "end_turn",
+    "session_id": "abf8e9e4-f9cc-48d6-9f30-4d690c000596",
+    "total_cost_usd": 0.31343924999999995,
+    "usage": {
+      "input_tokens": 8,
+      "cache_creation_input_tokens": 33917,
+      "cache_read_input_tokens": 111386,
+      "output_tokens": 1829,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 33917,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [
+        {
+          "input_tokens": 1,
+          "output_tokens": 1445,
+          "cache_read_input_tokens": 47434,
+          "cache_creation_input_tokens": 2708,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 2708
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-7[1m]": {
+        "inputTokens": 8,
+        "outputTokens": 1829,
+        "cacheReadInputTokens": 111386,
+        "cacheCreationInputTokens": 33917,
+        "webSearchRequests": 0,
+        "costUSD": 0.31343924999999995,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [
+      {
+        "tool_name": "Bash",
+        "tool_use_id": "toolu_01CoXks1n9Xve8xU7ZNCnqJt",
+        "tool_input": {
+          "command": "git -C /Users/dehakuran/Projects/agent-office log --since=\"7 days ago\" --pretty=format:\"%h %ad %s\" --date=short",
+          "description": "agent-office commits last 7 days"
+        }
+      }
+    ],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "uuid": "1317a3c4-46c5-4da1-bfa7-8707697c8e07"
+  }
+}

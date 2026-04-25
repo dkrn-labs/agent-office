@@ -177,9 +177,9 @@ program
       telemetry: true,
     });
 
-    // Create HTTP server and attach WS hub
+    // Create HTTP server and attach WS hub (dashboard + pty)
     const server = createServer(app);
-    createWsHub(server, bus);
+    createWsHub(server, bus, { ptyHost: app.locals.ptyHost });
 
     // Listen
     await new Promise((res, rej) => {

@@ -1,0 +1,607 @@
+{
+  "nRuns": 45,
+  "cells": {
+    "recall__no-context": {
+      "costUsd": {
+        "mean": 0.2197279,
+        "std": 0.007233415067587375,
+        "median": 0.21671475,
+        "n": 5
+      },
+      "wallMs": {
+        "mean": 57304.6,
+        "std": 13723.304406738196,
+        "median": 56268,
+        "n": 5
+      },
+      "turns": {
+        "mean": 3.4,
+        "std": 0.4898979485566356,
+        "median": 3,
+        "n": 5
+      },
+      "inputTokens": {
+        "mean": 7,
+        "std": 0,
+        "median": 7,
+        "n": 5
+      },
+      "outputTokens": {
+        "mean": 1704.8,
+        "std": 155.42123407050917,
+        "median": 1698,
+        "n": 5
+      },
+      "cacheCreate": {
+        "mean": 24027.2,
+        "std": 589.6983635724284,
+        "median": 23705,
+        "n": 5
+      },
+      "grounded": {
+        "mean": 0,
+        "std": 0,
+        "median": 0,
+        "n": 0
+      },
+      "useful": {
+        "mean": 0,
+        "std": 0,
+        "median": 0,
+        "n": 0
+      }
+    },
+    "recall__raw-memory": {
+      "costUsd": {
+        "mean": 0.29158164999999997,
+        "std": 0.01676017077672539,
+        "median": 0.2932975,
+        "n": 5
+      },
+      "wallMs": {
+        "mean": 92201.6,
+        "std": 9422.673900756621,
+        "median": 88229,
+        "n": 5
+      },
+      "turns": {
+        "mean": 2.6,
+        "std": 0.4898979485566356,
+        "median": 3,
+        "n": 5
+      },
+      "inputTokens": {
+        "mean": 7.4,
+        "std": 0.48989794855663565,
+        "median": 7,
+        "n": 5
+      },
+      "outputTokens": {
+        "mean": 1632.6,
+        "std": 242.85188901880093,
+        "median": 1529,
+        "n": 5
+      },
+      "cacheCreate": {
+        "mean": 33463,
+        "std": 438.48694393333994,
+        "median": 33738,
+        "n": 5
+      },
+      "grounded": {
+        "mean": 0,
+        "std": 0,
+        "median": 0,
+        "n": 0
+      },
+      "useful": {
+        "mean": 0,
+        "std": 0,
+        "median": 0,
+        "n": 0
+      }
+    },
+    "recall__brief": {
+      "costUsd": {
+        "mean": 0.2605162,
+        "std": 0.024629454654133128,
+        "median": 0.24357575,
+        "n": 5
+      },
+      "wallMs": {
+        "mean": 47368.2,
+        "std": 5090.967310835928,
+        "median": 46947,
+        "n": 5
+      },
+      "turns": {
+        "mean": 3.6,
+        "std": 0.8,
+        "median": 3,
+        "n": 5
+      },
+      "inputTokens": {
+        "mean": 8.6,
+        "std": 0.7999999999999999,
+        "median": 8,
+        "n": 5
+      },
+      "outputTokens": {
+        "mean": 1803.4,
+        "std": 266.20413219933306,
+        "median": 1650,
+        "n": 5
+      },
+      "cacheCreate": {
+        "mean": 24832.4,
+        "std": 259.802694366321,
+        "median": 24675,
+        "n": 5
+      },
+      "grounded": {
+        "mean": 0,
+        "std": 0,
+        "median": 0,
+        "n": 0
+      },
+      "useful": {
+        "mean": 0,
+        "std": 0,
+        "median": 0,
+        "n": 0
+      }
+    },
+    "planning__no-context": {
+      "costUsd": {
+        "mean": 0.20927854999999998,
+        "std": 0.025958173466366998,
+        "median": 0.21505749999999998,
+        "n": 5
+      },
+      "wallMs": {
+        "mean": 32142.8,
+        "std": 6039.253178994899,
+        "median": 33380,
+        "n": 5
+      },
+      "turns": {
+        "mean": 3,
+        "std": 0.8944271909999159,
+        "median": 3,
+        "n": 5
+      },
+      "inputTokens": {
+        "mean": 8,
+        "std": 0.8944271909999159,
+        "median": 8,
+        "n": 5
+      },
+      "outputTokens": {
+        "mean": 1130.6,
+        "std": 335.57032049929563,
+        "median": 1237,
+        "n": 5
+      },
+      "cacheCreate": {
+        "mean": 21629,
+        "std": 364.04724968058747,
+        "median": 21488,
+        "n": 5
+      },
+      "grounded": {
+        "mean": 0,
+        "std": 0,
+        "median": 0,
+        "n": 0
+      },
+      "useful": {
+        "mean": 0,
+        "std": 0,
+        "median": 0,
+        "n": 0
+      }
+    },
+    "planning__raw-memory": {
+      "costUsd": {
+        "mean": 0.2339454,
+        "std": 0.027028258535558663,
+        "median": 0.22160149999999998,
+        "n": 5
+      },
+      "wallMs": {
+        "mean": 45020,
+        "std": 24279.00180814689,
+        "median": 43465,
+        "n": 5
+      },
+      "turns": {
+        "mean": 1.4,
+        "std": 0.8000000000000002,
+        "median": 1,
+        "n": 5
+      },
+      "inputTokens": {
+        "mean": 6.4,
+        "std": 0.7999999999999999,
+        "median": 6,
+        "n": 5
+      },
+      "outputTokens": {
+        "mean": 948.4,
+        "std": 316.47028296508347,
+        "median": 937,
+        "n": 5
+      },
+      "cacheCreate": {
+        "mean": 30799.2,
+        "std": 563.3952076473495,
+        "median": 30459,
+        "n": 5
+      },
+      "grounded": {
+        "mean": 0,
+        "std": 0,
+        "median": 0,
+        "n": 0
+      },
+      "useful": {
+        "mean": 0,
+        "std": 0,
+        "median": 0,
+        "n": 0
+      }
+    },
+    "planning__brief": {
+      "costUsd": {
+        "mean": 0.17806845,
+        "std": 0.029859030561707786,
+        "median": 0.16414525000000002,
+        "n": 5
+      },
+      "wallMs": {
+        "mean": 28987.4,
+        "std": 7731.166499306557,
+        "median": 24589,
+        "n": 5
+      },
+      "turns": {
+        "mean": 1.6,
+        "std": 1.2000000000000002,
+        "median": 1,
+        "n": 5
+      },
+      "inputTokens": {
+        "mean": 6.6,
+        "std": 1.2,
+        "median": 6,
+        "n": 5
+      },
+      "outputTokens": {
+        "mean": 751.4,
+        "std": 167.28251552388852,
+        "median": 738,
+        "n": 5
+      },
+      "cacheCreate": {
+        "mean": 22297.8,
+        "std": 493.3264233750307,
+        "median": 22079,
+        "n": 5
+      },
+      "grounded": {
+        "mean": 1,
+        "std": 0,
+        "median": 1,
+        "n": 1
+      },
+      "useful": {
+        "mean": 3,
+        "std": 0,
+        "median": 3,
+        "n": 1
+      }
+    },
+    "debug__no-context": {
+      "costUsd": {
+        "mean": 0.3606449,
+        "std": 0.11040451824705817,
+        "median": 0.36237575,
+        "n": 5
+      },
+      "wallMs": {
+        "mean": 37743.2,
+        "std": 9756.845092549127,
+        "median": 35411,
+        "n": 5
+      },
+      "turns": {
+        "mean": 2.6,
+        "std": 0.8,
+        "median": 3,
+        "n": 5
+      },
+      "inputTokens": {
+        "mean": 11.6,
+        "std": 2.8000000000000003,
+        "median": 13,
+        "n": 5
+      },
+      "outputTokens": {
+        "mean": 995.8,
+        "std": 76.52816474997947,
+        "median": 1017,
+        "n": 5
+      },
+      "cacheCreate": {
+        "mean": 49510.8,
+        "std": 16494.67654002345,
+        "median": 48077,
+        "n": 5
+      },
+      "grounded": {
+        "mean": 4.6,
+        "std": 0.48989794855663565,
+        "median": 5,
+        "n": 5
+      },
+      "useful": {
+        "mean": 4.8,
+        "std": 0.39999999999999997,
+        "median": 5,
+        "n": 5
+      }
+    },
+    "debug__raw-memory": {
+      "costUsd": {
+        "mean": 0.26986715,
+        "std": 0.10440196478486409,
+        "median": 0.219514,
+        "n": 5
+      },
+      "wallMs": {
+        "mean": 28036.6,
+        "std": 782.7609085793694,
+        "median": 28075,
+        "n": 5
+      },
+      "turns": {
+        "mean": 1.4,
+        "std": 0.8,
+        "median": 1,
+        "n": 5
+      },
+      "inputTokens": {
+        "mean": 7.4,
+        "std": 2.8000000000000003,
+        "median": 6,
+        "n": 5
+      },
+      "outputTokens": {
+        "mean": 746.4,
+        "std": 67.22083010496077,
+        "median": 712,
+        "n": 5
+      },
+      "cacheCreate": {
+        "mean": 37841.8,
+        "std": 14587.585741307572,
+        "median": 30454,
+        "n": 5
+      },
+      "grounded": {
+        "mean": 4.6,
+        "std": 0.4898979485566356,
+        "median": 5,
+        "n": 5
+      },
+      "useful": {
+        "mean": 4.8,
+        "std": 0.39999999999999997,
+        "median": 5,
+        "n": 5
+      }
+    },
+    "debug__brief": {
+      "costUsd": {
+        "mean": 0.164684,
+        "std": 0.004481914002410131,
+        "median": 0.162614,
+        "n": 5
+      },
+      "wallMs": {
+        "mean": 29906,
+        "std": 3544.0329005244857,
+        "median": 28539,
+        "n": 5
+      },
+      "turns": {
+        "mean": 1,
+        "std": 0,
+        "median": 1,
+        "n": 5
+      },
+      "inputTokens": {
+        "mean": 6,
+        "std": 0,
+        "median": 6,
+        "n": 5
+      },
+      "outputTokens": {
+        "mean": 742.4,
+        "std": 169.48227045918404,
+        "median": 644,
+        "n": 5
+      },
+      "cacheCreate": {
+        "mean": 22053.6,
+        "std": 71.12411686622197,
+        "median": 22074,
+        "n": 5
+      },
+      "grounded": {
+        "mean": 3.8,
+        "std": 0.39999999999999997,
+        "median": 4,
+        "n": 5
+      },
+      "useful": {
+        "mean": 4.4,
+        "std": 0.48989794855663565,
+        "median": 4,
+        "n": 5
+      }
+    }
+  },
+  "overall": {
+    "no-context": {
+      "costUsd": {
+        "mean": 0.2632171166666667,
+        "std": 0.09523332858160646,
+        "median": 0.22637075,
+        "n": 15
+      },
+      "wallMs": {
+        "mean": 42396.86666666667,
+        "std": 14933.63874776971,
+        "median": 39283,
+        "n": 15
+      },
+      "turns": {
+        "mean": 3,
+        "std": 0.816496580927726,
+        "median": 3,
+        "n": 15
+      },
+      "inputTokens": {
+        "mean": 8.866666666666667,
+        "std": 2.6042699979499484,
+        "median": 7,
+        "n": 15
+      },
+      "outputTokens": {
+        "mean": 1277.0666666666666,
+        "std": 376.8903406680634,
+        "median": 1237,
+        "n": 15
+      },
+      "cacheCreate": {
+        "mean": 31722.333333333332,
+        "std": 15812.17494914037,
+        "median": 23501,
+        "n": 15
+      },
+      "grounded": {
+        "mean": 4.6,
+        "std": 0.48989794855663565,
+        "median": 5,
+        "n": 5
+      },
+      "useful": {
+        "mean": 4.8,
+        "std": 0.39999999999999997,
+        "median": 5,
+        "n": 5
+      }
+    },
+    "raw-memory": {
+      "costUsd": {
+        "mean": 0.2651314000000001,
+        "std": 0.06734441324018645,
+        "median": 0.231289,
+        "n": 15
+      },
+      "wallMs": {
+        "mean": 55086.066666666666,
+        "std": 31034.559159033586,
+        "median": 43465,
+        "n": 15
+      },
+      "turns": {
+        "mean": 1.8,
+        "std": 0.9092121131323904,
+        "median": 1,
+        "n": 15
+      },
+      "inputTokens": {
+        "mean": 7.066666666666666,
+        "std": 1.7688665548562135,
+        "median": 6,
+        "n": 15
+      },
+      "outputTokens": {
+        "mean": 1109.1333333333334,
+        "std": 445.3751776748328,
+        "median": 937,
+        "n": 15
+      },
+      "cacheCreate": {
+        "mean": 34034.666666666664,
+        "std": 8918.083767765856,
+        "median": 30948,
+        "n": 15
+      },
+      "grounded": {
+        "mean": 4.6,
+        "std": 0.4898979485566356,
+        "median": 5,
+        "n": 5
+      },
+      "useful": {
+        "mean": 4.8,
+        "std": 0.39999999999999997,
+        "median": 5,
+        "n": 5
+      }
+    },
+    "brief": {
+      "costUsd": {
+        "mean": 0.20108955,
+        "std": 0.04797610913084761,
+        "median": 0.16660775,
+        "n": 15
+      },
+      "wallMs": {
+        "mean": 35420.53333333333,
+        "std": 10210.959372926502,
+        "median": 34414,
+        "n": 15
+      },
+      "turns": {
+        "mean": 2.066666666666667,
+        "std": 1.3888444437333105,
+        "median": 1,
+        "n": 15
+      },
+      "inputTokens": {
+        "mean": 7.066666666666666,
+        "std": 1.3888444437333107,
+        "median": 6,
+        "n": 15
+      },
+      "outputTokens": {
+        "mean": 1099.0666666666666,
+        "std": 539.0550332655182,
+        "median": 827,
+        "n": 15
+      },
+      "cacheCreate": {
+        "mean": 23061.266666666666,
+        "std": 1297.5764314889336,
+        "median": 22119,
+        "n": 15
+      },
+      "grounded": {
+        "mean": 3.3333333333333335,
+        "std": 1.1055415967851334,
+        "median": 4,
+        "n": 6
+      },
+      "useful": {
+        "mean": 4.166666666666667,
+        "std": 0.6871842709362768,
+        "median": 4,
+        "n": 6
+      }
+    }
+  }
+}

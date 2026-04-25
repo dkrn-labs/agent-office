@@ -149,4 +149,25 @@ describe('agent-office init + start integration', () => {
       `expected tech_stack to include "react", got: ${JSON.stringify(stack)}`,
     );
   });
+
+  it('refreshes projects after a new repo is added post-startup', async () => {
+    const repoDir = join(projectsDir, 'late-added-app');
+    mkdirSync(join(repoDir, '.git'), { recursive: true });
+    writeFileSync(
+      join(repoDir, 'package.json'),
+      JSON.stringify({
+        name: 'late-added-app',
+        version: '1.0.0',
+        dependencies: { express: '^5.0.0' },
+      }),
+    );
+
+    const { statusCode, body } = await httpGet(`${baseUrl}/api/projects`);
+    assert.equal(statusCode, 200);
+    assert.ok(Array.isArray(body), 'body should be an array');
+
+    const project = body.find((p) => p.name === 'late-added-app');
+    assert.ok(project, 'late-added-app project not found in /api/projects');
+    assert.equal(project.path, repoDir);
+  });
 });

@@ -1,0 +1,68 @@
+{
+  "name": "recall__raw-memory__3",
+  "task": "recall",
+  "condition": "raw-memory",
+  "repeat": 3,
+  "wallMs": 96564,
+  "exitCode": 0,
+  "stderrTail": "",
+  "result": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "api_error_status": null,
+    "duration_ms": 90006,
+    "duration_api_ms": 31064,
+    "num_turns": 3,
+    "result": "## Week of Apr 13–18 on agent-office\n\n**63 commits, all on `main`.** Broad arc: built the thing from Phase 1 foundations up through a unified memory + persona-brief UX.\n\n**Phase 1–4 (Apr 13):** Scaffolded the project from scratch — `bd59458` Phase 1 foundation, `6a1ede2` Phase 2 agent core (personas/skills/launcher), `ca066d7` Phase 3 memory engine, `eaebe7c` Phase 4 office UI with animated scene.\n\n**Pixel engine extraction (Apr 14):** Pulled the pixel-agents renderer into reusable TS modules (`a88a3c6`, `54fcd13`, `00cdc7b`, `9df83eb`, `769983d`, `fd62f21`), wired it into React via `OfficeCanvas` (`c8c8f57`, `6ac04c0`), and added the 3-col dashboard (`68467b0`).\n\n**Phase 4.5/4.6 — launch preview + claude-mem (Apr 14):** Read-only claude-mem SQLite adapter (`d109f26`), persona-filter heuristic (`e079b4f`), `LaunchPreview` component (`27cb1d3`), iTerm2 spawn (`64ed75e`). Merged as `6b61356`.\n\n**Phase 5 telemetry (Apr 15):** `2534692` + merge `3199451`, then provider adapters / portfolio stats (`4d9806d`), launch picker redesign (`42aab52`), skill roots (`a4cb528`).\n\n**Apr 16:** Provider-neutral history ingestion (`9c4afb4`), `doctor` command (`3b9f1a9`), live-session stability fixes (`a8f6bd4`, `aaa47ed`), Codex history enrichment (`fc03de3`).\n\n**Apr 18 — unified memory + UX polish:** Persona brief generator (`4d9a58a`), bench harness for brief-vs-raw token savings (`40c5014`), Playwright LinkedIn carousel capture (`01f2a70`), simplified office floor to Boss/Workspace/Dungeon + Fixer (`d5da889`), README rewrite (`18e1cbb`). Then wired the brief into live launches (`17bf243`), rendered it in `LaunchPreview` (`ec56fb9`), exposed unified memory stats + semantic search and **dropped the claude-mem fallback** (`2dbef00`), surfaced those in the picker (`3c1cf94`), and consolidated the flow into one `LaunchWizard` modal (`3b6c0b4`).\n\n**Uncommitted (today):** `bench/`, `scripts/bench-aggregate.mjs`, `scripts/bench-judge.mjs`, `scripts/bench-whitepaper.mjs` — whitepaper benchmark suite, per memory S291/3761–3778 this is in-flight and not yet committed.\n\n**Key decision:** dropping the claude-mem fallback in `2dbef00` in favor of the native unified memory store — this is the load-bearing architecture shift of the week; everything after it (`3c1cf94`, `3b6c0b4`) builds on that assumption.\n\n**Uncertain:** I can see the commit messages but haven't read the diffs, so I can't verify e.g. how much of \"unified memory\" is genuinely unified vs. renamed claude-mem code. The benchmark numbers referenced in the README rewrite (`18e1cbb`) aren't something I've verified — the `bench/` results are still uncommitted.",
+    "stop_reason": "end_turn",
+    "session_id": "3812bb23-af40-41c9-a8d8-843865371211",
+    "total_cost_usd": 0.30589,
+    "usage": {
+      "input_tokens": 8,
+      "cache_creation_input_tokens": 33738,
+      "cache_read_input_tokens": 113525,
+      "output_tokens": 1529,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 33738,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [
+        {
+          "input_tokens": 1,
+          "output_tokens": 1213,
+          "cache_read_input_tokens": 50057,
+          "cache_creation_input_tokens": 199,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 199
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-7[1m]": {
+        "inputTokens": 8,
+        "outputTokens": 1529,
+        "cacheReadInputTokens": 113525,
+        "cacheCreationInputTokens": 33738,
+        "webSearchRequests": 0,
+        "costUSD": 0.30589,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "uuid": "8678e710-6eba-4d3d-8992-0080b4ba38cb"
+  }
+}

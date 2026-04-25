@@ -2,7 +2,7 @@ import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { get as httpGet, request as httpRequest } from 'node:http';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -79,10 +79,13 @@ let base;
 let httpServer;
 let repo;
 let configDir;
+let projectsDir;
 let app;
 
 before(async () => {
   configDir = mkdtempSync(join(tmpdir(), 'agent-office-test-'));
+  projectsDir = join(configDir, 'projects');
+  mkdirSync(projectsDir, { recursive: true });
 
   // Use an in-memory SQLite database
   const db = openDatabase(':memory:');
@@ -90,7 +93,7 @@ before(async () => {
 
   repo = createRepository(db);
   const bus = createEventBus();
-  const config = loadConfig(configDir);
+  const config = { ...loadConfig(configDir), projectsDir };
 
   app = createApp({ repo, bus, config, configDir });
   httpServer = createServer(app);
@@ -133,8 +136,17 @@ describe('GET /api/projects', () => {
   });
 
   it('returns created projects', async () => {
+    mkdirSync(join(projectsDir, 'Alpha', '.git'), { recursive: true });
+    mkdirSync(join(projectsDir, 'Beta', '.git'), { recursive: true });
     repo.createProject({ path: '/test/alpha', name: 'Alpha' });
     repo.createProject({ path: '/test/beta', name: 'Beta' });
+    const projects = repo.listProjects();
+    const alpha = projects.find((p) => p.name === 'Alpha');
+    const beta = projects.find((p) => p.name === 'Beta');
+    assert.ok(alpha);
+    assert.ok(beta);
+    repo.updateProject(alpha.id, { path: join(projectsDir, 'Alpha') });
+    repo.updateProject(beta.id, { path: join(projectsDir, 'Beta') });
 
     const { status, body } = await get(`${base}/api/projects`);
     assert.equal(status, 200);
@@ -151,8 +163,10 @@ describe('GET /api/projects/active', () => {
     const alpha = all.find((p) => p.name === 'Alpha');
     assert.ok(alpha, 'Alpha project should exist from prior test');
 
-    // Mark Alpha inactive
+    // Mark Alpha inactive and remove it from disk so the sync does not
+    // reactivate it on the next list request.
     repo.updateProject(alpha.id, { active: false });
+    rmSync(join(projectsDir, 'Alpha'), { recursive: true, force: true });
 
     const { status, body } = await get(`${base}/api/projects/active`);
     assert.equal(status, 200);

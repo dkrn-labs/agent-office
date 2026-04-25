@@ -20,6 +20,8 @@ import { SESSION_STARTED } from '../core/events.js';
 import { createMemoryEngine } from '../memory/memory-engine.js';
 import { formatForContext } from '../memory/memory-injector.js';
 import { listLaunchProviders, resolveLaunchTarget } from './provider-catalog.js';
+import { getAdapter } from '../providers/manifest.js';
+import { buildLaunchBudgetRow } from '../context-budget/index.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -55,22 +57,40 @@ export function buildLaunchBashScript({
   historySessionId = null,
 }) {
   const q = JSON.stringify; // safe shell-quoting via JSON for paths
-  const launchTarget = resolveLaunchTarget(providerId, model);
-  let command = `exec claude --model ${q(launchTarget.model)} --append-system-prompt "$PROMPT"`;
-  if (launchTarget.providerId === 'codex') {
-    command = `exec codex --model ${q(launchTarget.model)} "$PROMPT"`;
-  } else if (launchTarget.providerId === 'gemini-cli') {
-    command = `exec gemini --model ${q(launchTarget.model)} --prompt-interactive "$PROMPT"`;
-  }
+  const adapter = getAdapter(providerId);
+  const recipe = adapter.spawn({
+    projectPath,
+    systemPrompt: '',           // injected via $PROMPT shell var below
+    model,
+    historySessionId,
+  });
+  // Render argv to a shell command. Binary name and --flags are bare; the
+  // $PROMPT placeholder is shell-quoted; everything else (model, values)
+  // gets JSON-quoted for safety.
+  const argv = recipe.argv
+    .map((a, i) => {
+      if (a === '$PROMPT') return '"$PROMPT"';
+      if (i === 0) return a;             // binary name
+      if (a.startsWith('-')) return a;   // CLI flag
+      return q(a);                        // value (model id, path, etc.)
+    })
+    .join(' ');
+  const command = `exec ${argv}`;
 
-  const exportLine = historySessionId != null
-    ? `export AGENT_OFFICE_HISTORY_SESSION_ID=${Number(historySessionId)}\n`
-    : '';
+  // Hook bridge env vars (incl. AGENT_OFFICE_HISTORY_SESSION_ID). Bare
+  // tokens unquoted; everything else JSON-quoted.
+  const SAFE_VAL = /^[a-zA-Z0-9_./-]+$/;
+  const envLines = Object.entries(recipe.env)
+    .map(([k, v]) => {
+      const s = String(v);
+      return `export ${k}=${SAFE_VAL.test(s) ? s : q(s)}\n`;
+    })
+    .join('');
 
   return `#!/bin/bash
-cd ${q(projectPath)} || exit 1
+cd ${q(recipe.cwd)} || exit 1
 clear
-${exportLine}PROMPT="$(cat ${q(promptPath)})"
+${envLines}PROMPT="$(cat ${q(promptPath)})"
 rm -f ${q(promptPath)} ${q(scriptPath)}
 ${command}
 `;
@@ -89,10 +109,19 @@ export function buildItermScript({ scriptPath, terminal = 'Terminal' }) {
   const cmd = `bash "${esc(scriptPath)}"`;
 
   if (terminal === 'Terminal') {
-    // Terminal.app: `do script` opens a new window (or tab with keystroke) and runs the command
+    // Terminal.app: if a window is already open, create a tab in the front
+    // window and run there; otherwise fall back to the default new-window
+    // behavior.
     return `tell application "Terminal"
+  set terminalHasWindow to (count of windows) > 0
   activate
-  do script "${esc(cmd)}"
+  if terminalHasWindow then
+    tell application "System Events" to keystroke "t" using command down
+    delay 0.1
+    do script "${esc(cmd)}" in selected tab of front window
+  else
+    do script "${esc(cmd)}"
+  end if
 end tell`;
   }
 
@@ -262,7 +291,7 @@ export function createLauncher({
    * @returns {Promise<{ sessionId: number, projectPath: string, systemPrompt: string, skills: object[], memories: object[] }>}
    */
   async function prepareLaunch(personaId, projectId, options = {}) {
-    const { persona, project, systemPrompt, resolvedSkills, memories, launchTarget, brief } = await buildLaunchContext(
+    const { persona, project, systemPrompt, resolvedSkills, memories, launchTarget, brief, personaObservations, installedSkills } = await buildLaunchContext(
       personaId,
       projectId,
       options,
@@ -290,6 +319,48 @@ export function createLauncher({
         systemPrompt,
       });
       historySessionId = created.historySessionId;
+    }
+
+    // P1-4 — persist baseline vs optimized token counts so the savings pill
+    // has real data. Best-effort: never block a launch on this.
+    if (historySessionId != null && typeof repo.upsertLaunchBudget === 'function') {
+      try {
+        const allObservations = typeof repo.listHistoryObservations === 'function'
+          ? repo.listHistoryObservations({ projectId, limit: 50 })
+          : [];
+        const personaTemplate = persona.systemPromptTemplate ?? '';
+        const budget = buildLaunchBudgetRow({
+          providerId: launchTarget.providerId,
+          model: launchTarget.model,
+          optimized: {
+            systemPrompt: personaTemplate,
+            skills: resolvedSkills.map((s) => ({ body: s.preview ?? '' })),
+            personaObservations,
+            memories,
+          },
+          baseline: {
+            systemPrompt: personaTemplate,
+            allSkills: (installedSkills ?? []).map((s) => ({ body: s.content ?? s.preview ?? '' })),
+            allObservations,
+            allMemories: memories,
+          },
+          cost: null,
+        });
+        repo.upsertLaunchBudget({
+          historySessionId,
+          providerId: budget.providerId,
+          model: budget.model,
+          baselineTokens: budget.baselineTokens,
+          optimizedTokens: budget.optimizedTokens,
+          baselineBreakdown: budget.baselineBreakdown,
+          optimizedBreakdown: budget.optimizedBreakdown,
+          costDollars: budget.costDollars,
+          cloudEquivalentDollars: budget.cloudEquivalentDollars,
+          createdAtEpoch: Math.floor(Date.now() / 1000),
+        });
+      } catch (err) {
+        console.warn('[launcher] launch_budget persist failed:', err.message);
+      }
     }
 
     // 7. Emit SESSION_STARTED

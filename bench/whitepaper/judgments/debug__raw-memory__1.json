@@ -1,0 +1,11 @@
+{
+  "name": "debug__raw-memory__1",
+  "task": "debug",
+  "condition": "raw-memory",
+  "verdict": {
+    "grounded": 5,
+    "useful": 5,
+    "rationale": "Every specific claim (commit 13cf2be, feat/tier-pricing branch, /upgrade stale prices, hard-coded dashboard pricing) is directly supported by the observations and the answer gives concrete, actionable starting points."
+  },
+  "rawJudgeResult": "{\"grounded\":5,\"useful\":5,\"rationale\":\"Every specific claim (commit 13cf2be, feat/tier-pricing branch, /upgrade stale prices, hard-coded dashboard pricing) is directly supported by the observations and the answer gives concrete, actionable starting points.\"}"
+}

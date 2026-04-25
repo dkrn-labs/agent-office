@@ -1,0 +1,68 @@
+{
+  "name": "recall__raw-memory__0",
+  "task": "recall",
+  "condition": "raw-memory",
+  "repeat": 0,
+  "wallMs": 84702,
+  "exitCode": 0,
+  "stderrTail": "",
+  "result": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "api_error_status": null,
+    "duration_ms": 77883,
+    "duration_api_ms": 24736,
+    "num_turns": 2,
+    "result": "This week on **agent-office** (Apr 13 → 18). All on `main`; bench harness work is currently uncommitted.\n\n**Foundations (Apr 13)** — landed the four phase commits in one day: Phase 1 foundation (`bd59458`), Phase 2 agent core / personas / launcher (`6a1ede2`), Phase 3 memory engine with domain-scoped queries + injector (`ca066d7`), Phase 4 React office UI with animated scene (`eaebe7c`).\n\n**Engine extraction + office canvas (Apr 14)** — broke `pixel-agents` into typed engine modules (`a88a3c6`…`fd62f21`), wired the 25×20 office with 7 themed zones (`a4ef81e`), swapped the CSS scene for `OfficeCanvas` (`6ac04c0`), and shipped Phase 4.5/4.6: claude-mem SQLite read-adapter (`d109f26`), persona→observation heuristic filter (`e079b4f`), `LaunchPreview` + iTerm2 tab spawning (`64ed75e`, `27cb1d3`, `c0f0d86`), merged via `6b61356`.\n\n**Telemetry + launch redesign (Apr 15)** — Phase 5 telemetry dashboard (`2534692`/`3199451`), provider adapters + portfolio stats (`4d9806d`), provider-aware launch picker (`42aab52`), local skill roots (`a4cb528`).\n\n**Provider-neutral history + polish (Apr 16)** — added provider-neutral project history ingestion (`9c4afb4`), `doctor` command (`3b9f1a9`), live-session presence fixes (`a8f6bd4`, `aaa47ed`), Codex history enrichment (`fc03de3`).\n\n**Memory brief + LaunchWizard (Apr 18)** — persona-scoped brief generator (`4d9a58a`), bench harness for brief vs raw-memory token savings (`40c5014`), wired persona brief into live launch (`17bf243`) and LaunchPreview (`ec56fb9`), dropped the claude-mem fallback in favor of unified memory stats + semantic search (`2dbef00`, `3c1cf94`), and collapsed ProjectPicker + LaunchPreview into a single 4-step `LaunchWizard` modal (`3b6c0b4`). Also: Playwright LinkedIn carousel capture (`01f2a70`), floor simplified to Boss/Workspace/Dungeon + Fixer (`d5da889`), README rewrite around the unified-memory USP (`18e1cbb`).\n\n**Uncertain / in flight** — `bench/` and `scripts/bench-whitepaper.mjs` are untracked (not committed). Memory notes S291 and obs 3718–3729 describe a 3-task × 10-turn whitepaper benchmark design (tasks, judge rubric, `bench-whitepaper.mjs` runner) authored today, but I haven't verified whether any of it has been executed end-to-end — only that the files exist in the working tree.",
+    "stop_reason": "end_turn",
+    "session_id": "811ac35d-bd1c-404f-b0d9-c8b6482ac907",
+    "total_cost_usd": 0.27352774999999996,
+    "usage": {
+      "input_tokens": 7,
+      "cache_creation_input_tokens": 32883,
+      "cache_read_input_tokens": 63398,
+      "output_tokens": 1451,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 32883,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [
+        {
+          "input_tokens": 1,
+          "output_tokens": 1207,
+          "cache_read_input_tokens": 46880,
+          "cache_creation_input_tokens": 2521,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 2521
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-7[1m]": {
+        "inputTokens": 7,
+        "outputTokens": 1451,
+        "cacheReadInputTokens": 63398,
+        "cacheCreationInputTokens": 32883,
+        "webSearchRequests": 0,
+        "costUSD": 0.27352774999999996,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "uuid": "5dd487e7-7281-498f-96f5-9fd4153132ee"
+  }
+}

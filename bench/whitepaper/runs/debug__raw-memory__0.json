@@ -1,0 +1,68 @@
+{
+  "name": "debug__raw-memory__0",
+  "task": "debug",
+  "condition": "raw-memory",
+  "repeat": 0,
+  "wallMs": 27193,
+  "exitCode": 0,
+  "stderrTail": "",
+  "result": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "api_error_status": null,
+    "duration_ms": 20483,
+    "duration_api_ms": 13389,
+    "num_turns": 1,
+    "result": "Based on recent memory, the strongest leads:\n\n1. **`feat/tier-pricing-2026-04` branch** and commit **`13cf2be`** on `origin/dev` (Stripe products + monthly prices test-mode setup). The user recently confirmed pricing is **hard-coded, not dynamic** — so checkout likely reads Stripe test prices while the dashboard reads a static client-side constant. That drift is the prime suspect.\n2. **Pricing-display components on the dashboard / `/upgrade` page** — flagged as stale (no Platinum, old numbers) in an earlier turn.\n3. **Two remaining pricing layers** noted after Stripe setup — unfinished wiring between Stripe and the UI.\n\nStart by diffing the dashboard's hard-coded price table against the Stripe catalog created in `13cf2be`.",
+    "stop_reason": "end_turn",
+    "session_id": "7f20f00e-e931-4036-973a-93c2789efce3",
+    "total_cost_usd": 0.21507025,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 30365,
+      "cache_read_input_tokens": 16518,
+      "output_tokens": 680,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 30365,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [
+        {
+          "input_tokens": 6,
+          "output_tokens": 680,
+          "cache_read_input_tokens": 16518,
+          "cache_creation_input_tokens": 30365,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 30365
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-7[1m]": {
+        "inputTokens": 6,
+        "outputTokens": 680,
+        "cacheReadInputTokens": 16518,
+        "cacheCreationInputTokens": 30365,
+        "webSearchRequests": 0,
+        "costUSD": 0.21507025,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "uuid": "604c4be5-e03c-4c29-b4e5-c6a06dd96d26"
+  }
+}

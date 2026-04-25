@@ -7,6 +7,7 @@ import os from 'node:os';
 import {
   detectTechStack,
   computeStackHash,
+  isProjectDirectory,
   scanDirectory,
 } from '../../src/skills/project-scanner.js';
 
@@ -247,11 +248,24 @@ describe('scanDirectory()', () => {
     assert.equal(found.stackHash.length, 16);
   });
 
+  it('treats non-git folders with project markers as projects', () => {
+    const projectPath = join(rootDir, 'plain-node-app');
+    mkdirSync(projectPath, { recursive: true });
+    writeFile(projectPath, 'package.json', JSON.stringify({ name: 'plain-node-app' }));
+
+    assert.equal(isProjectDirectory(projectPath), true);
+    const results = scanDirectory(rootDir);
+    const found = results.find((r) => r.name === 'plain-node-app');
+    assert.ok(found, 'should include non-git project folder');
+    assert.equal(found.path, projectPath);
+    assert.ok(found.techStack.includes('node'));
+  });
+
   it('skips directories without .git', () => {
     mkdirSync(join(rootDir, 'not-a-repo'), { recursive: true });
     const results = scanDirectory(rootDir);
     const found = results.find(r => r.name === 'not-a-repo');
-    assert.equal(found, undefined, 'should not include non-git dir');
+    assert.equal(found, undefined, 'should not include dir without git or project markers');
   });
 
   it('skips hidden directories', () => {

@@ -16,6 +16,8 @@
     "build:ui": "cd ui && npm run build",
     "linkedin": "node scripts/linkedin-capture.mjs",
     "doctor": "node bin/agent-office.js doctor",
+    "install:hooks": "node scripts/install-hooks.js",
+    "postinstall": "node -e \"try { const fs = require('fs'); const p = require.resolve('node-pty/package.json'); const dir = require('path').join(require('path').dirname(p), 'prebuilds'); for (const sub of fs.readdirSync(dir)) { const helper = require('path').join(dir, sub, 'spawn-helper'); if (fs.existsSync(helper)) fs.chmodSync(helper, 0o755); } } catch {}\"",
     "test": "node --test 'test/**/*.test.js'",
     "test:watch": "node --test --watch 'test/**/*.test.js'"
   },
@@ -30,6 +32,7 @@
     "commander": "^14.0.3",
     "express": "^5.2.1",
     "node-cron": "^4.2.1",
+    "node-pty": "^1.1.0",
     "sqlite-vec": "^0.1.9",
     "ws": "^8.20.0"
   },

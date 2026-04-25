@@ -1,0 +1,11 @@
+{
+  "name": "debug__raw-memory__0",
+  "task": "debug",
+  "condition": "raw-memory",
+  "verdict": {
+    "grounded": 5,
+    "useful": 5,
+    "rationale": "All specifics (commit 13cf2be, /upgrade stale/no-Platinum, hard-coded pricing, two remaining layers) are directly supported by the observations and give concrete starting points."
+  },
+  "rawJudgeResult": "{\"grounded\":5,\"useful\":5,\"rationale\":\"All specifics (commit 13cf2be, /upgrade stale/no-Platinum, hard-coded pricing, two remaining layers) are directly supported by the observations and give concrete starting points.\"}"
+}

@@ -28,6 +28,11 @@ import { scanLocalSkills } from '../skills/local-skill-index.js';
 import { createPortfolioStatsService } from '../stats/portfolio-stats.js';
 import { createProjectHistoryStore } from '../history/project-history.js';
 import { historyRoutes } from './routes/history.js';
+import { savingsRoutes } from './routes/savings.js';
+import { frontdeskRoutes } from './routes/frontdesk.js';
+import { ptyRoutes } from './routes/pty.js';
+import { createPtyHost } from '../pty/node-pty-host.js';
+import { createProjectSyncService } from '../projects/project-sync.js';
 
 /**
  * Creates and configures the Express application.
@@ -73,6 +78,17 @@ export function createApp({
     db,
     brief: { enabled: briefEnabled, budgetTokens: briefBudget },
   });
+
+  // P0-4: drain history_session rows left in-progress past 1h
+  // (e.g. watcher expiry timers lost across server restarts).
+  try {
+    const { drained } = repo.drainStuckHistorySessions({ ageHours: 1 });
+    if (drained > 0) {
+      console.log(`[server] drained ${drained} stuck in-progress history sessions`);
+    }
+  } catch (err) {
+    console.warn('[server] drainStuckHistorySessions failed:', err.message);
+  }
   if (briefEnabled) {
     console.log(`[server] persona brief enabled (budget=${briefBudget} tokens)`);
   }
@@ -148,24 +164,18 @@ export function createApp({
     repo,
     projectsDir: config.projectsDir,
   });
+  const projectSync = createProjectSyncService({
+    repo,
+    projectsDir: config.projectsDir,
+  });
 
-  const mirrorMetrics = (providerId, providerSessionId, legacySessionId, fields) => {
-    let historySessionId = repo.findHistorySessionIdByProvider(providerId, providerSessionId);
-    if (!historySessionId && legacySessionId != null) {
-      const legacy = repo.getSession(Number(legacySessionId));
-      if (legacy) {
-        historySessionId = repo.findLauncherHistorySessionId({
-          projectId: legacy.projectId,
-          personaId: legacy.personaId,
-          startedAt: legacy.startedAt,
-        });
-        if (historySessionId && providerSessionId) {
-          repo.updateHistorySession(historySessionId, { providerSessionId });
-        }
-      }
+  const mirrorMetrics = (providerId, providerSessionId, historySessionId, fields) => {
+    let targetId = historySessionId ?? null;
+    if (!targetId) {
+      targetId = repo.findHistorySessionIdByProvider(providerId, providerSessionId);
     }
-    if (!historySessionId) return;
-    repo.upsertHistorySessionMetrics(historySessionId, fields);
+    if (!targetId) return;
+    repo.upsertHistorySessionMetrics(targetId, fields);
   };
 
   watcher?.on('session:update', (payload) => {
@@ -177,17 +187,7 @@ export function createApp({
       cacheWrite: payload.totals.cacheWrite,
     });
 
-    repo.updateSession(payload.sessionId, {
-      providerSessionId: payload.providerSessionId,
-      lastModel: payload.lastModel,
-      tokensIn: payload.totals.tokensIn,
-      tokensOut: payload.totals.tokensOut,
-      tokensCacheRead: payload.totals.cacheRead,
-      tokensCacheWrite: payload.totals.cacheWrite,
-      costUsd,
-    });
-
-    const detail = repo.getSessionDetail(payload.sessionId);
+    const detail = projectHistory.getDetail(payload.sessionId);
     mirrorMetrics(detail?.providerId ?? payload.providerId ?? null, payload.providerSessionId, payload.sessionId, {
       tokensIn: payload.totals.tokensIn,
       tokensOut: payload.totals.tokensOut,
@@ -222,7 +222,7 @@ export function createApp({
   });
 
   watcher?.on('session:idle', async (payload) => {
-    const detail = repo.getSessionDetail(payload.sessionId);
+    const detail = projectHistory.getDetail(payload.sessionId);
     bus.emit(SESSION_IDLE, {
       ...payload,
       providerId: detail?.providerId ?? null,
@@ -244,67 +244,57 @@ export function createApp({
   });
 
   watcher?.on('session:expired', async (payload) => {
-    const session = repo.getSession(payload.sessionId);
     const endedAt = new Date().toISOString();
-    const startedAt = session?.startedAt ?? payload.startedAt ?? endedAt;
+    const detailBefore = projectHistory.getDetail(payload.sessionId);
+    const startedAt = detailBefore?.startedAt ?? payload.startedAt ?? endedAt;
     const inferred = await inferOutcome({
-      projectPath: payload.projectPath,
+      projectPath: payload.projectPath ?? detailBefore?.projectPath ?? null,
       startedAt,
       endedAt,
     });
 
-    if (session) {
-      repo.updateSession(payload.sessionId, {
-        endedAt,
-        commitsProduced: inferred.signals?.commitsProduced ?? null,
-        diffExists: inferred.signals?.diffExists ?? null,
-        outcome: inferred.outcome,
-      });
-    }
+    // P0-4: always attempt the update; SQL UPDATE is a no-op when row absent.
+    repo.updateHistorySession(payload.sessionId, { endedAt, status: 'completed' });
+    repo.upsertHistorySessionMetrics(payload.sessionId, {
+      commitsProduced: inferred.signals?.commitsProduced ?? null,
+      diffExists: inferred.signals?.diffExists ?? null,
+      outcome: inferred.outcome,
+    });
 
-    const detail = session ? repo.getSessionDetail(payload.sessionId) : null;
-    const resolvedProviderId = detail?.providerId ?? payload.providerId ?? null;
-    const resolvedProviderSessionId =
-      payload.providerSessionId ?? detail?.providerSessionId ?? null;
-    mirrorMetrics(
-      resolvedProviderId,
-      resolvedProviderSessionId,
-      payload.sessionId,
-      {
-        commitsProduced: inferred.signals?.commitsProduced ?? null,
-        diffExists: inferred.signals?.diffExists ?? null,
-        outcome: inferred.outcome,
-      },
-    );
-
-    // For unattended sessions the history_session row has no legacy session
-    // pair — close it out directly so the list shows a final ended_at/status.
-    if (payload.unattended) {
-      const historySessionId = repo.findHistorySessionIdByProvider(
-        resolvedProviderId,
-        resolvedProviderSessionId,
-      );
-      if (historySessionId) {
-        repo.updateHistorySession(historySessionId, {
-          endedAt,
-          status: 'completed',
-        });
+    // P1-6: mirror inferred outcome onto launch_budget so the savings ledger
+    // can weight rejected runs out of the rollup.
+    if (inferred.outcome && typeof repo.setLaunchBudgetOutcome === 'function') {
+      try {
+        repo.setLaunchBudgetOutcome(payload.sessionId, inferred.outcome);
+      } catch {
+        // best-effort; never block the expiry path on ledger bookkeeping
       }
     }
+
+    const detail = detailBefore ? projectHistory.getDetail(payload.sessionId) : null;
+    const resolvedProviderId = detail?.providerId ?? payload.providerId ?? null;
+    const resolvedProviderSessionId = payload.providerSessionId ?? detail?.providerSessionId ?? null;
+    mirrorMetrics(resolvedProviderId, resolvedProviderSessionId, payload.sessionId, {
+      commitsProduced: inferred.signals?.commitsProduced ?? null,
+      diffExists: inferred.signals?.diffExists ?? null,
+      outcome: inferred.outcome,
+    });
+
     bus.emit(SESSION_ENDED, {
       sessionId: payload.sessionId,
-      providerSessionId: payload.providerSessionId,
-      providerId: detail?.providerId ?? null,
-      personaId: payload.personaId,
-      projectId: payload.projectId,
-      startedAt: detail?.startedAt ?? null,
-      personaLabel: detail?.personaLabel ?? null,
-      personaDomain: detail?.personaDomain ?? null,
+      providerId: resolvedProviderId,
+      providerSessionId: resolvedProviderSessionId,
+      personaId: detail?.personaId ?? null,
+      projectId: detail?.projectId ?? null,
       projectName: detail?.projectName ?? null,
       projectPath: detail?.projectPath ?? payload.projectPath ?? null,
-      lastModel: detail?.lastModel ?? null,
+      personaLabel: detail?.personaLabel ?? null,
+      personaDomain: detail?.personaDomain ?? null,
+      startedAt,
       endedAt,
-      durationSec: detail?.durationSec ?? null,
+      outcome: inferred.outcome,
+      commitsProduced: inferred.signals?.commitsProduced ?? null,
+      diffExists: inferred.signals?.diffExists ?? null,
       totals: {
         tokensIn: detail?.tokensIn ?? 0,
         tokensOut: detail?.tokensOut ?? 0,
@@ -313,8 +303,6 @@ export function createApp({
         total: detail?.totalTokens ?? 0,
         costUsd: detail?.costUsd ?? null,
       },
-      outcome: inferred.outcome,
-      outcomeSignals: inferred.signals,
     });
   });
 
@@ -337,15 +325,26 @@ export function createApp({
 
   // Mount route modules
   app.use(healthRoutes());
-  app.use(projectRoutes(repo, db));
+  app.use(projectRoutes(repo, db, projectSync));
   app.use(portfolioRoutes(portfolioStats));
   app.use(configRoutes(configDir));
   app.use(personaRoutes(repo, db));
   app.use(skillRoutes(repo, resolver));
-  app.use(officeRoutes(launcher));
+  const ptyHost = createPtyHost();
+  app.use(officeRoutes(launcher, { ptyHost }));
   app.use(sessionRoutes({ repo, watcher, aggregator }));
   app.use(memoryRoutes(memoryEngine, repo, importFromClaudeProjects, db));
   app.use(historyRoutes(projectHistory, { repo }));
+  app.use('/api/savings', savingsRoutes({ repo }));
+  app.use('/api/pty', ptyRoutes({ ptyHost }));
+  app.locals.ptyHost = ptyHost;
+  app.use('/api/frontdesk/route', frontdeskRoutes({
+    repo,
+    getActiveSessions: () => watcher?.snapshot?.() ?? [],
+    getQuotaForProvider: async () => null,                  // P2: wire abtop-bridge
+    getPrefs: () => ({ privacyMode: 'normal' }),            // P1-11: read settings.json
+    getSignals: () => ({}),                                  // P5: gh-bridge feeds hasRecentDiffOrPr
+  }));
 
   // Static file serving for production builds.
   // In dev, Vite's dev server handles assets via proxy instead.

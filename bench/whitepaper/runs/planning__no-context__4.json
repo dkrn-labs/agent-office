@@ -1,0 +1,68 @@
+{
+  "name": "planning__no-context__4",
+  "task": "planning",
+  "condition": "no-context",
+  "repeat": 4,
+  "wallMs": 34798,
+  "exitCode": 0,
+  "stderrTail": "",
+  "result": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "api_error_status": null,
+    "duration_ms": 28981,
+    "duration_api_ms": 18649,
+    "num_turns": 2,
+    "result": "**Next concrete step: decide what to do with the uncommitted whitepaper benchmark artifacts on `main`.**\n\nSpecifically: `bench/` (briefs, e2e, whitepaper subdirs + brief-b{500,1000,2000}.csv) and `scripts/bench-{aggregate,judge,whitepaper}.mjs` have been sitting untracked on `main` across multiple sessions — flagged in prior observations **3792, 3809, 3830** as \"bench artifacts uncommitted on main branch.\"\n\nJustification from prior work:\n- S291 (Apr 18, 5:31pm) laid out the experiment design for measuring token savings from the brief mechanism.\n- 3793/3810 captured the whitepaper benchmark structure (3 conditions × 3 task types) — matching the `bench/whitepaper` dir on disk.\n- S288/S289 produced the blog/whitepaper drafts that presumably cite these numbers.\n\nSo the benchmark scripts + result CSVs underpin the public-facing whitepaper/blog, yet they aren't in git. The decision you need to resolve is:\n\n1. **Commit them to `main`** (and which of the CSVs are reproducible outputs vs. canonical data worth tracking), **or**\n2. **Move to a `bench/` branch** / add `bench/*.csv` to `.gitignore` if they're meant to be regenerated.\n\nGiven the whitepaper depends on them, I'd recommend committing the 3 scripts + the `bench/whitepaper` results as the reproducibility record, and gitignoring ad-hoc CSVs. But that's the call that's been deferred three sessions in a row — want me to stage it?",
+    "stop_reason": "end_turn",
+    "session_id": "025e8857-172a-4ed1-88ae-6b4a1fa8437b",
+    "total_cost_usd": 0.1863535,
+    "usage": {
+      "input_tokens": 7,
+      "cache_creation_input_tokens": 21476,
+      "cache_read_input_tokens": 53787,
+      "output_tokens": 1008,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 21476,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [
+        {
+          "input_tokens": 1,
+          "output_tokens": 558,
+          "cache_read_input_tokens": 37269,
+          "cache_creation_input_tokens": 725,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 725
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-7[1m]": {
+        "inputTokens": 7,
+        "outputTokens": 1008,
+        "cacheReadInputTokens": 53787,
+        "cacheCreationInputTokens": 21476,
+        "webSearchRequests": 0,
+        "costUSD": 0.1863535,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "uuid": "92852c0d-5088-47bf-94ec-cc3c057d0ccb"
+  }
+}

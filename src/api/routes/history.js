@@ -100,6 +100,30 @@ export function historyRoutes(historyStore, { repo } = {}) {
         observations: Array.isArray(payload.observations) ? payload.observations : [],
       });
 
+      // P1-6 — default-classify hook-completed sessions as 'accepted' so the
+      // savings ledger can credit them. Only sets the outcome when one isn't
+      // already on the row (so a later operator override / inferOutcome wins).
+      if (
+        payload.status === 'completed' &&
+        repo &&
+        typeof repo.setLaunchBudgetOutcome === 'function'
+      ) {
+        try {
+          const sessionId = result.historySession.id;
+          const existing = typeof repo.getHistorySessionMetrics === 'function'
+            ? repo.getHistorySessionMetrics(sessionId)
+            : null;
+          if (!existing?.outcome) {
+            repo.setLaunchBudgetOutcome(sessionId, 'accepted');
+            if (typeof repo.upsertHistorySessionMetrics === 'function') {
+              repo.upsertHistorySessionMetrics(sessionId, { outcome: 'accepted' });
+            }
+          }
+        } catch {
+          // best-effort; never block the ingest path on ledger bookkeeping
+        }
+      }
+
       return ok(
         res,
         {

@@ -1,0 +1,68 @@
+{
+  "name": "recall__no-context__0",
+  "task": "recall",
+  "condition": "no-context",
+  "repeat": 0,
+  "wallMs": 56268,
+  "exitCode": 0,
+  "stderrTail": "",
+  "result": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "api_error_status": null,
+    "duration_ms": 49607,
+    "duration_api_ms": 31768,
+    "num_turns": 4,
+    "result": "## This week on agent-office (Apr 13–18, 2026)\n\nAll work landed on `main`. A feature branch `feature/phase-5-telemetry` was merged mid-week (3199451).\n\n**Phase 1–4: foundation → office UI (Apr 13)**\n- `bd59458` Phase 1 Foundation, `6a1ede2` Phase 2 Agent Core (personas/skills/launcher), `ca066d7` Phase 3 Memory Engine, `eaebe7c` Phase 4 Office UI with animated scene and pixel-art sprites (`69510ec`).\n\n**Engine extraction + office canvas (Apr 14)**\n- Extracted the pixel-agents engine into modular pieces: constants/types (`a88a3c6`), sprites (`54fcd13`), floor/walls (`00cdc7b`), layout (`9df83eb`), core engine (`769983d`), browser asset loader (`fd62f21`).\n- Wired a 25×20 office with 7 themed zones (`a4ef81e`), React `OfficeCanvas` wrapper (`c8c8f57`), 3-column dashboard (`68467b0`), and launched Claude Code in iTerm2 tabs (`64ed75e`).\n- First claude-mem integration: read-only SQLite adapter (`d109f26`), persona filter (`e079b4f`), preview API (`acdddfa`), `LaunchPreview` component (`27cb1d3`, `91ae92e`).\n\n**Phase 4.5/4.6 merge + Phase 5 telemetry (Apr 14–15)**\n- `6b61356` merge of 4.5/4.6; `2534692`/`3199451` complete Phase 5 telemetry dashboard with provider adapters and portfolio stats (`4d9806d`), launch picker redesign (`42aab52`), local skill roots (`a4cb528`).\n\n**Provider-neutral history + stability (Apr 16)**\n- `9c4afb4` provider-neutral project history ingestion, `3b9f1a9` `doctor` command, fixes for live-session presence (`a8f6bd4`, `aaa47ed`), codex history summaries (`fc03de3`), port resolution (`ef1cec2`).\n\n**Unified memory + LaunchWizard (Apr 18)**\n- `4d9a58a` persona-scoped memory brief generator; `17bf243` wires the brief into live launches; `ec56fb9` renders it in `LaunchPreview`.\n- `2dbef00` exposes unified memory stats + semantic search and drops the claude-mem fallback (touches `src/api/routes/{memories,personas,projects}.js`, trims `launcher.js`).\n- `3c1cf94` persona memory stats + semantic search in ProjectPicker.\n- `3b6c0b4` collapses `LaunchPreview` + `ProjectPicker` into a single 4-step `LaunchWizard.jsx` (−1,135 / +938 lines).\n- Supporting: `40c5014` brief-vs-raw-memory token-savings bench harness, `01f2a70` Playwright LinkedIn carousel capture, `18e1cbb` README rewrite around unified-memory USP, `d5da889` office simplified to Boss/Workspace/Dungeon + Fixer persona.\n\n**Decisions worth flagging**\n- Dropped the claude-mem fallback in favor of a unified memory layer (`2dbef00`).\n- Consolidated the launch flow into one modal (`3b6c0b4`).\n\n**Uncommitted / uncertain**\n- `bench/` and `scripts/bench-whitepaper.mjs` are untracked — per the session memory these are the whitepaper benchmark runner (tasks 23–27, lens project) authored today but not yet committed. I haven't read the files to confirm their current state.\n- I didn't verify whether the benchmark has actually been *run* end-to-end — the memory index mentions the design and runner, not results.",
+    "stop_reason": "end_turn",
+    "session_id": "82a7337a-8aac-460f-8e4a-3c87198168ed",
+    "total_cost_usd": 0.22637075,
+    "usage": {
+      "input_tokens": 7,
+      "cache_creation_input_tokens": 24621,
+      "cache_read_input_tokens": 53759,
+      "output_tokens": 1823,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 24621,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [
+        {
+          "input_tokens": 1,
+          "output_tokens": 1379,
+          "cache_read_input_tokens": 37241,
+          "cache_creation_input_tokens": 3898,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 3898
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-7[1m]": {
+        "inputTokens": 7,
+        "outputTokens": 1823,
+        "cacheReadInputTokens": 53759,
+        "cacheCreationInputTokens": 24621,
+        "webSearchRequests": 0,
+        "costUSD": 0.22637075,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "uuid": "581d90f5-4190-44fe-901b-7e9e3b8033e3"
+  }
+}

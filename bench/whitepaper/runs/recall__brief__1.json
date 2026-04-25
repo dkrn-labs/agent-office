@@ -1,0 +1,77 @@
+{
+  "name": "recall__brief__1",
+  "task": "recall",
+  "condition": "brief",
+  "repeat": 1,
+  "wallMs": 55775,
+  "exitCode": 0,
+  "stderrTail": "",
+  "result": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "api_error_status": null,
+    "duration_ms": 49247,
+    "duration_api_ms": 42520,
+    "num_turns": 5,
+    "result": "# This week on agent-office (Apr 13–18)\n\n64 commits on `main`, ~252 files touched. The whole repo was essentially built this week — `bd59458` (\"Phase 1 Foundation\") on Apr 13 is the root commit.\n\n## Shipped by theme\n\n**Foundation & agent core (Apr 13)** — `bd59458` Phase 1, `6a1ede2` Phase 2 (personas/skills/resolver/launcher), `ca066d7` Phase 3 memory engine (domain-scoped queries, injector, importer), `eaebe7c` Phase 4 Office UI with React + animated scene, `69510ec` pixel-art character sprites.\n\n**Pixel office engine extraction (Apr 14)** — Broke pixel-agents into modular engine: constants/types (`a88a3c6`), sprites (`54fcd13`), floor/wall tiles (`00cdc7b`), layout modules (`9df83eb`), core engine (`769983d`), browser asset loader (`fd62f21`). Wired into a React `OfficeCanvas` (`c8c8f57`, `6ac04c0`), 3-column dashboard (`68467b0`), default 25×20 layout with 7 themed zones (`a4ef81e`).\n\n**Launch flow (Apr 14)** — claude-mem read-only SQLite adapter (`d109f26`), persona-to-observation filter (`e079b4f`), `preview()` method and claude-mem context injection (`1c875a4`), iTerm2 tab spawning (`64ed75e`), `GET /api/office/preview` + full `launch()` on POST (`acdddfa`), `LaunchPreview` component (`27cb1d3`), picker opens preview instead of launching (`c0f0d86`). Phase 4.6 merged via `6b61356`.\n\n**Telemetry (Apr 15)** — Phase 5 telemetry dashboard (`2534692`, merge `3199451`), provider adapters + portfolio stats (`4d9806d`), provider-aware launch preview (`42aab52`), local skill roots + launch inventory (`a4cb528`), UTC-anchored today window (`c1a2dc7`).\n\n**Provider-neutral history (Apr 16)** — `9c4afb4` provider-neutral project history ingestion, `3b9f1a9` doctor command, live-session presence stabilization (`a8f6bd4`, `aaa47ed`), Codex history summary enrichment (`fc03de3`), local port resolution (`ef1cec2`), licensing/provenance docs (`1e39b01`).\n\n**Unified memory + brief (Apr 18)** — The week's headline work. Persona-scoped memory brief generator (`4d9a58a`), bench harness for brief vs raw-memory token savings (`40c5014`), Playwright LinkedIn carousel capture (`01f2a70`), simplified office floor to Boss/Workspace/Dungeon + Fixer (`d5da889`), brief wired into live launch (`17bf243`), brief rendered in `LaunchPreview` (`ec56fb9`), unified memory stats + semantic search, **claude-mem fallback dropped** (`2dbef00`), picker shows persona memory stats + semantic search (`3c1cf94`), and the UI consolidated into a single 4-step `LaunchWizard` modal (`3b6c0b4`). README rewritten around unified-memory USP (`18e1cbb`), `sqlite-vec` + `@huggingface/transformers` + Playwright added (`0c3dfbd`).\n\n**Untracked, not yet committed** — `bench/` and `scripts/bench-whitepaper.mjs` (the whitepaper benchmark suite from S292/3761–3765; a smoke test of 9 runs × 1 repeat completed in 409s per 3765).\n\n## Key decisions\n- Dropped the claude-mem fallback in favor of the unified memory store (`2dbef00`).\n- Consolidated launch UI from multiple screens into one 4-step wizard (`3b6c0b4`).\n- Office floor simplified from 7 themed zones down to Boss/Workspace/Dungeon + Fixer (`d5da889` vs `a4ef81e`).\n\n## Caveats\n- I'm reporting what's on `main` — I haven't verified branch/remote state beyond `git log`.\n- The whitepaper bench work is **local and untracked**; per memory 3762/3764 the runs themselves are incomplete (missing conditions/repeats).\n- I did not inspect diffs line-by-line, so commit messages are taken at face value.",
+    "stop_reason": "end_turn",
+    "session_id": "b09687c6-0bd3-4add-a45d-c6869339f832",
+    "total_cost_usd": 0.3036485,
+    "usage": {
+      "input_tokens": 10,
+      "cache_creation_input_tokens": 25310,
+      "cache_read_input_tokens": 178522,
+      "output_tokens": 2246,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 25310,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [
+        {
+          "input_tokens": 1,
+          "output_tokens": 1600,
+          "cache_read_input_tokens": 41389,
+          "cache_creation_input_tokens": 237,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 237
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-7[1m]": {
+        "inputTokens": 10,
+        "outputTokens": 2246,
+        "cacheReadInputTokens": 178522,
+        "cacheCreationInputTokens": 25310,
+        "webSearchRequests": 0,
+        "costUSD": 0.3036485,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [
+      {
+        "tool_name": "Bash",
+        "tool_use_id": "toolu_012PZRrT5CJNMWpZudDVWkTH",
+        "tool_input": {
+          "command": "git log --since=\"2026-04-12\" --pretty=format:\"%h\" | wc -l && git diff --shortstat $(git log --since=\"2026-04-12\" --pretty=format:\"%h\" | tail -1)~1 HEAD 2>/dev/null",
+          "description": "Count commits and diff stats"
+        }
+      }
+    ],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "uuid": "64652444-7945-4e91-8a52-5089393232e4"
+  }
+}

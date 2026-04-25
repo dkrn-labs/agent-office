@@ -6,9 +6,10 @@ import { Router } from 'express';
  * @param {import('better-sqlite3').Database} [db]  Optional handle for
  *   memory-stats aggregation. When provided, projects are returned with a
  *   `memoryStats` field so the picker can show observation depth.
+ * @param {{ syncIfStale?: (reason?: string) => Promise<void> }} [projectSync]
  * @returns {import('express').Router}
  */
-export function projectRoutes(repo, db = null) {
+export function projectRoutes(repo, db = null, projectSync = null) {
   const router = Router();
 
   function collectMemoryStats() {
@@ -48,12 +49,22 @@ export function projectRoutes(repo, db = null) {
   }
 
   // GET /api/projects — list all projects
-  router.get('/api/projects', (_req, res) => {
+  router.get('/api/projects', async (_req, res, next) => {
+    try {
+      await projectSync?.syncIfStale?.('api-projects');
+    } catch (err) {
+      return next(err);
+    }
     res.json(annotate(repo.listProjects()));
   });
 
   // GET /api/projects/active — list only active projects
-  router.get('/api/projects/active', (_req, res) => {
+  router.get('/api/projects/active', async (_req, res, next) => {
+    try {
+      await projectSync?.syncIfStale?.('api-projects-active');
+    } catch (err) {
+      return next(err);
+    }
     res.json(annotate(repo.listProjects({ active: true })));
   });
 

@@ -1,0 +1,11 @@
+{
+  "name": "debug__brief__3",
+  "task": "debug",
+  "condition": "brief",
+  "verdict": {
+    "grounded": 3,
+    "useful": 5,
+    "rationale": "Answer gives concrete, actionable pointers (/upgrade page, commit 13cf2be, dev branch) well-supported by observations, though some cited obs IDs (3817, 3802, S292) aren't directly visible in the provided truth set."
+  },
+  "rawJudgeResult": "{\"grounded\":3,\"useful\":5,\"rationale\":\"Answer gives concrete, actionable pointers (/upgrade page, commit 13cf2be, dev branch) well-supported by observations, though some cited obs IDs (3817, 3802, S292) aren't directly visible in the provided truth set.\"}"
+}

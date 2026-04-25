@@ -1,0 +1,11 @@
+{
+  "name": "debug__raw-memory__4",
+  "task": "debug",
+  "condition": "raw-memory",
+  "verdict": {
+    "grounded": 4,
+    "useful": 4,
+    "rationale": "Most specifics (commit 13cf2be, feat/tier-pricing-2026-04, lens-dev-5574c, /upgrade staleness, hard-coded prices, test-mode Stripe, feat/max-platforms branch) are supported by observations; pointing to /upgrade and hard-coded constants is actionable, though file paths aren't named."
+  },
+  "rawJudgeResult": "{\"grounded\":4,\"useful\":4,\"rationale\":\"Most specifics (commit 13cf2be, feat/tier-pricing-2026-04, lens-dev-5574c, /upgrade staleness, hard-coded prices, test-mode Stripe, feat/max-platforms branch) are supported by observations; pointing to /upgrade and hard-coded constants is actionable, though file paths aren't named.\"}"
+}

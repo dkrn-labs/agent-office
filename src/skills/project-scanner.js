@@ -2,6 +2,19 @@ import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 
+const PROJECT_MARKER_FILES = [
+  'package.json',
+  'requirements.txt',
+  'pyproject.toml',
+  'Cargo.toml',
+  'go.mod',
+  'Gemfile',
+  'pom.xml',
+  'build.gradle',
+  'build.gradle.kts',
+  'composer.json',
+];
+
 /**
  * Detects the tech stack for a project directory.
  * Returns a sorted array of technology strings.
@@ -120,7 +133,18 @@ export function computeStackHash(techStack) {
 }
 
 /**
- * Scans rootPath for subdirectories that contain a .git/ folder.
+ * Returns true when a directory looks like a code project we should index.
+ * We include git repos and also non-git folders with common project markers.
+ * @param {string} projectPath
+ * @returns {boolean}
+ */
+export function isProjectDirectory(projectPath) {
+  if (existsSync(join(projectPath, '.git'))) return true;
+  return PROJECT_MARKER_FILES.some((marker) => existsSync(join(projectPath, marker)));
+}
+
+/**
+ * Scans rootPath for top-level project directories.
  * Skips hidden directories (starting with '.') and node_modules.
  * @param {string} rootPath
  * @returns {{ path: string, name: string, techStack: string[], stackHash: string }[]}
@@ -149,8 +173,7 @@ export function scanDirectory(rootPath) {
     }
     if (!stat.isDirectory()) continue;
 
-    // Only include directories that contain a .git folder
-    if (!existsSync(join(fullPath, '.git'))) continue;
+    if (!isProjectDirectory(fullPath)) continue;
 
     const techStack = detectTechStack(fullPath);
     const stackHash = computeStackHash(techStack);

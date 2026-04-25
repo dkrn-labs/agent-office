@@ -1,0 +1,68 @@
+{
+  "name": "recall__brief__2",
+  "task": "recall",
+  "condition": "brief",
+  "repeat": 2,
+  "wallMs": 43995,
+  "exitCode": 0,
+  "stderrTail": "",
+  "result": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "api_error_status": null,
+    "duration_ms": 37643,
+    "duration_api_ms": 30557,
+    "num_turns": 3,
+    "result": "## This week on agent-office (2026-04-13 → 2026-04-18, 63 commits on `main`)\n\n**Phase 1–3 foundation (Apr 13, `bd59458`, `6a1ede2`, `ca066d7`)** — Foundation, Agent Core (personas/skills/resolver/launcher), and Memory Engine (domain-scoped queries, injector, importer) all landed in a single day.\n\n**Phase 4 Office UI (Apr 13–14)** — React frontend with pixel-art office scene (`eaebe7c`, `69510ec`). Then on Apr 14 you extracted the pixel-agents engine into proper modules (`a88a3c6` → `fd62f21`: constants/types, sprites, floor/wall tiles, layout, core engine, browser asset loader) and wired it into a 25×20 office with 7 themed zones and an `OfficeCanvas` React wrapper (`a4ef81e`, `c8c8f57`, `6ac04c0`). Several positioning/coord fixes followed (`b1ca00b`, `48daeac`, `85bff97`).\n\n**Launcher + claude-mem integration (Apr 14, Phase 4.6)** — Read-only SQLite adapter for claude-mem (`d109f26`), persona-to-observation filter (`e079b4f`), context injection into launches (`1c875a4`), iTerm2 tab spawning (`64ed75e`), and a `LaunchPreview` flow showing last session + persona memories + skills (`27cb1d3`, `c0f0d86`, `a0549e3`, `acdddfa`). Merged to main as `6b61356`.\n\n**Phase 5 Telemetry dashboard (Apr 15, `3199451`/`2534692`)** — Provider adapters, office state, portfolio stats (`4d9806d`), redesigned picker with provider-aware preview (`42aab52`), local skill roots (`a4cb528`), UTC anchor fix for today-window stats (`c1a2dc7`).\n\n**Provider-neutral history + doctor (Apr 16)** — `9c4afb4` adds provider-neutral project history ingestion, `3b9f1a9` adds the doctor command. Stability fixes: live-session presence (`a8f6bd4`), idle grace period (`aaa47ed`), local port resolution (`ef1cec2`), Codex history summary enrichment (`fc03de3`).\n\n**Unified memory brief + semantic search (Apr 18, the headline work)** —\n- `4d9a58a` persona-scoped memory brief generator\n- `17bf243` wires the brief into live session launch\n- `ec56fb9` renders it in `LaunchPreview`\n- `2dbef00` exposes unified memory stats + semantic search and **drops the claude-mem fallback**\n- `3c1cf94` persona memory stats + semantic search in project picker\n- `3b6c0b4` consolidates LaunchWizard into a single 4-step modal\n- `0c3dfbd` adds `sqlite-vec`, `@huggingface/transformers`, `playwright`\n- `40c5014` bench harness for brief vs raw-memory token savings (the `bench/` + `scripts/bench-*.mjs` that are still untracked in your working tree per `git status`)\n- `01f2a70` Playwright LinkedIn carousel capture\n- `d5da889` simplifies office floor to Boss/Workspace/Dungeon + Fixer\n- `18e1cbb` README rewrite around the unified memory USP\n- `1b6fbb5` Codex submission id matching fix\n\n**Uncertain / not verified here:** I did not open individual files, run tests, or verify that the bench scripts and `bench/` data produce the token-savings numbers referenced in the README — only that the harness commit and the untracked artifacts exist. The memory index (S294, S830, S841) also flags those bench artifacts as still untracked, which matches `git status`.",
+    "stop_reason": "end_turn",
+    "session_id": "0a086ab2-0391-4cf3-af04-ab9f86cf0b47",
+    "total_cost_usd": 0.24357575,
+    "usage": {
+      "input_tokens": 8,
+      "cache_creation_input_tokens": 24675,
+      "cache_read_input_tokens": 96134,
+      "output_tokens": 1650,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 24675,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [
+        {
+          "input_tokens": 1,
+          "output_tokens": 1322,
+          "cache_read_input_tokens": 41042,
+          "cache_creation_input_tokens": 151,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 151
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-7[1m]": {
+        "inputTokens": 8,
+        "outputTokens": 1650,
+        "cacheReadInputTokens": 96134,
+        "cacheCreationInputTokens": 24675,
+        "webSearchRequests": 0,
+        "costUSD": 0.24357575,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "uuid": "83d62fe4-639f-4389-8842-ebdcbf9488a1"
+  }
+}

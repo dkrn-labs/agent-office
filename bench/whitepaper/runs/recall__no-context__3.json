@@ -1,0 +1,68 @@
+{
+  "name": "recall__no-context__3",
+  "task": "recall",
+  "condition": "no-context",
+  "repeat": 3,
+  "wallMs": 81105,
+  "exitCode": 0,
+  "stderrTail": "",
+  "result": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "api_error_status": null,
+    "duration_ms": 75155,
+    "duration_api_ms": 23042,
+    "num_turns": 3,
+    "result": "## Shipped this week on agent-office (Apr 13–18)\n\n**Foundation & scaffolding (Apr 13)** — Phases 1–4 landed in quick succession: `bd59458` Foundation, `6a1ede2` Agent Core (personas/skills/resolver/launcher), `ca066d7` Memory Engine (domain-scoped queries + injector), `eaebe7c` Phase 4 Office UI with animated scene.\n\n**Pixel-art engine extraction (Apr 14)** — Broke out pixel-agents into reusable modules: constants/types (`a88a3c6`), sprites (`54fcd13`), floor/wall tiles (`00cdc7b`), layout (`9df83eb`), core engine (`769983d`), browser asset loader (`fd62f21`). Wired into a 3-column dashboard (`68467b0`, `6ac04c0`) with `OfficeCanvas` React wrapper (`c8c8f57`).\n\n**Claude-mem integration (Apr 14)** — Read-only SQLite adapter (`d109f26`), persona-to-observation heuristic filter (`e079b4f`), connect-on-boot (`3842a50`), `LaunchPreview` component surfacing last session + memories + skills (`27cb1d3`), iTerm2 spawn (`64ed75e`). Merged as Phase 4.5+4.6 in `6b61356`.\n\n**Phase 5 telemetry (Apr 15)** — Provider adapters, office state, portfolio stats (`4d9806d`), redesigned picker with provider-aware preview (`42aab52`), local skill roots (`a4cb528`), merged `3199451`.\n\n**Provider-neutral history + doctor (Apr 16)** — `9c4afb4` history ingestion, `3b9f1a9` doctor command, plus presence/idle-grace fixes (`a8f6bd4`, `aaa47ed`) and Codex history enrichment (`fc03de3`).\n\n**Unified memory + persona brief (Apr 18)** — Biggest day. `4d9a58a` persona-scoped brief generator, `17bf243` wired into live launch, `ec56fb9` rendered in LaunchPreview, `2dbef00` unified memory stats + semantic search (dropping claude-mem fallback), `3c1cf94` surfaced in project picker, `3b6c0b4` consolidated 4 dialogs into one `LaunchWizard` modal. Also: `01f2a70` Playwright LinkedIn carousel capture, `40c5014` bench harness for brief-vs-raw token savings, `d5da889` simplified office floor to Boss/Workspace/Dungeon + Fixer, `18e1cbb` README rewrite around the unified-memory USP.\n\n**Uncertain / not verified**\n- I didn't read the actual diffs, so line-level claims (e.g. what the \"brief\" format looks like, exact APIs of the memory adapter) aren't backed up here — only commit subjects.\n- `bench/`, `scripts/bench-aggregate.mjs`, `scripts/bench-judge.mjs`, `scripts/bench-whitepaper.mjs` are **still untracked** — they exist locally but aren't in any commit yet.\n- `feature/phase-5-telemetry` branch still exists locally alongside main; I didn't check whether it's fully merged or has unique commits.",
+    "stop_reason": "end_turn",
+    "session_id": "254eaf9d-6c17-45ec-8720-8fca0d078e5b",
+    "total_cost_usd": 0.20991624999999997,
+    "usage": {
+      "input_tokens": 7,
+      "cache_creation_input_tokens": 23501,
+      "cache_read_input_tokens": 53850,
+      "output_tokens": 1443,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 23501,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [
+        {
+          "input_tokens": 1,
+          "output_tokens": 1141,
+          "cache_read_input_tokens": 37332,
+          "cache_creation_input_tokens": 2687,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 2687
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-7[1m]": {
+        "inputTokens": 7,
+        "outputTokens": 1443,
+        "cacheReadInputTokens": 53850,
+        "cacheCreationInputTokens": 23501,
+        "webSearchRequests": 0,
+        "costUSD": 0.20991624999999997,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "uuid": "df17de0d-004b-4158-9426-974d23cbe5e9"
+  }
+}

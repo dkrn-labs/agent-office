@@ -1,0 +1,11 @@
+{
+  "name": "debug__brief__2",
+  "task": "debug",
+  "condition": "brief",
+  "verdict": {
+    "grounded": 4,
+    "useful": 4,
+    "rationale": "Cites supported specifics (commit 13cf2be, lens-dev-5574c, feat/max-platforms branch) and gives actionable first steps, though the /upgrade stale-prices observation isn't directly in the provided source."
+  },
+  "rawJudgeResult": "{\"grounded\":4,\"useful\":4,\"rationale\":\"Cites supported specifics (commit 13cf2be, lens-dev-5574c, feat/max-platforms branch) and gives actionable first steps, though the /upgrade stale-prices observation isn't directly in the provided source.\"}"
+}

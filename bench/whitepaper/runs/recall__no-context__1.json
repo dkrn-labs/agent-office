@@ -1,0 +1,68 @@
+{
+  "name": "recall__no-context__1",
+  "task": "recall",
+  "condition": "no-context",
+  "repeat": 1,
+  "wallMs": 42066,
+  "exitCode": 0,
+  "stderrTail": "",
+  "result": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "api_error_status": null,
+    "duration_ms": 35558,
+    "duration_api_ms": 34336,
+    "num_turns": 4,
+    "result": "## This week on agent-office (Apr 13–18)\n\nWeek started with Phase 1–4 foundation commits (Apr 13) and ended with the unified-memory launch wizard (Apr 18).\n\n**Engine + Office UI (Apr 13–14)**\n- Extracted the pixel-agents engine into modular TS packages: constants/types (`a88a3c6`), sprites (`54fcd13`), floors/walls (`00cdc7b`), layout (`9df83eb`), core state/renderer (`769983d`), browser asset loader (`fd62f21`).\n- Shipped the Office dashboard: 25×20 default layout with 7 themed zones (`a4ef81e`), `OfficeCanvas` React wrapper (`c8c8f57`), 3-column dashboard shell (`68467b0`), wired into the app (`6ac04c0`), zone labels (`c818ff3`), persona-to-seat pinning (`48daeac`), coord-transform fix (`b1ca00b`).\n- Replaced placeholder squares with pixel-art sprites (`69510ec`); iTerm2 spawn on launch (`64ed75e`).\n\n**Memory + launcher (Apr 13–14)**\n- Phase 3 Memory Engine (`ca066d7`) — domain-scoped queries, injector, importer.\n- Read-only claude-mem SQLite adapter (`d109f26`) + heuristic persona filter (`e079b4f`), auto-connect on boot (`3842a50`), injected into launcher with preview() (`1c875a4`).\n- `LaunchPreview` flow: API preview route (`acdddfa`), store actions (`a0549e3`), component (`27cb1d3`), picker opens preview instead of launching (`c0f0d86`), readability fixes (`91ae92e`).\n\n**Telemetry + provider-neutral history (Apr 15–16)**\n- Phase 5 telemetry dashboard merged (`3199451`, `2534692`), provider adapters + portfolio stats (`4d9806d`), UTC anchoring fix (`c1a2dc7`).\n- Provider-neutral project history ingestion (`9c4afb4`), `doctor` command (`3b9f1a9`), Codex history fixes (`fc03de3`, `1b6fbb5`), live-session presence stabilization (`a8f6bd4`, `aaa47ed`).\n\n**Unified memory + brief (Apr 18 — today)**\n- Persona-scoped memory brief generator (`4d9a58a`), wired into live launch (`17bf243`), rendered in LaunchPreview (`ec56fb9`).\n- Dropped claude-mem fallback; unified stats + semantic search exposed via `/api/memories`, `/personas`, `/projects` (`2dbef00`) — test file trimmed from ~63 lines of mock plumbing.\n- Persona memory stats + semantic search in project picker (`3c1cf94`).\n- Collapsed `ProjectPicker` (600 lines) + `LaunchPreview` (481 lines) into a single `LaunchWizard.jsx` (798 lines) with 4 next-next steps (`3b6c0b4`).\n- Added `sqlite-vec`, `@huggingface/transformers`, `playwright` (`0c3dfbd`); benchmark harness for brief-vs-raw-memory token savings (`40c5014`); LinkedIn carousel capture via Playwright (`01f2a70`); README rewrite around unified-memory USP (`18e1cbb`).\n\n**Uncertain / not shipped**\n- `bench/` directory and `scripts/bench-aggregate.mjs`, `bench-judge.mjs`, `bench-whitepaper.mjs` are **untracked on main** — the whitepaper benchmark runs exist locally but are not committed. Whether results have been written up anywhere outside the working tree, I can't confirm from git alone.\n- The `40c5014` \"harness for brief vs raw-memory token savings\" commit landed, but I haven't verified which of the untracked scripts predate it vs. were added after — would need to diff against the commit to say precisely.\n- Simplification of the office floor to Boss/Workspace/Dungeon + Fixer (`d5da889`) landed today, but I didn't inspect the diff to confirm which zones were removed.",
+    "stop_reason": "end_turn",
+    "session_id": "dfd84134-0833-4ae6-9f5a-8d6eba2b928f",
+    "total_cost_usd": 0.22963899999999998,
+    "usage": {
+      "input_tokens": 7,
+      "cache_creation_input_tokens": 24852,
+      "cache_read_input_tokens": 53758,
+      "output_tokens": 1896,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 24852,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [
+        {
+          "input_tokens": 1,
+          "output_tokens": 1454,
+          "cache_read_input_tokens": 37240,
+          "cache_creation_input_tokens": 4130,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 4130
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-7[1m]": {
+        "inputTokens": 7,
+        "outputTokens": 1896,
+        "cacheReadInputTokens": 53758,
+        "cacheCreationInputTokens": 24852,
+        "webSearchRequests": 0,
+        "costUSD": 0.22963899999999998,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "uuid": "307e191c-a44a-41e6-ad41-87f7634bdd3d"
+  }
+}

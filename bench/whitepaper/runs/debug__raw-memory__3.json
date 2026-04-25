@@ -1,0 +1,68 @@
+{
+  "name": "debug__raw-memory__3",
+  "task": "debug",
+  "condition": "raw-memory",
+  "repeat": 3,
+  "wallMs": 27241,
+  "exitCode": 0,
+  "stderrTail": "",
+  "result": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "api_error_status": null,
+    "duration_ms": 21153,
+    "duration_api_ms": 14587,
+    "num_turns": 1,
+    "result": "Based on the recent project history, here's where I'd look first:\n\n**1. `feat/tier-pricing-2026-04` branch / commit `13cf2be`** — Stripe tiers + add-ons were just implemented and pushed to `origin/dev`, then deployed to `lens-dev-5574c`. New Stripe products and monthly prices were created in **test mode**. If checkout hits live Stripe prices but the dashboard reads from hard-coded tier config (or vice versa), that's the most likely mismatch.\n\n**2. Hard-coded pricing constants** — A recent turn confirmed pricing is \"**hard-coded, not dynamic**\" somewhere in the app. Grep for tier/price constants (likely under `src/config/` or a `pricing.ts`/`tiers.ts` module) and compare against what the `/upgrade` page and Stripe checkout session use. A prior note also flagged: \"`/upgrade` page refresh (stale prices, no Platinum)\" — so Platinum may be missing from one surface.\n\n**3. Checkout session creation (Cloud Function)** — Whichever function creates the Stripe Checkout Session: does it pass a `priceId` from the new test-mode products, or a stale one? Compare against the dashboard's plan/upgrade component source.\n\n**4. `.firebaserc` / active Stripe mode** — Dashboard may show live-mode prices while checkout uses test-mode price IDs (or reversed) on `lens-dev-5574c`.\n\n**Fastest first step:** `git log --oneline origin/dev ^origin/dev~20 -- '*pric*' '*tier*' '*stripe*'` to find the exact files touched in the Stripe tiers commit, then diff the price strings between the dashboard component and the checkout session builder.\n\nMemory gives strong pointers but not exact file paths — I'd need to grep to name the specific files.",
+    "stop_reason": "end_turn",
+    "session_id": "038bcca3-8641-432d-b333-4428a0197b28",
+    "total_cost_usd": 0.2160765,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 30454,
+      "cache_read_input_tokens": 16518,
+      "output_tokens": 698,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 30454,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [
+        {
+          "input_tokens": 6,
+          "output_tokens": 698,
+          "cache_read_input_tokens": 16518,
+          "cache_creation_input_tokens": 30454,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 30454
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-7[1m]": {
+        "inputTokens": 6,
+        "outputTokens": 698,
+        "cacheReadInputTokens": 16518,
+        "cacheCreationInputTokens": 30454,
+        "webSearchRequests": 0,
+        "costUSD": 0.2160765,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "uuid": "ab74d13e-64be-4490-8230-fb6b985c85d6"
+  }
+}

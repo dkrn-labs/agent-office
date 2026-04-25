@@ -2,9 +2,22 @@
 
 import process from 'node:process';
 import os from 'node:os';
-import { readFileSync } from 'node:fs';
+import { readFileSync, mkdirSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildHistoryIngestPayload } from '../src/history/hook-bridge.js';
+
+const HOOK_LOG_PATH = join(os.homedir(), '.agent-office', 'logs', 'provider-hook.log');
+const HOOK_LOG_ENABLED = process.env.AGENT_OFFICE_HOOK_DEBUG !== '0';
+
+function logHook(record) {
+  if (!HOOK_LOG_ENABLED) return;
+  try {
+    mkdirSync(join(os.homedir(), '.agent-office', 'logs'), { recursive: true });
+    appendFileSync(HOOK_LOG_PATH, JSON.stringify({ ts: new Date().toISOString(), ...record }) + '\n');
+  } catch {
+    // logging is best-effort; never block the hook
+  }
+}
 
 function resolveApiBase() {
   const explicit = process.env.AGENT_OFFICE_BASE_URL?.trim();
@@ -68,8 +81,11 @@ async function postPayload(apiBase, payload) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  logHook({ stage: 'invoked', provider: args.provider, apiBase: args.apiBase, notifyJsonArg: args.notifyJsonArg, cwd: process.cwd() });
+
   if (!args.provider) {
     console.error('Missing required --provider');
+    logHook({ stage: 'exit', reason: 'missing_provider' });
     process.stdout.write('{}\n');
     process.exit(0);
   }
@@ -78,8 +94,16 @@ async function main() {
     ? process.argv[process.argv.length - 1]
     : await readStdin();
   const input = parseJson(rawInput);
+  logHook({
+    stage: 'input',
+    provider: args.provider,
+    rawLength: rawInput?.length ?? 0,
+    inputKeys: input ? Object.keys(input) : null,
+    parsed: input != null,
+  });
 
   if (!input) {
+    logHook({ stage: 'exit', provider: args.provider, reason: 'no_input' });
     process.stdout.write('{}\n');
     process.exit(0);
   }
@@ -93,16 +117,28 @@ async function main() {
     cwd: process.cwd(),
     historySessionId,
   });
+  logHook({
+    stage: 'payload',
+    provider: args.provider,
+    built: payload != null,
+    historySessionId,
+    payloadKeys: payload ? Object.keys(payload) : null,
+    summaryFilesEdited: payload?.summary?.filesEdited?.length ?? 0,
+    observations: payload?.observations?.length ?? 0,
+  });
   if (!payload) {
+    logHook({ stage: 'exit', provider: args.provider, reason: 'builder_returned_null' });
     process.stdout.write('{}\n');
     process.exit(0);
   }
 
   try {
     await postPayload(args.apiBase, payload);
+    logHook({ stage: 'exit', provider: args.provider, reason: 'ok' });
   } catch (err) {
     // Hooks should not block the agent on telemetry/history failures.
     console.error(String(err?.message ?? err));
+    logHook({ stage: 'exit', provider: args.provider, reason: 'post_failed', error: String(err?.message ?? err) });
   }
 
   process.stdout.write('{}\n');

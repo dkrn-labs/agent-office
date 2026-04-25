@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
+import { classifyObservation } from './classify-observation.js';
 
 function unique(items) {
   return [...new Set(items.filter(Boolean))];
@@ -71,11 +72,18 @@ function extractCompleted(text) {
   return trimText(firstParagraph.replace(/\s+/g, ' ').slice(0, 600));
 }
 
-function buildObservation({ providerId, completed, nextSteps, filesRead, filesModified, createdAt }) {
+function buildObservation({ providerId, completed, nextSteps, filesRead, filesModified, createdAt, commitMessage }) {
   if (!completed && filesRead.length === 0 && filesModified.length === 0) return [];
+  const type = classifyObservation({
+    filesModified,
+    filesRead,
+    summary: completed,
+    completed,
+    commitMessage,
+  });
   return [
     {
-      type: filesModified.length > 0 ? 'change' : 'summary',
+      type,
       title:
         completed?.split(/[.?!]/)[0]?.slice(0, 120) ??
         (filesModified[0] ? `Updated ${basename(filesModified[0])}` : 'Completed agent turn'),
@@ -84,7 +92,7 @@ function buildObservation({ providerId, completed, nextSteps, filesRead, filesMo
       filesRead,
       filesModified,
       facts: unique([nextSteps].filter(Boolean)),
-      concepts: [providerId, filesModified.length > 0 ? 'edited-files' : 'completed-turn'],
+      concepts: [providerId, type],
       createdAt,
       relevanceCount: filesModified.length + filesRead.length,
     },

@@ -272,10 +272,13 @@ describe('Launcher.launch telemetry registration', () => {
 import { buildItermScript, buildLaunchBashScript } from '../../src/agents/launcher.js';
 
 describe('buildItermScript()', () => {
-  it('defaults to Terminal.app and uses do script', () => {
+  it('defaults to Terminal.app and prefers a new tab when a window is open', () => {
     const script = buildItermScript({ scriptPath: '/tmp/agent-office-launch-123.sh' });
     assert.ok(script.includes('tell application "Terminal"'));
+    assert.ok(script.includes('set terminalHasWindow to (count of windows) > 0'));
+    assert.ok(script.includes('tell application "System Events" to keystroke "t" using command down'));
     assert.ok(script.includes('do script'));
+    assert.ok(script.includes('in selected tab of front window'));
     assert.ok(
       script.includes(String.raw`bash \"/tmp/agent-office-launch-123.sh\"`),
       `expected bash invocation of script path, got: ${script}`,

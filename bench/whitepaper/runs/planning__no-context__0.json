@@ -1,0 +1,68 @@
+{
+  "name": "planning__no-context__0",
+  "task": "planning",
+  "condition": "no-context",
+  "repeat": 0,
+  "wallMs": 39424,
+  "exitCode": 0,
+  "stderrTail": "",
+  "result": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "api_error_status": null,
+    "duration_ms": 32633,
+    "duration_api_ms": 27158,
+    "num_turns": 4,
+    "result": "The next concrete step: **run the full whitepaper benchmark matrix and commit `scripts/bench-whitepaper.mjs` + `bench/whitepaper/`**.\n\nJustification from prior work:\n\n- S265 / obs 3729 landed `scripts/bench-whitepaper.mjs` (the 3-task × 3-condition runner for the `lens` project), judge prompt (3728), and the three task prompts (3726) — all currently **untracked** per `git status`.\n- Only pilot runs exist in `bench/whitepaper/runs/` (6 JSONs, partial matrix — `planning__brief`, `planning__no-context`, `debug__no-context`, `debug__planning` missing; only 1 repeat per cell).\n- Obs 3704 committed to **\"3 tasks × 10 turns\"**, but the script defaults to `BENCH_REPEATS=5`. This is the one **decision to resolve before the full run**: align repeats with the whitepaper design (10) or update the design memo.\n\nSuggested sequence: (1) decide repeats = 10 vs 5, (2) `BENCH_REPEATS=10 node scripts/bench-whitepaper.mjs` for the full 90-run matrix, (3) commit the runner + task prompts + judge prompt on a `bench/whitepaper` branch so pilot results aren't lost if the harness changes mid-run.",
+    "stop_reason": "end_turn",
+    "session_id": "ed175f64-b45b-4f9f-9eef-2214f8861eba",
+    "total_cost_usd": 0.23468775,
+    "usage": {
+      "input_tokens": 9,
+      "cache_creation_input_tokens": 22197,
+      "cache_read_input_tokens": 129973,
+      "output_tokens": 1237,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 22197,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [
+        {
+          "input_tokens": 1,
+          "output_tokens": 606,
+          "cache_read_input_tokens": 38456,
+          "cache_creation_input_tokens": 259,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 259
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-7[1m]": {
+        "inputTokens": 9,
+        "outputTokens": 1237,
+        "cacheReadInputTokens": 129973,
+        "cacheCreationInputTokens": 22197,
+        "webSearchRequests": 0,
+        "costUSD": 0.23468775,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "uuid": "c0825910-adda-4979-ac28-e95744cc0bfa"
+  }
+}

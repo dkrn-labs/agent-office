@@ -1,0 +1,11 @@
+{
+  "name": "debug__no-context__1",
+  "task": "debug",
+  "condition": "no-context",
+  "verdict": {
+    "grounded": 5,
+    "useful": 5,
+    "rationale": "Claims about /upgrade staleness, commit 13cf2be, hard-coded pricing, two-layer shipping, and feat/tier-pricing-2026-04 branch are all supported by observations, and the answer gives concrete actionable starting points."
+  },
+  "rawJudgeResult": "{\"grounded\":5,\"useful\":5,\"rationale\":\"Claims about /upgrade staleness, commit 13cf2be, hard-coded pricing, two-layer shipping, and feat/tier-pricing-2026-04 branch are all supported by observations, and the answer gives concrete actionable starting points.\"}"
+}

@@ -1,0 +1,11 @@
+{
+  "name": "debug__no-context__2",
+  "task": "debug",
+  "condition": "no-context",
+  "verdict": {
+    "grounded": 4,
+    "useful": 4,
+    "rationale": "Correctly anchors to the recent Stripe tiers deploy and related branches from observations; file/component names are hedged as guesses rather than fabricated, and the dual-source-of-truth hypothesis with a concrete grep strategy is actionable."
+  },
+  "rawJudgeResult": "{\"grounded\":4,\"useful\":4,\"rationale\":\"Correctly anchors to the recent Stripe tiers deploy and related branches from observations; file/component names are hedged as guesses rather than fabricated, and the dual-source-of-truth hypothesis with a concrete grep strategy is actionable.\"}"
+}

@@ -1,0 +1,11 @@
+{
+  "name": "debug__no-context__0",
+  "task": "debug",
+  "condition": "no-context",
+  "verdict": {
+    "grounded": 4,
+    "useful": 5,
+    "rationale": "Specific claims (branch feat/tier-pricing-2026-04, commit 13cf2be, /upgrade stale prices+no Platinum, hard-coded prices, test-mode Stripe, feat/max-platforms-and-openrouter-catalog) are all supported by observations; answer is specific and actionable with an appropriate caveat."
+  },
+  "rawJudgeResult": "{\"grounded\":4,\"useful\":5,\"rationale\":\"Specific claims (branch feat/tier-pricing-2026-04, commit 13cf2be, /upgrade stale prices+no Platinum, hard-coded prices, test-mode Stripe, feat/max-platforms-and-openrouter-catalog) are all supported by observations; answer is specific and actionable with an appropriate caveat.\"}"
+}

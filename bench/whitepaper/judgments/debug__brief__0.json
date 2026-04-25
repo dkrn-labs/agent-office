@@ -1,0 +1,11 @@
+{
+  "name": "debug__brief__0",
+  "task": "debug",
+  "condition": "brief",
+  "verdict": {
+    "grounded": 4,
+    "useful": 4,
+    "rationale": "Answer cites real branches/commits from observations (feat/max-platforms-and-openrouter-catalog, Stripe tiers, dashboard verdict rework, /upgrade page) with plausible file targets; some specifics like obs numbers aren't verifiable but the named artifacts are supported."
+  },
+  "rawJudgeResult": "{\"grounded\":4,\"useful\":4,\"rationale\":\"Answer cites real branches/commits from observations (feat/max-platforms-and-openrouter-catalog, Stripe tiers, dashboard verdict rework, /upgrade page) with plausible file targets; some specifics like obs numbers aren't verifiable but the named artifacts are supported.\"}"
+}

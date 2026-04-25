@@ -1,0 +1,11 @@
+{
+  "name": "debug__brief__1",
+  "task": "debug",
+  "condition": "brief",
+  "verdict": {
+    "grounded": 4,
+    "useful": 4,
+    "rationale": "Claims about Stripe tiers commit 13cf2be, lens-dev-5574c deploy, /upgrade stale prices, and max-platforms branch are all supported; specific file names like tiers.ts are speculative but hedged, and the pointers are actionable."
+  },
+  "rawJudgeResult": "{\"grounded\":4,\"useful\":4,\"rationale\":\"Claims about Stripe tiers commit 13cf2be, lens-dev-5574c deploy, /upgrade stale prices, and max-platforms branch are all supported; specific file names like tiers.ts are speculative but hedged, and the pointers are actionable.\"}"
+}

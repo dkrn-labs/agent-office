@@ -1,0 +1,11 @@
+{
+  "name": "debug__no-context__3",
+  "task": "debug",
+  "condition": "no-context",
+  "verdict": {
+    "grounded": 5,
+    "useful": 5,
+    "rationale": "Claims about /upgrade stale prices, commit 13cf2be, hard-coded pricing, webhook sync, and unpushed branches are all supported by the observations, and the answer gives concrete, actionable starting points with appropriate caveats."
+  },
+  "rawJudgeResult": "{\"grounded\":5,\"useful\":5,\"rationale\":\"Claims about /upgrade stale prices, commit 13cf2be, hard-coded pricing, webhook sync, and unpushed branches are all supported by the observations, and the answer gives concrete, actionable starting points with appropriate caveats.\"}"
+}

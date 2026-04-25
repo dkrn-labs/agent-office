@@ -1,0 +1,7 @@
+{
+  "name": "recall__no-context__2",
+  "task": "recall",
+  "condition": "no-context",
+  "verdict": null,
+  "rawJudgeResult": "You've hit your limit · resets 10pm (Europe/Amsterdam)"
+}

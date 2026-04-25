@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Agent-Office Memory Benchmark — Results</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  :root {
+    --bg: #0e1117; --panel: #161b22; --border: #30363d;
+    --fg: #e6edf3; --muted: #8b949e;
+    --nc: #8b949e; --raw: #c0392b; --brief: #27ae60;
+    --accent: #58a6ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--fg);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  a { color: var(--accent); }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 48px 24px 80px; }
+  h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h2 { font-size: 20px; margin: 40px 0 14px; }
+  h3 { font-size: 15px; margin: 24px 0 8px; color: var(--muted); font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.06em; }
+  .sub { color: var(--muted); margin: 0 0 24px; }
+  .grid { display: grid; gap: 16px; }
+  .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .charts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 720px) { .cards, .charts { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px 18px; }
+  .card .label { color: var(--muted); font-size: 12px; text-transform: uppercase;
+    letter-spacing: 0.06em; }
+  .card .value { font-size: 26px; font-weight: 600; margin-top: 4px; }
+  .card .delta { font-size: 12px; margin-top: 4px; color: var(--muted); }
+  .pos { color: #27ae60; }
+  .neg { color: #f85149; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: right; padding: 7px 10px; border-bottom: 1px solid var(--border); }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--muted); font-weight: 500; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.06em; }
+  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px;
+    margin-right: 6px; vertical-align: middle; }
+  .legend { display: flex; gap: 18px; font-size: 12px; color: var(--muted);
+    margin: 4px 0 14px; }
+  .chart-card { background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 14px; }
+  .chart-card h4 { margin: 2px 0 10px; font-size: 13px; font-weight: 600; }
+  .findings li { margin-bottom: 8px; line-height: 1.5; }
+  .callout { background: var(--panel); border-left: 3px solid var(--accent);
+    border-radius: 4px; padding: 14px 18px; margin: 16px 0; color: var(--fg);
+    font-size: 14px; line-height: 1.55; }
+  code { background: #0d1117; padding: 1px 5px; border-radius: 3px;
+    font-size: 12px; color: #c9d1d9; }
+  .footer { color: var(--muted); font-size: 12px; margin-top: 48px;
+    border-top: 1px solid var(--border); padding-top: 16px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="env,react">
+const { useEffect, useMemo, useState } = React;
+
+const CONDS  = ['no-context', 'raw-memory', 'brief'];
+const TASKS  = ['recall', 'planning', 'debug'];
+const COLORS = { 'no-context': 'var(--nc)', 'raw-memory': 'var(--raw)', 'brief': 'var(--brief)' };
+const COLOR_HEX = { 'no-context': '#8b949e', 'raw-memory': '#c0392b', 'brief': '#27ae60' };
+
+const fmt = {
+  usd:  v => `$${v.toFixed(4)}`,
+  usd2: v => `$${v.toFixed(2)}`,
+  int:  v => Math.round(v).toLocaleString(),
+  sec:  v => `${(v/1000).toFixed(1)}s`,
+  one:  v => v.toFixed(1),
+  two:  v => v.toFixed(2),
+};
+
+function BarChart({ title, metric, cells, overall, unit, formatter }) {
+  const W = 520, H = 260, padL = 44, padB = 38, padT = 18, padR = 12;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const groups = [
+    ...TASKS.map(t => ({ label: t, values: CONDS.map(c => cells[`${t}__${c}`][metric]) })),
+    { label: 'ALL', values: CONDS.map(c => overall[c][metric]) },
+  ];
+  const maxV = Math.max(...groups.flatMap(g => g.values.map(v => (v?.mean ?? 0) + (v?.std ?? 0)))) || 1;
+  const yMax = maxV * 1.1;
+  const groupW = plotW / groups.length;
+  const barW   = (groupW * 0.72) / CONDS.length;
+  const ticks = 5;
+  return (
+    <div className="chart-card">
+      <h4>{title}</h4>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{display:'block'}}>
+        {Array.from({length: ticks+1}).map((_, i) => {
+          const y = padT + plotH - (plotH*i)/ticks;
+          const v = (yMax*i)/ticks;
+          return (
+            <g key={i}>
+              <line x1={padL} y1={y} x2={W-padR} y2={y} stroke="#30363d" strokeWidth="0.5"/>
+              <text x={padL-6} y={y+3} fontSize="9" textAnchor="end" fill="#8b949e">
+                {formatter(v)}
+              </text>
+            </g>
+          );
+        })}
+        {groups.map((g, gi) => {
+          const gx = padL + gi*groupW + (groupW - barW*CONDS.length) / 2;
+          return (
+            <g key={g.label}>
+              {g.values.map((v, bi) => {
+                const mean = v?.mean ?? 0;
+                const std  = v?.std ?? 0;
+                const h = (mean / yMax) * plotH;
+                const x = gx + bi*barW;
+                const y = padT + plotH - h;
+                const cx = x + (barW-3)/2;
+                const eTop = padT + plotH - ((mean+std)/yMax)*plotH;
+                const eBot = padT + plotH - (Math.max(0,mean-std)/yMax)*plotH;
+                return (
+                  <g key={bi}>
+                    <rect x={x} y={y} width={barW-3} height={Math.max(0,h)}
+                      fill={COLOR_HEX[CONDS[bi]]} opacity="0.9"/>
+                    {std > 0 && (
+                      <g stroke="#e6edf3" strokeWidth="0.8">
+                        <line x1={cx} y1={eTop} x2={cx} y2={eBot}/>
+                        <line x1={cx-2.5} y1={eTop} x2={cx+2.5} y2={eTop}/>
+                        <line x1={cx-2.5} y1={eBot} x2={cx+2.5} y2={eBot}/>
+                      </g>
+                    )}
+                  </g>
+                );
+              })}
+              <text x={padL + gi*groupW + groupW/2} y={padT+plotH+14}
+                fontSize="10" textAnchor="middle" fill="#c9d1d9">{g.label}</text>
+            </g>
+          );
+        })}
+        <text x={padL} y={10} fontSize="9" fill="#8b949e">{unit}</text>
+      </svg>
+    </div>
+  );
+}
+
+function Legend() {
+  return (
+    <div className="legend">
+      {CONDS.map(c => (
+        <span key={c}>
+          <span className="swatch" style={{background: COLOR_HEX[c]}}/>{c}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function HeadlineTable({ overall }) {
+  const row = c => overall[c];
+  return (
+    <table>
+      <thead>
+        <tr>
+          <th>Condition</th><th>Cost (USD)</th><th>Wall (s)</th><th>Turns</th>
+          <th>Input tok</th><th>Output tok</th><th>Grounded</th><th>Useful</th>
+        </tr>
+      </thead>
+      <tbody>
+        {CONDS.map(c => {
+          const s = row(c);
+          return (
+            <tr key={c}>
+              <td><span className="swatch" style={{background: COLOR_HEX[c]}}/>{c}</td>
+              <td>{fmt.usd(s.costUsd.mean)} ± {fmt.usd(s.costUsd.std)}</td>
+              <td>{(s.wallMs.mean/1000).toFixed(1)}</td>
+              <td>{s.turns.mean.toFixed(1)}</td>
+              <td>{fmt.int(s.inputTokens.mean)}</td>
+              <td>{fmt.int(s.outputTokens.mean)}</td>
+              <td>{s.grounded.mean.toFixed(2)}</td>
+              <td>{s.useful.mean.toFixed(2)}</td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
+
+function PerTaskTable({ cells, metric, formatter }) {
+  return (
+    <table>
+      <thead>
+        <tr>
+          <th>Task</th>
+          {CONDS.map(c => (
+            <th key={c}><span className="swatch" style={{background: COLOR_HEX[c]}}/>{c}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {TASKS.map(t => (
+          <tr key={t}>
+            <td>{t}</td>
+            {CONDS.map(c => {
+              const v = cells[`${t}__${c}`][metric];
+              return <td key={c}>{formatter(v.mean)}</td>;
+            })}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function App() {
+  const [data, setData] = useState(null);
+  const [err, setErr]   = useState(null);
+
+  useEffect(() => {
+    fetch('./summary.json')
+      .then(r => r.ok ? r.json() : Promise.reject(r.statusText))
+      .then(setData)
+      .catch(e => setErr(String(e)));
+  }, []);
+
+  const deltas = useMemo(() => {
+    if (!data) return null;
+    const { overall } = data;
+    const raw = overall['raw-memory'], brief = overall.brief;
+    const pct = (a, b) => ((b - a) / a) * 100;
+    return {
+      costPct:  pct(raw.costUsd.mean, brief.costUsd.mean),
+      wallPct:  pct(raw.wallMs.mean, brief.wallMs.mean),
+      inputPct: pct(raw.inputTokens.mean, brief.inputTokens.mean),
+      groundedDelta: brief.grounded.mean - raw.grounded.mean,
+      usefulDelta:   brief.useful.mean - raw.useful.mean,
+    };
+  }, [data]);
+
+  if (err)   return <div className="wrap"><h1>Couldn't load summary.json</h1><p className="sub">Serve this folder over HTTP (e.g. <code>python3 -m http.server</code>) and reload. Error: {err}</p></div>;
+  if (!data) return <div className="wrap"><p className="sub">Loading…</p></div>;
+
+  const { overall, cells, nRuns } = data;
+
+  return (
+    <div className="wrap">
+      <h1>Agent-Office Memory Benchmark</h1>
+      <p className="sub">
+        {nRuns} runs · 3 tasks × 3 memory conditions × 5 repeats · randomized, one-shot Claude CLI · blinded LLM judge.
+      </p>
+
+      <div className="grid cards">
+        <div className="card">
+          <div className="label">Cost: brief vs raw-memory</div>
+          <div className="value">{fmt.usd2(overall.brief.costUsd.mean)}</div>
+          <div className="delta">
+            <span className={deltas.costPct < 0 ? 'pos' : 'neg'}>
+              {deltas.costPct.toFixed(1)}%
+            </span> vs raw-memory ({fmt.usd2(overall['raw-memory'].costUsd.mean)})
+          </div>
+        </div>
+        <div className="card">
+          <div className="label">Wall-time: brief vs raw-memory</div>
+          <div className="value">{(overall.brief.wallMs.mean/1000).toFixed(1)}s</div>
+          <div className="delta">
+            <span className={deltas.wallPct < 0 ? 'pos' : 'neg'}>
+              {deltas.wallPct.toFixed(1)}%
+            </span> vs raw-memory ({(overall['raw-memory'].wallMs.mean/1000).toFixed(1)}s)
+          </div>
+        </div>
+        <div className="card">
+          <div className="label">Judge: groundedness (0–5)</div>
+          <div className="value">{overall.brief.grounded.mean.toFixed(2)}</div>
+          <div className="delta">
+            <span className={deltas.groundedDelta >= 0 ? 'pos' : 'neg'}>
+              {deltas.groundedDelta >= 0 ? '+' : ''}{deltas.groundedDelta.toFixed(2)}
+            </span> vs raw-memory ({overall['raw-memory'].grounded.mean.toFixed(2)})
+          </div>
+        </div>
+      </div>
+
+      <h2>Headline</h2>
+      <HeadlineTable overall={overall}/>
+
+      <div className="callout">
+        <strong>The trade-off.</strong> The <em>brief</em> condition cuts input tokens by{' '}
+        {Math.abs(deltas.inputPct).toFixed(0)}% and wall-time by{' '}
+        {Math.abs(deltas.wallPct).toFixed(0)}% vs. pasting raw memory — but it loses{' '}
+        {Math.abs(deltas.groundedDelta).toFixed(2)} points of judge-scored groundedness.
+        The question the whitepaper has to answer: is that quality gap a compression
+        artifact we can close, or a fundamental ceiling of the brief format?
+      </div>
+
+      <h2>Charts</h2>
+      <Legend/>
+      <div className="grid charts">
+        <BarChart title="Cost per run (USD)"    metric="costUsd"      cells={cells} overall={overall} unit="USD"    formatter={v => `$${v.toFixed(2)}`}/>
+        <BarChart title="Wall-time per run"     metric="wallMs"       cells={cells} overall={overall} unit="ms"     formatter={v => `${Math.round(v/1000)}s`}/>
+        <BarChart title="Turns per run"         metric="turns"        cells={cells} overall={overall} unit="turns"  formatter={fmt.one}/>
+        <BarChart title="Input tokens per run"  metric="inputTokens"  cells={cells} overall={overall} unit="tokens" formatter={fmt.int}/>
+        <BarChart title="Cache-creation tokens" metric="cacheCreate"  cells={cells} overall={overall} unit="tokens" formatter={fmt.int}/>
+        <BarChart title="Output tokens per run" metric="outputTokens" cells={cells} overall={overall} unit="tokens" formatter={fmt.int}/>
+        <BarChart title="Judge: groundedness"   metric="grounded"     cells={cells} overall={overall} unit="0–5"    formatter={fmt.one}/>
+        <BarChart title="Judge: usefulness"     metric="useful"       cells={cells} overall={overall} unit="0–5"    formatter={fmt.one}/>
+      </div>
+
+      <h2>Per-task breakdown</h2>
+
+      <h3>Cost (USD, mean)</h3>
+      <PerTaskTable cells={cells} metric="costUsd" formatter={fmt.usd}/>
+
+      <h3>Input tokens (mean)</h3>
+      <PerTaskTable cells={cells} metric="inputTokens" formatter={fmt.int}/>
+
+      <h3>Groundedness (0–5)</h3>
+      <PerTaskTable cells={cells} metric="grounded" formatter={fmt.two}/>
+
+      <h3>Usefulness (0–5)</h3>
+      <PerTaskTable cells={cells} metric="useful" formatter={fmt.two}/>
+
+      <h2>Method</h2>
+      <ul className="findings">
+        <li><strong>Conditions.</strong> <em>no-context</em> = task only. <em>raw-memory</em> = full <code>getRawMemory()</code> prepended. <em>brief</em> = <code>getPersonaBrief()</code> prepended (budget 1000 tok).</li>
+        <li><strong>Tasks.</strong> recall, planning, debug — project <code>lens</code>, hand-written prompts in <code>bench/whitepaper/tasks/</code>.</li>
+        <li><strong>Execution.</strong> Matrix shuffled, one-shot <code>claude -p --output-format json</code> per cell, 5 repeats.</li>
+        <li><strong>Judge.</strong> Separate blinded Claude call scores each answer 0–5 on groundedness and usefulness using the full raw memory as source of truth.</li>
+        <li><strong>Scripts.</strong> <code>scripts/bench-whitepaper.mjs</code> → <code>scripts/bench-judge.mjs</code> → <code>scripts/bench-aggregate.mjs</code>.</li>
+      </ul>
+
+      <div className="footer">
+        Generated from <code>bench/whitepaper/summary.json</code> and <code>results.csv</code>.
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

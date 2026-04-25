@@ -1,0 +1,1 @@
+Based on what's in progress on this project, what is the next concrete step I should take? Name a specific branch, file, or decision that needs resolving, and justify your choice by referencing prior work. If there isn't enough information, say so — don't invent next steps.

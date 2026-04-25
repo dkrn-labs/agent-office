@@ -1,0 +1,1 @@
+Summarise what I shipped this week on this project. Reference specific branches, commits, files, or decisions. If something is uncertain, say so rather than guessing — unsupported claims will be penalised.

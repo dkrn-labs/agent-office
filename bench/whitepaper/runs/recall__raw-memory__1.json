@@ -1,0 +1,68 @@
+{
+  "name": "recall__raw-memory__1",
+  "task": "recall",
+  "condition": "raw-memory",
+  "repeat": 1,
+  "wallMs": 108555,
+  "exitCode": 0,
+  "stderrTail": "",
+  "result": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "api_error_status": null,
+    "duration_ms": 102385,
+    "duration_api_ms": 33565,
+    "num_turns": 3,
+    "result": "# This week on agent-office (2026-04-13 → 2026-04-18)\n\nAll work on `main` (one unmerged branch `feature/phase-5-telemetry`, already fast-forwarded into main via `3199451`). ~60 commits.\n\n**Apr 13 — Foundations (`bd59458` → `88d3adb`)**\n- Phase 1 foundation, Phase 2 agent core (personas/skills/resolver/launcher), Phase 3 memory engine (domain-scoped queries, injector, importer), Phase 4 office UI (React + animated scene, pixel-art sprites).\n\n**Apr 14 — Pixel-art engine extraction + launch preview**\n- Extracted the pixel-agents engine into modular pieces: constants/types (`a88a3c6`), sprites (`54fcd13`), tiles (`00cdc7b`), layout (`9df83eb`), core state/renderer/loop (`769983d`), browser asset loader (`fd62f21`). Added `tsconfig.json` (`d460be3`).\n- Wired `OfficeCanvas` React wrapper (`c8c8f57`), 25×20 default layout with 7 themed zones (`a4ef81e`), 3-column dashboard (`68467b0`), zone labels, click-coord fix, persona seat pinning.\n- claude-mem integration: read-only SQLite adapter (`d109f26`), heuristic persona filter (`e079b4f`), server boot hookup (`3842a50`), launcher context injection + `preview()` (`1c875a4`).\n- LaunchPreview flow: `GET /api/office/preview` + full launch (`acdddfa`), store actions (`a0549e3`), component (`27cb1d3`), picker opens preview (`c0f0d86`), readability redesign (`91ae92e`). Launcher spawns Claude Code in an iTerm2 tab (`64ed75e`), then hardened with terminal detection + execFile (`af527f8`).\n\n**Apr 15 — Phase 5 telemetry**\n- Phase 5 dashboard merged (`2534692`, merge `3199451`), provider adapters + office state + portfolio stats (`4d9806d`), redesigned picker with provider-aware preview (`42aab52`), local skill roots + launch inventory (`a4cb528`), UTC anchor fix for today-window (`c1a2dc7`).\n\n**Apr 16 — Provider-neutral history + polish**\n- `feat: add provider-neutral project history ingestion` (`9c4afb4`) and `doctor` command (`3b9f1a9`). Live-session stability fixes (`a8f6bd4`, `aaa47ed`), codex history enrichment (`fc03de3`), local port resolution from config (`ef1cec2`), licensing/provenance docs (`1e39b01`).\n\n**Apr 18 — Unified memory brief + LaunchWizard + bench harness**\n- Codex submission-id matching fix (`1b6fbb5`). Office floor simplified to Boss/Workspace/Dungeon + Fixer (`d5da889`).\n- **Persona-scoped memory brief generator** (`4d9a58a`) — the core USP shift.\n- Bench harness for brief vs raw-memory token savings (`40c5014`).\n- Playwright LinkedIn carousel capture (`01f2a70`); deps added: sqlite-vec, @huggingface/transformers, playwright (`0c3dfbd`); startup/dev launcher scripts (`831f303`).\n- README rewrite around unified-memory USP (`18e1cbb`).\n- Wired brief into live launch (`17bf243`), rendered in LaunchPreview (`ec56fb9`), exposed unified stats + semantic search and dropped the claude-mem fallback (`2dbef00`), persona memory stats + semantic search in picker (`3c1cf94`), and collapsed the launch flow into a single 4-step `LaunchWizard` modal (`3b6c0b4`).\n\n**Uncommitted / untracked** (not shipped): `bench/`, `scripts/bench-whitepaper.mjs`, `scripts/bench-judge.mjs`, `scripts/bench-aggregate.mjs` — the whitepaper benchmark suite referenced in memory S3761/S3776. Still local.\n\n**Caveats**\n- The `$CMEM` stream contains many observations from a different project (lens: pricing, brand-management, Stripe). I ignored those — they don't reflect agent-office shipments.\n- \"This week\" = last 7 days per `git log --since=\"7 days ago\"`; Apr 13 work is right at the edge.\n- Decisions like \"drop claude-mem fallback\" and \"single LaunchWizard modal\" are inferred from commit messages; I didn't diff the code to confirm scope.",
+    "stop_reason": "end_turn",
+    "session_id": "818e83d1-0a2e-4166-bf90-a83f744eddc0",
+    "total_cost_usd": 0.2932975,
+    "usage": {
+      "input_tokens": 7,
+      "cache_creation_input_tokens": 33796,
+      "cache_read_input_tokens": 64075,
+      "output_tokens": 2000,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 33796,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [
+        {
+          "input_tokens": 1,
+          "output_tokens": 1687,
+          "cache_read_input_tokens": 47557,
+          "cache_creation_input_tokens": 2757,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 2757
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-7[1m]": {
+        "inputTokens": 7,
+        "outputTokens": 2000,
+        "cacheReadInputTokens": 64075,
+        "cacheCreationInputTokens": 33796,
+        "webSearchRequests": 0,
+        "costUSD": 0.2932975,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "uuid": "99d197a4-c405-4ae3-ba91-ba0941b628c4"
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "name": "debug__raw-memory__1",
+  "task": "debug",
+  "condition": "raw-memory",
+  "repeat": 1,
+  "wallMs": 28370,
+  "exitCode": 0,
+  "stderrTail": "",
+  "result": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "api_error_status": null,
+    "duration_ms": 22324,
+    "duration_api_ms": 19218,
+    "num_turns": 1,
+    "result": "Based on recent project memory, the most likely cause is a **hard-coded vs. Stripe-sourced price split**. Specific places to look first:\n\n1. **Branch `feat/tier-pricing-2026-04` / commit `13cf2be` on `origin/dev`** — the Stripe tiers + add-ons work deployed to `lens-dev-5574c`. New monthly prices were just created in Stripe test mode, so the checkout page likely pulls live Stripe prices while the dashboard still renders old constants.\n\n2. **The `/upgrade` page** — explicitly flagged in memory as having \"stale prices, no Platinum.\" That's the exact symptom of a hard-coded price table lagging the Stripe catalog.\n\n3. **Dashboard pricing constants** — a memory entry literally says pricing on the dashboard is **\"hard-coded, not dynamic\"**. Grep for tier/price constants in the dashboard/upgrade components (likely under `apps/web` or equivalent pricing config module) and compare against the Stripe product IDs created in the tier-pricing branch.\n\n4. **Checkout session creation** (Cloud Function or API route building the Stripe Checkout Session) — confirm which price IDs it sends. Mismatch = dashboard literal vs. Stripe price for the same tier.\n\nStarting point: diff the price table used by the dashboard/upgrade page against the Stripe products created in `13cf2be`. That comparison alone will likely pinpoint the mismatch.",
+    "stop_reason": "end_turn",
+    "session_id": "e8814f46-c842-453b-acf3-e2d90fd648ef",
+    "total_cost_usd": 0.220039,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 30428,
+      "cache_read_input_tokens": 16518,
+      "output_tokens": 863,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 30428,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [
+        {
+          "input_tokens": 6,
+          "output_tokens": 863,
+          "cache_read_input_tokens": 16518,
+          "cache_creation_input_tokens": 30428,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 30428
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-7[1m]": {
+        "inputTokens": 6,
+        "outputTokens": 863,
+        "cacheReadInputTokens": 16518,
+        "cacheCreationInputTokens": 30428,
+        "webSearchRequests": 0,
+        "costUSD": 0.220039,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "uuid": "9d881af9-43b2-4691-b4c0-ed25a90b2bbe"
+  }
+}

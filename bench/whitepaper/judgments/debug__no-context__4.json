@@ -1,0 +1,11 @@
+{
+  "name": "debug__no-context__4",
+  "task": "debug",
+  "condition": "no-context",
+  "verdict": {
+    "grounded": 5,
+    "useful": 5,
+    "rationale": "All specifics (upgrade page stale prices/missing Platinum, branch feat/tier-pricing-2026-04, commit 13cf2be deployed to lens-dev-5574c, hard-coded pricing, test-mode products, remaining pricing layers, _serialize_brand pattern) are directly supported by the observations, and the answer gives concrete, prioritized starting points with an honest caveat."
+  },
+  "rawJudgeResult": "{\"grounded\":5,\"useful\":5,\"rationale\":\"All specifics (upgrade page stale prices/missing Platinum, branch feat/tier-pricing-2026-04, commit 13cf2be deployed to lens-dev-5574c, hard-coded pricing, test-mode products, remaining pricing layers, _serialize_brand pattern) are directly supported by the observations, and the answer gives concrete, prioritized starting points with an honest caveat.\"}"
+}

@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="360" viewBox="0 0 720 360" font-family="Inter, system-ui, sans-serif">
+<rect width="720" height="360" fill="#ffffff"/>
+<text x="360" y="26" font-size="16" font-weight="600" text-anchor="middle" fill="#111">Judge: groundedness (0–5)</text>
+<text x="360" y="350" font-size="11" text-anchor="middle" fill="#555">task (within-task and overall)</text>
+<text x="16" y="170" font-size="11" text-anchor="middle" fill="#555" transform="rotate(-90 16 170)">score</text>
+<line x1="80" y1="290" x2="690" y2="290" stroke="#eee"/>
+<text x="74" y="293" font-size="10" text-anchor="end" fill="#777">0.0</text>
+<line x1="80" y1="242" x2="690" y2="242" stroke="#eee"/>
+<text x="74" y="245" font-size="10" text-anchor="end" fill="#777">1.1</text>
+<line x1="80" y1="194" x2="690" y2="194" stroke="#eee"/>
+<text x="74" y="197" font-size="10" text-anchor="end" fill="#777">2.2</text>
+<line x1="80" y1="146" x2="690" y2="146" stroke="#eee"/>
+<text x="74" y="149" font-size="10" text-anchor="end" fill="#777">3.4</text>
+<line x1="80" y1="98" x2="690" y2="98" stroke="#eee"/>
+<text x="74" y="101" font-size="10" text-anchor="end" fill="#777">4.5</text>
+<line x1="80" y1="50" x2="690" y2="50" stroke="#eee"/>
+<text x="74" y="53" font-size="10" text-anchor="end" fill="#777">5.6</text>
+<rect x="99.0625" y="290" width="36.125" height="0" fill="#888" opacity="0.85"/>
+<rect x="137.1875" y="290" width="36.125" height="0" fill="#c0392b" opacity="0.85"/>
+<rect x="175.3125" y="290" width="36.125" height="0" fill="#27ae60" opacity="0.85"/>
+<text x="156.25" y="308" font-size="11" text-anchor="middle" fill="#333">recall</text>
+<rect x="251.5625" y="290" width="36.125" height="0" fill="#888" opacity="0.85"/>
+<rect x="289.6875" y="290" width="36.125" height="0" fill="#c0392b" opacity="0.85"/>
+<rect x="327.8125" y="247.13434328409494" width="36.125" height="42.86565671590507" fill="#27ae60" opacity="0.85"/>
+<text x="308.75" y="308" font-size="11" text-anchor="middle" fill="#333">planning</text>
+<rect x="404.0625" y="92.8179791068367" width="36.125" height="197.1820208931633" fill="#888" opacity="0.85"/>
+<line x1="422.125" y1="71.81818181818181" x2="422.125" y2="113.81777639549159" stroke="#222" stroke-width="1"/>
+<line x1="419.125" y1="71.81818181818181" x2="425.125" y2="71.81818181818181" stroke="#222" stroke-width="1"/>
+<line x1="419.125" y1="113.81777639549159" x2="425.125" y2="113.81777639549159" stroke="#222" stroke-width="1"/>
+<rect x="442.1875" y="92.8179791068367" width="36.125" height="197.1820208931633" fill="#c0392b" opacity="0.85"/>
+<line x1="460.25" y1="71.81818181818181" x2="460.25" y2="113.81777639549159" stroke="#222" stroke-width="1"/>
+<line x1="457.25" y1="71.81818181818181" x2="463.25" y2="71.81818181818181" stroke="#222" stroke-width="1"/>
+<line x1="457.25" y1="113.81777639549159" x2="463.25" y2="113.81777639549159" stroke="#222" stroke-width="1"/>
+<rect x="480.3125" y="127.11050447956075" width="36.125" height="162.88949552043925" fill="#27ae60" opacity="0.85"/>
+<line x1="498.375" y1="109.96424179319871" x2="498.375" y2="144.25676716592278" stroke="#222" stroke-width="1"/>
+<line x1="495.375" y1="109.96424179319871" x2="501.375" y2="109.96424179319871" stroke="#222" stroke-width="1"/>
+<line x1="495.375" y1="144.25676716592278" x2="501.375" y2="144.25676716592278" stroke="#222" stroke-width="1"/>
+<text x="461.25" y="308" font-size="11" text-anchor="middle" fill="#333">debug</text>
+<rect x="556.5625" y="92.8179791068367" width="36.125" height="197.1820208931633" fill="#888" opacity="0.85"/>
+<line x1="574.625" y1="71.81818181818181" x2="574.625" y2="113.81777639549159" stroke="#222" stroke-width="1"/>
+<line x1="571.625" y1="71.81818181818181" x2="577.625" y2="71.81818181818181" stroke="#222" stroke-width="1"/>
+<line x1="571.625" y1="113.81777639549159" x2="577.625" y2="113.81777639549159" stroke="#222" stroke-width="1"/>
+<rect x="594.6875" y="92.8179791068367" width="36.125" height="197.1820208931633" fill="#c0392b" opacity="0.85"/>
+<line x1="612.75" y1="71.81818181818181" x2="612.75" y2="113.81777639549159" stroke="#222" stroke-width="1"/>
+<line x1="609.75" y1="71.81818181818181" x2="615.75" y2="71.81818181818181" stroke="#222" stroke-width="1"/>
+<line x1="609.75" y1="113.81777639549159" x2="615.75" y2="113.81777639549159" stroke="#222" stroke-width="1"/>
+<rect x="632.8125" y="147.11447761364977" width="36.125" height="142.88552238635023" fill="#27ae60" opacity="0.85"/>
+<line x1="650.875" y1="99.7247110407047" x2="650.875" y2="194.50424418659483" stroke="#222" stroke-width="1"/>
+<line x1="647.875" y1="99.7247110407047" x2="653.875" y2="99.7247110407047" stroke="#222" stroke-width="1"/>
+<line x1="647.875" y1="194.50424418659483" x2="653.875" y2="194.50424418659483" stroke="#222" stroke-width="1"/>
+<text x="613.75" y="308" font-size="11" text-anchor="middle" fill="#333">ALL</text>
+<rect x="80" y="23" width="11" height="11" fill="#888"/>
+<text x="96" y="32" font-size="11" fill="#333">no-context</text>
+<rect x="190" y="23" width="11" height="11" fill="#c0392b"/>
+<text x="206" y="32" font-size="11" fill="#333">raw-memory</text>
+<rect x="300" y="23" width="11" height="11" fill="#27ae60"/>
+<text x="316" y="32" font-size="11" fill="#333">brief</text>
+</svg>

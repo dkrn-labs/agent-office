@@ -1,0 +1,68 @@
+{
+  "name": "recall__brief__3",
+  "task": "recall",
+  "condition": "brief",
+  "repeat": 3,
+  "wallMs": 40777,
+  "exitCode": 0,
+  "stderrTail": "",
+  "result": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "api_error_status": null,
+    "duration_ms": 34833,
+    "duration_api_ms": 28808,
+    "num_turns": 3,
+    "result": "## Shipped this week on agent-office (Apr 13–18)\n\n**Phase 1–3 foundation (Apr 13)** — `bd59458` foundation, `6a1ede2` agent core (personas/skills/launcher), `ca066d7` memory engine (domain-scoped queries, injector, importer).\n\n**Phase 4 — pixel-art office UI (Apr 13–14)** — `eaebe7c` React frontend with animated office, then an engine extraction series (`a88a3c6`, `54fcd13`, `00cdc7b`, `9df83eb`, `769983d`, `fd62f21`) splitting pixel-agents into constants/sprites/floor/walls/layout/core engine modules. `c8c8f57` `OfficeCanvas` React wrapper, `a4ef81e` default 25×20 layout with 7 themed zones, `68467b0` 3-column dashboard layout, `6ac04c0` wired canvas in and removed old CSS scene, plus coordinate/zone fixes (`b1ca00b`, `48daeac`, `85bff97`).\n\n**Phase 4.5/4.6 — launcher + claude-mem integration (Apr 14)** — `d109f26` read-only claude-mem SQLite adapter, `e079b4f` persona→observation filter, `1c875a4` launcher claude-mem context + `preview()`, `acdddfa` `GET /api/office/preview`, `27cb1d3` `LaunchPreview`, `c0f0d86` picker opens preview instead of launching, `64ed75e` spawns Claude Code in iTerm2. Merged in `6b61356`.\n\n**Phase 5 — telemetry (Apr 15)** — `2534692`/`3199451` telemetry dashboard, `4d9806d` provider adapters + office state + portfolio stats, `42aab52` provider-aware launch preview, `a4cb528` local skill roots + launch inventory.\n\n**Provider-neutral history + doctor (Apr 16)** — `9c4afb4` provider-neutral project history ingestion, `3b9f1a9` `doctor` command, plus stability fixes (`aaa47ed`, `a8f6bd4`, `fc03de3`, `ef1cec2`).\n\n**Apr 18 — unified memory brief + UI rework**\n- `4d9a58a` persona-scoped memory brief generator\n- `17bf243` wires brief into live session launch, `ec56fb9` renders it in `LaunchPreview`\n- `2dbef00` unified memory stats + semantic search, **drops the claude-mem fallback**\n- `3c1cf94` persona memory stats + semantic search in project picker\n- `3b6c0b4` refactor to single `LaunchWizard` modal, 4 next-next steps\n- `d5da889` office floor simplified to Boss / Workspace / Dungeon + Fixer zone\n- `01f2a70` Playwright LinkedIn carousel capture (marketing)\n- `40c5014` bench harness for brief vs raw-memory token savings\n- `18e1cbb` README rewritten around the unified-memory USP\n- `0c3dfbd` added sqlite-vec, @huggingface/transformers, playwright\n\n**Uncommitted / not yet shipped:** `bench/`, `scripts/bench-whitepaper.mjs`, `scripts/bench-judge.mjs`, `scripts/bench-aggregate.mjs` — whitepaper benchmark suite is local-only on `main`. Per memory 3762, runs are still incomplete (missing conditions/repeats), so I won't claim results.\n\n**Key decision:** dropped the claude-mem fallback in favour of the unified memory + vector path (`2dbef00`). I haven't independently verified the fallback is fully gone from every call site — worth a grep before claiming it externally.",
+    "stop_reason": "end_turn",
+    "session_id": "9fa4262f-d185-4266-a627-83fd9a51b346",
+    "total_cost_usd": 0.24121474999999998,
+    "usage": {
+      "input_tokens": 8,
+      "cache_creation_input_tokens": 24637,
+      "cache_read_input_tokens": 96037,
+      "output_tokens": 1567,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 24637,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [
+        {
+          "input_tokens": 1,
+          "output_tokens": 1287,
+          "cache_read_input_tokens": 40991,
+          "cache_creation_input_tokens": 164,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 164
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-7[1m]": {
+        "inputTokens": 8,
+        "outputTokens": 1567,
+        "cacheReadInputTokens": 96037,
+        "cacheCreationInputTokens": 24637,
+        "webSearchRequests": 0,
+        "costUSD": 0.24121474999999998,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "uuid": "8177bc3e-55a7-4d1b-a167-11aea460e4ec"
+  }
+}

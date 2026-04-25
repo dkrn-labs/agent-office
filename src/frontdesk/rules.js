@@ -1,0 +1,180 @@
+/**
+ * Frontdesk rule chain — deterministic, LLM-independent.
+ *
+ * Each rule is a pure function `apply(state, task, candidates) → candidates`.
+ * Rules run in order; first match for hard constraints wins, soft rules
+ * just prune candidate sets.
+ *
+ * The full 16-rule canonical chain lives in
+ * docs/architecture/agent-commander.md §6.1. P1-7 implements the 10 rules
+ * that don't depend on the LLM stage. The remaining 6 (R9–R12, R15, R16)
+ * land in P2 alongside the LLM reasoner.
+ */
+
+const PII_KEYWORDS = [
+  'api_key', 'apikey', 'api key',
+  '.env', 'secret', 'secrets',
+  'password', 'passwd',
+  'access_token', 'access token',
+  'private_key', 'private key',
+  'aws_secret', 'gcp_credentials',
+];
+
+const DEPLOY_VERBS = /\b(deploy(ed|ment|ing|s)?|release(d|s)?|rollback(ed|ing|s)?|publish(ed|ing|es)?)\b/i;
+const DEBUG_VERBS = /\b(debug(ged|ging|s)?|fix(ed|ing|es)?|crash(ed|es)?|error|broken|repro(duce|duction)?)\b/i;
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+function lower(text) {
+  return typeof text === 'string' ? text.toLowerCase() : '';
+}
+
+function withApplied(candidates, ruleId) {
+  return { ...candidates, rulesApplied: [...candidates.rulesApplied, ruleId] };
+}
+
+function setConstraint(candidates, fields) {
+  return { ...candidates, constraints: { ...candidates.constraints, ...fields } };
+}
+
+// ─── Rules ──────────────────────────────────────────────────────────────────
+
+/**
+ * R1 — active session matches the task's likely persona+project. Propose
+ * attach instead of launch.
+ *
+ * Heuristic: if the task contains a verbatim project name AND there's an
+ * active session for that project, suggest attach.
+ */
+function R1_active_session_attach(state, task, candidates) {
+  const t = lower(task);
+  const matchSession = (state.activeSessions ?? []).find((s) => {
+    const proj = state.projects?.find((p) => p.id === s.projectId);
+    return proj && t.includes(lower(proj.name));
+  });
+  if (!matchSession) return candidates;
+  const updated = setConstraint(candidates, { attachTo: matchSession });
+  return withApplied(updated, 'R1');
+}
+
+/** R2 — secrets/PII keywords in task → must run on a local provider. */
+function R2_secret_keywords_force_local(state, task, candidates) {
+  const t = lower(task);
+  if (!PII_KEYWORDS.some((kw) => t.includes(kw))) return candidates;
+  return withApplied(setConstraint(candidates, { mustBeLocal: true, mustBeLocalReason: 'task contains secrets/PII keywords' }), 'R2');
+}
+
+/** R3 — user pref `privacyMode = strict` → must run local. */
+function R3_privacy_mode_force_local(state, _task, candidates) {
+  if (state.prefs?.privacyMode !== 'strict') return candidates;
+  return withApplied(setConstraint(candidates, { mustBeLocal: true, mustBeLocalReason: 'privacyMode=strict' }), 'R3');
+}
+
+/** R4 — today's spend at/over daily cap → must run local. */
+function R4_daily_cap_force_local(state, _task, candidates) {
+  const cap = state.prefs?.dailyDollarCap;
+  const spent = state.prefs?.todaySpendDollars;
+  if (typeof cap !== 'number' || cap <= 0 || typeof spent !== 'number') return candidates;
+  if (spent < cap) return candidates;
+  return withApplied(setConstraint(candidates, { mustBeLocal: true, mustBeLocalReason: `daily cap reached ($${spent.toFixed(2)} / $${cap.toFixed(2)})` }), 'R4');
+}
+
+/** R5 — drop providers whose 5h or 7d quota window is > 95%. */
+function R5_drop_quota_exhausted(state, _task, candidates) {
+  const before = candidates.providers.length;
+  const filtered = candidates.providers.filter((p) => (p.quotaPct ?? 0) <= 0.95);
+  if (filtered.length === before) return candidates;
+  return withApplied({ ...candidates, providers: filtered }, 'R5');
+}
+
+/** R6 — demote (don't drop) providers in the 80–95% quota band. */
+function R6_demote_quota_yellow(state, _task, candidates) {
+  let touched = false;
+  const providers = candidates.providers.map((p) => {
+    const q = p.quotaPct ?? 0;
+    if (q >= 0.80 && q <= 0.95) {
+      touched = true;
+      return { ...p, demoted: true };
+    }
+    return p;
+  });
+  if (!touched) return candidates;
+  return withApplied({ ...candidates, providers }, 'R6');
+}
+
+/** R7 — `mustBeLocal` is set but no local model is loaded → block launch. */
+function R7_block_local_unavailable(state, _task, candidates) {
+  if (!candidates.constraints?.mustBeLocal) return candidates;
+  if (state.prefs?.localModelLoaded) return candidates;
+  return withApplied(setConstraint(candidates, { blockedReason: 'mustBeLocal but no local model is loaded — load one (e.g. `ollama pull llama3.1:70b`) before launching' }), 'R7');
+}
+
+/** R8 — task verbs deploy/release/rollback → restrict to devops persona. */
+function R8_restrict_devops_verbs(state, task, candidates) {
+  if (!DEPLOY_VERBS.test(task)) return candidates;
+  const filtered = candidates.personas.filter((p) => p.domain === 'devops');
+  if (filtered.length === 0) return candidates; // no devops persona — leave personas alone rather than empty out
+  return withApplied({ ...candidates, personas: filtered }, 'R8');
+}
+
+/** R13 — frontdesk and lead are router/coordinator personas; never auto-pick. */
+function R13_exclude_router_personas(state, _task, candidates) {
+  const before = candidates.personas.length;
+  const filtered = candidates.personas.filter((p) => p.domain !== 'router' && p.domain !== 'coordinator' && p.label.toLowerCase() !== 'frontdesk' && p.label.toLowerCase() !== 'tech lead' && p.label.toLowerCase() !== 'lead');
+  if (filtered.length === before) return candidates;
+  return withApplied({ ...candidates, personas: filtered }, 'R13');
+}
+
+/**
+ * R14 — review persona is only useful when there's a recent diff/PR to look
+ * at. Drop the reviewer when the project hasn't been touched recently.
+ */
+function R14_drop_review_no_diff(state, _task, candidates) {
+  const recentDiff = state.signals?.hasRecentDiffOrPr;
+  if (recentDiff !== false) return candidates; // unknown or true → keep
+  const filtered = candidates.personas.filter((p) => p.domain !== 'review');
+  if (filtered.length === candidates.personas.length) return candidates;
+  return withApplied({ ...candidates, personas: filtered }, 'R14');
+}
+
+// ─── Soft scoring (not strictly a rule, but the natural follow-up) ──────────
+
+/**
+ * Bias the persona list using cheap verb heuristics so the rules-only
+ * output is still useful when the LLM stage isn't on. Stable sort: first
+ * the persona whose domain matches the dominant verb class, then the rest.
+ */
+function bias_persona_by_verbs(state, task, candidates) {
+  const personas = [...candidates.personas];
+  if (DEBUG_VERBS.test(task)) {
+    personas.sort((a, b) => domainPriority(a, 'debug') - domainPriority(b, 'debug'));
+    return withApplied({ ...candidates, personas }, 'B-debug-bias');
+  }
+  if (DEPLOY_VERBS.test(task)) {
+    personas.sort((a, b) => domainPriority(a, 'devops') - domainPriority(b, 'devops'));
+    return withApplied({ ...candidates, personas }, 'B-devops-bias');
+  }
+  return candidates;
+}
+
+function domainPriority(persona, target) {
+  if (persona.domain === target) return 0;
+  if ((persona.secondaryDomains ?? []).includes(target)) return 1;
+  return 2;
+}
+
+// ─── Export the chain in evaluation order ───────────────────────────────────
+
+export const RULES = [
+  { id: 'R1',  kind: 'hard', apply: R1_active_session_attach },
+  { id: 'R2',  kind: 'hard', apply: R2_secret_keywords_force_local },
+  { id: 'R3',  kind: 'hard', apply: R3_privacy_mode_force_local },
+  { id: 'R4',  kind: 'hard', apply: R4_daily_cap_force_local },
+  { id: 'R5',  kind: 'soft', apply: R5_drop_quota_exhausted },
+  { id: 'R6',  kind: 'soft', apply: R6_demote_quota_yellow },
+  { id: 'R7',  kind: 'hard', apply: R7_block_local_unavailable },
+  { id: 'R8',  kind: 'soft', apply: R8_restrict_devops_verbs },
+  { id: 'R13', kind: 'hard', apply: R13_exclude_router_personas },
+  { id: 'R14', kind: 'soft', apply: R14_drop_review_no_diff },
+  { id: 'B',   kind: 'soft', apply: bias_persona_by_verbs },
+];
