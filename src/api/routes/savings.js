@@ -1,13 +1,4 @@
-import { Router } from 'express';
 import { rollupSavings } from '../../context-budget/index.js';
-
-function ok(res, data, meta = {}) {
-  return res.json({ data, error: null, meta });
-}
-
-function fail(res, status, message, meta = {}) {
-  return res.status(status).json({ data: null, error: message, meta });
-}
 
 const RANGES = {
   today: () => {
@@ -19,36 +10,6 @@ const RANGES = {
   d30: () => Math.floor(Date.now() / 1000) - 30 * 24 * 3600,
 };
 
-/**
- * Savings ledger: rolls up launch_budget rows over a window. Outcome-weighted
- * — `rejected` rows are excluded by `rollupSavings`.
- *
- * GET /api/savings?range=today|7d|30d
- */
-export function savingsRoutes({ repo } = {}) {
-  const router = Router();
-  if (!repo || typeof repo.listLaunchBudgetsSince !== 'function') {
-    // No-op router if the host hasn't wired the repo. Returns empty data.
-    router.get('/', (_req, res) => ok(res, emptyRollup('today'), { range: 'today' }));
-    return router;
-  }
-
-  router.get('/', (req, res) => {
-    const range = String(req.query.range ?? 'today');
-    const since = RANGES[range];
-    if (!since) return fail(res, 400, `unknown range: ${range}. expected one of: today, d7, d30`);
-    const rows = repo.listLaunchBudgetsSince(since());
-    const rollup = rollupSavings(rows);
-    return ok(res, { range, ...rollup }, {
-      range,
-      since: since(),
-      rowCount: rows.length,
-    });
-  });
-
-  return router;
-}
-
 function emptyRollup(range) {
   return {
     range,
@@ -58,5 +19,45 @@ function emptyRollup(range) {
     savedTokens: 0,
     savedPct: 0,
     costDollars: 0,
+  };
+}
+
+/**
+ * Savings ledger: rolls up launch_budget rows over a window. Outcome-weighted —
+ * `rejected` rows are excluded by `rollupSavings`.
+ *
+ * GET / (mounted at /api/savings)?range=today|d7|d30
+ *
+ * @returns {import('fastify').FastifyPluginAsync}
+ */
+export function savingsRoutes({ repo } = {}) {
+  return async function plugin(fastify) {
+    if (!repo || typeof repo.listLaunchBudgetsSince !== 'function') {
+      fastify.get('/', async () => ({
+        data: emptyRollup('today'),
+        error: null,
+        meta: { range: 'today' },
+      }));
+      return;
+    }
+
+    fastify.get('/', async (req, reply) => {
+      const range = String(req.query.range ?? 'today');
+      const since = RANGES[range];
+      if (!since) {
+        return reply.code(400).send({
+          data: null,
+          error: `unknown range: ${range}. expected one of: today, d7, d30`,
+          meta: {},
+        });
+      }
+      const rows = repo.listLaunchBudgetsSince(since());
+      const rollup = rollupSavings(rows);
+      return {
+        data: { range, ...rollup },
+        error: null,
+        meta: { range, since: since(), rowCount: rows.length },
+      };
+    });
   };
 }

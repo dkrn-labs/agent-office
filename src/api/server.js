@@ -1,4 +1,5 @@
-import express from 'express';
+import Fastify from 'fastify';
+import fastifyStatic from '@fastify/static';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -31,11 +32,15 @@ import { historyRoutes } from './routes/history.js';
 import { savingsRoutes } from './routes/savings.js';
 import { frontdeskRoutes } from './routes/frontdesk.js';
 import { ptyRoutes } from './routes/pty.js';
+import { quotaRoutes } from './routes/quota.js';
 import { createPtyHost } from '../pty/node-pty-host.js';
 import { createProjectSyncService } from '../projects/project-sync.js';
 
 /**
- * Creates and configures the Express application.
+ * Creates and configures the Fastify application.
+ *
+ * Returns the Fastify instance. Callers obtain the underlying http.Server via
+ * `app.server` after calling `await app.ready()`.
  *
  * @param {{
  *   repo: ReturnType<import('../db/repository.js').createRepository>,
@@ -50,7 +55,7 @@ import { createProjectSyncService } from '../projects/project-sync.js';
  *   telemetryExpiryMs?: number,
  *   startTelemetryWatcher?: boolean,
  * }} options
- * @returns {import('express').Application}
+ * @returns {import('fastify').FastifyInstance & { locals: object }}
  */
 export function createApp({
   repo,
@@ -65,12 +70,12 @@ export function createApp({
   telemetryExpiryMs,
   startTelemetryWatcher = true,
 }) {
-  const app = express();
+  const app = Fastify({ logger: false });
 
-  app.use(express.json());
+  // Test/back-compat shim — code (and tests) read `app.locals.launcher` etc.
+  // Kept as a plain object so callers can mutate it like Express's locals.
+  app.locals = {};
 
-  // Skill resolver uses repo.listSkills() — pass repo as the "db" argument
-  // (createSkillResolver's param is named db but only calls .listSkills())
   const memoryEngine = createMemoryEngine(repo);
   const briefEnabled = process.env.AGENT_OFFICE_BRIEF_ENABLED !== '0';
   const briefBudget = Number(process.env.AGENT_OFFICE_BRIEF_BUDGET) || 1000;
@@ -79,8 +84,6 @@ export function createApp({
     brief: { enabled: briefEnabled, budgetTokens: briefBudget },
   });
 
-  // P0-4: drain history_session rows left in-progress past 1h
-  // (e.g. watcher expiry timers lost across server restarts).
   try {
     const { drained } = repo.drainStuckHistorySessions({ ageHours: 1 });
     if (drained > 0) {
@@ -100,12 +103,6 @@ export function createApp({
     console.log('[server] claude-mem adapter connected');
   }
 
-  /**
-   * Fallback registrar for sessions the watcher sees without a matching
-   * launcher entry (e.g. agents started from a raw terminal). Creates a
-   * history_session row so the live list + future hook ingest converge on
-   * a single record.
-   */
   function registerUnattendedSession({ providerId, providerSessionId, projectPath, lastActivity }) {
     if (!providerId || !providerSessionId || !projectPath) return null;
     const project = repo.getProjectByPath(projectPath);
@@ -121,12 +118,7 @@ export function createApp({
       source: 'telemetry-watcher',
     });
     if (!historySessionId) return null;
-    return {
-      sessionId: historySessionId,
-      projectId: project.id,
-      personaId: null,
-      startedAt,
-    };
+    return { sessionId: historySessionId, projectId: project.id, personaId: null, startedAt };
   }
 
   const watcher = telemetry
@@ -160,14 +152,8 @@ export function createApp({
     skillRoots: config.skillRoots,
   });
   const aggregator = createAggregator({ repo, claudeMem, bus, watcher });
-  const portfolioStats = createPortfolioStatsService({
-    repo,
-    projectsDir: config.projectsDir,
-  });
-  const projectSync = createProjectSyncService({
-    repo,
-    projectsDir: config.projectsDir,
-  });
+  const portfolioStats = createPortfolioStatsService({ repo, projectsDir: config.projectsDir });
+  const projectSync = createProjectSyncService({ repo, projectsDir: config.projectsDir });
 
   const mirrorMetrics = (providerId, providerSessionId, historySessionId, fields) => {
     let targetId = historySessionId ?? null;
@@ -253,7 +239,6 @@ export function createApp({
       endedAt,
     });
 
-    // P0-4: always attempt the update; SQL UPDATE is a no-op when row absent.
     repo.updateHistorySession(payload.sessionId, { endedAt, status: 'completed' });
     repo.upsertHistorySessionMetrics(payload.sessionId, {
       commitsProduced: inferred.signals?.commitsProduced ?? null,
@@ -261,14 +246,8 @@ export function createApp({
       outcome: inferred.outcome,
     });
 
-    // P1-6: mirror inferred outcome onto launch_budget so the savings ledger
-    // can weight rejected runs out of the rollup.
     if (inferred.outcome && typeof repo.setLaunchBudgetOutcome === 'function') {
-      try {
-        repo.setLaunchBudgetOutcome(payload.sessionId, inferred.outcome);
-      } catch {
-        // best-effort; never block the expiry path on ledger bookkeeping
-      }
+      try { repo.setLaunchBudgetOutcome(payload.sessionId, inferred.outcome); } catch {}
     }
 
     const detail = detailBefore ? projectHistory.getDetail(payload.sessionId) : null;
@@ -306,55 +285,54 @@ export function createApp({
     });
   });
 
-  if (telemetry && startTelemetryWatcher) {
-    watcher?.start();
-  }
-  if (telemetry) {
-    aggregator.start();
-  }
+  if (telemetry && startTelemetryWatcher) watcher?.start();
+  if (telemetry) aggregator.start();
+
   app.locals.launcher = launcher;
-  app.locals.telemetry = {
-    watcher,
-    aggregator,
-  };
+  app.locals.telemetry = { watcher, aggregator };
   app.locals.stopTelemetry = () => {
     aggregator.stop();
     watcher?.stop();
     claudeMem?.close?.();
   };
 
-  // Mount route modules
-  app.use(healthRoutes());
-  app.use(projectRoutes(repo, db, projectSync));
-  app.use(portfolioRoutes(portfolioStats));
-  app.use(configRoutes(configDir));
-  app.use(personaRoutes(repo, db));
-  app.use(skillRoutes(repo, resolver));
   const ptyHost = createPtyHost();
-  app.use(officeRoutes(launcher, { ptyHost }));
-  app.use(sessionRoutes({ repo, watcher, aggregator }));
-  app.use(memoryRoutes(memoryEngine, repo, importFromClaudeProjects, db));
-  app.use(historyRoutes(projectHistory, { repo }));
-  app.use('/api/savings', savingsRoutes({ repo }));
-  app.use('/api/pty', ptyRoutes({ ptyHost }));
   app.locals.ptyHost = ptyHost;
-  app.use('/api/frontdesk/route', frontdeskRoutes({
+
+  // Register all route plugins. Order doesn't matter functionally for Fastify
+  // but matches the previous Express mount order for diff reviewers.
+  app.register(healthRoutes());
+  app.register(projectRoutes(repo, db, projectSync));
+  app.register(portfolioRoutes(portfolioStats));
+  app.register(configRoutes(configDir));
+  app.register(personaRoutes(repo, db));
+  app.register(skillRoutes(repo, resolver));
+  app.register(officeRoutes(launcher, { ptyHost }));
+  app.register(sessionRoutes({ repo, watcher, aggregator }));
+  app.register(memoryRoutes(memoryEngine, repo, importFromClaudeProjects, db));
+  app.register(historyRoutes(projectHistory, { repo }));
+  app.register(savingsRoutes({ repo }), { prefix: '/api/savings' });
+  app.register(ptyRoutes({ ptyHost }), { prefix: '/api/pty' });
+  app.register(quotaRoutes());
+  app.register(frontdeskRoutes({
     repo,
     getActiveSessions: () => watcher?.snapshot?.() ?? [],
-    getQuotaForProvider: async () => null,                  // P2: wire abtop-bridge
-    getPrefs: () => ({ privacyMode: 'normal' }),            // P1-11: read settings.json
-    getSignals: () => ({}),                                  // P5: gh-bridge feeds hasRecentDiffOrPr
-  }));
+    getQuotaForProvider: async () => null,
+    getPrefs: () => ({ privacyMode: 'normal' }),
+    getSignals: () => ({}),
+  }), { prefix: '/api/frontdesk/route' });
 
-  // Static file serving for production builds.
-  // In dev, Vite's dev server handles assets via proxy instead.
+  // Static file serving for production builds. In dev, Vite proxies instead.
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const distPath = path.join(__dirname, '../../ui/dist');
   if (fs.existsSync(distPath)) {
-    app.use(express.static(distPath));
-    // SPA fallback: send index.html for any non-API route
-    app.get('/{*path}', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+    app.register(fastifyStatic, { root: distPath, prefix: '/' });
+    // SPA fallback: any non-API GET that didn't match falls through here.
+    app.setNotFoundHandler((req, reply) => {
+      if (req.method !== 'GET' || req.url.startsWith('/api/') || req.url.startsWith('/ws/')) {
+        return reply.code(404).send({ error: 'Not found' });
+      }
+      return reply.sendFile('index.html');
     });
   }
 

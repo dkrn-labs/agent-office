@@ -1,23 +1,17 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import express from 'express';
+import Fastify from 'fastify';
 import { historyRoutes } from '../../src/api/routes/history.js';
 
-function buildApp({ historyStore, repo }) {
-  const a = express();
-  a.use(express.json());
-  a.use(historyRoutes(historyStore, { repo }));
-  return a;
+async function startApp({ historyStore, repo }) {
+  const app = Fastify();
+  await app.register(historyRoutes(historyStore, { repo }));
+  await app.listen({ port: 0, host: '127.0.0.1' });
+  return app;
 }
 
-async function startServer(a) {
-  return new Promise((resolve) => {
-    const server = a.listen(0, '127.0.0.1', () => resolve(server));
-  });
-}
-
-async function post(server, path, body) {
-  const port = server.address().port;
+async function post(app, path, body) {
+  const port = app.server.address().port;
   const res = await fetch(`http://127.0.0.1:${port}${path}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -46,19 +40,19 @@ describe('POST /api/history/ingest — P1-6 auto-classify', () => {
     const repo = {
       setLaunchBudgetOutcome: (id, outcome) => calls.push(['ledger', id, outcome]),
       upsertHistorySessionMetrics: (id, fields) => calls.push(['metrics', id, fields]),
-      getHistorySessionMetrics: () => null, // no existing outcome
+      getHistorySessionMetrics: () => null,
     };
     const historyStore = { ingest: () => fakeIngestResult };
-    const server = await startServer(buildApp({ historyStore, repo }));
+    const app = await startApp({ historyStore, repo });
     try {
-      const { status } = await post(server, '/api/history/ingest', baseRequest);
+      const { status } = await post(app, '/api/history/ingest', baseRequest);
       assert.equal(status, 200);
       assert.deepEqual(calls, [
         ['ledger', 42, 'accepted'],
         ['metrics', 42, { outcome: 'accepted' }],
       ]);
     } finally {
-      server.close();
+      await app.close();
     }
   });
 
@@ -70,13 +64,13 @@ describe('POST /api/history/ingest — P1-6 auto-classify', () => {
       getHistorySessionMetrics: () => ({ outcome: 'partial' }),
     };
     const historyStore = { ingest: () => fakeIngestResult };
-    const server = await startServer(buildApp({ historyStore, repo }));
+    const app = await startApp({ historyStore, repo });
     try {
-      const { status } = await post(server, '/api/history/ingest', baseRequest);
+      const { status } = await post(app, '/api/history/ingest', baseRequest);
       assert.equal(status, 200);
       assert.deepEqual(calls, [], 'no outcome writes when one already exists');
     } finally {
-      server.close();
+      await app.close();
     }
   });
 
@@ -88,26 +82,26 @@ describe('POST /api/history/ingest — P1-6 auto-classify', () => {
       getHistorySessionMetrics: () => null,
     };
     const historyStore = { ingest: () => fakeIngestResult };
-    const server = await startServer(buildApp({ historyStore, repo }));
+    const app = await startApp({ historyStore, repo });
     try {
-      const { status } = await post(server, '/api/history/ingest', { ...baseRequest, status: 'in-progress' });
+      const { status } = await post(app, '/api/history/ingest', { ...baseRequest, status: 'in-progress' });
       assert.equal(status, 200);
       assert.deepEqual(calls, []);
     } finally {
-      server.close();
+      await app.close();
     }
   });
 
   it('does not crash when repo lacks the setLaunchBudgetOutcome method', async () => {
-    const repo = {}; // no methods
+    const repo = {};
     const historyStore = { ingest: () => fakeIngestResult };
-    const server = await startServer(buildApp({ historyStore, repo }));
+    const app = await startApp({ historyStore, repo });
     try {
-      const { status, body } = await post(server, '/api/history/ingest', baseRequest);
+      const { status, body } = await post(app, '/api/history/ingest', baseRequest);
       assert.equal(status, 200);
       assert.equal(body.error, null);
     } finally {
-      server.close();
+      await app.close();
     }
   });
 });

@@ -1,17 +1,12 @@
-import { Router } from 'express';
-
 export function portfolioRoutes(portfolioStats) {
-  const router = Router();
-
-  router.get('/api/portfolio/stats', async (req, res) => {
-    const force = req.query?.refresh === '1';
-    try {
-      const stats = await portfolioStats.getAll({ force });
-      res.json(stats);
-    } catch (err) {
-      res.status(500).json({ error: err.message ?? 'Failed to compute portfolio stats' });
-    }
-  });
-
-  return router;
+  return async function plugin(fastify) {
+    fastify.get('/api/portfolio/stats', async (req, reply) => {
+      const force = req.query?.refresh === '1';
+      try {
+        return await portfolioStats.getAll({ force });
+      } catch (err) {
+        return reply.code(500).send({ error: err.message ?? 'Failed to compute portfolio stats' });
+      }
+    });
+  };
 }

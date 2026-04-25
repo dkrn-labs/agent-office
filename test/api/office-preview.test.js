@@ -1,6 +1,5 @@
 import { describe, it, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { createServer } from 'node:http';
 import { get as httpGet } from 'node:http';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -63,8 +62,8 @@ before(async () => {
 
   // dryRun: true so launch doesn't try to spawn a terminal
   app = createApp({ repo, bus, config, configDir, db, dryRun: true });
-  httpServer = createServer(app);
-
+  await app.ready();
+  httpServer = app.server;
   await new Promise((resolve) => httpServer.listen(0, '127.0.0.1', resolve));
   const { port } = httpServer.address();
   base = `http://127.0.0.1:${port}`;

@@ -2,7 +2,6 @@
 import { createRequire } from 'node:module';
 import { mkdirSync, existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { createServer } from 'node:http';
 import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import { createCommand } from 'commander';
@@ -166,7 +165,7 @@ program
     const repo = createRepository(db);
     const bus = createEventBus();
 
-    // Create Express app
+    // Create Fastify app
     const app = createApp({
       repo,
       bus,
@@ -177,11 +176,15 @@ program
       telemetry: true,
     });
 
-    // Create HTTP server and attach WS hub (dashboard + pty)
-    const server = createServer(app);
+    // Wait for plugins to register so app.server has Fastify's request
+    // listener attached, then bolt the WS hub onto the same http.Server.
+    await app.ready();
+    const server = app.server;
     createWsHub(server, bus, { ptyHost: app.locals.ptyHost });
 
-    // Listen
+    // Listen on the underlying http.Server directly. Using app.listen()
+    // would also work but app.server.listen keeps the WS upgrade handler
+    // wiring symmetric with how it was set up.
     await new Promise((res, rej) => {
       server.listen(port, '127.0.0.1', (err) => {
         if (err) return rej(err);
@@ -216,11 +219,15 @@ program
         process.exit(1);
       }, 3000);
       hardExit.unref();
-      server.close(() => {
+      app.close().then(() => {
         clearTimeout(hardExit);
         try { db.close(); } catch (err) { log.warn('db.close failed', { err: err.message }); }
         log.info('Shutdown complete');
         process.exit(0);
+      }).catch((err) => {
+        clearTimeout(hardExit);
+        log.warn('app.close failed', { err: err.message });
+        process.exit(1);
       });
     };
     process.on('SIGINT', () => shutdown('SIGINT'));

@@ -1,29 +1,21 @@
-import { Router } from 'express';
-
 /**
- * Returns an Express Router for skill endpoints.
  * @param {ReturnType<import('../../db/repository.js').createRepository>} repo
  * @param {ReturnType<import('../../agents/skill-resolver.js').createSkillResolver>} resolver
- * @returns {import('express').Router}
+ * @returns {import('fastify').FastifyPluginAsync}
  */
 export function skillRoutes(repo, resolver) {
-  const router = Router();
-
-  // GET /api/skills — list all skills
-  router.get('/api/skills', (req, res) => {
-    const { personaId, projectId } = req.query ?? {};
-    if (personaId != null && projectId != null) {
-      const persona = repo.getPersona(Number(personaId));
-      const project = repo.getProject(Number(projectId));
-      if (!persona || !project) {
-        return res.status(404).json({ error: 'Persona or project not found' });
+  return async function plugin(fastify) {
+    fastify.get('/api/skills', async (req, reply) => {
+      const { personaId, projectId } = req.query ?? {};
+      if (personaId != null && projectId != null) {
+        const persona = repo.getPersona(Number(personaId));
+        const project = repo.getProject(Number(projectId));
+        if (!persona || !project) {
+          return reply.code(404).send({ error: 'Persona or project not found' });
+        }
+        return resolver.inventoryForLaunch(persona, project);
       }
-      return res.json(resolver.inventoryForLaunch(persona, project));
-    }
-
-    const skills = repo.listSkills();
-    res.json(skills);
-  });
-
-  return router;
+      return repo.listSkills();
+    });
+  };
 }

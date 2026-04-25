@@ -1,6 +1,5 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { createServer } from 'node:http';
 import { get as httpGet } from 'node:http';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -84,7 +83,8 @@ before(async () => {
   const config = loadConfig(configDir);
   config.projectsDir = projectsDir;
   app = createApp({ repo, bus, config, configDir, telemetry: false });
-  httpServer = createServer(app);
+  await app.ready();
+  httpServer = app.server;
   await new Promise((resolve) => httpServer.listen(0, '127.0.0.1', resolve));
   const { port } = httpServer.address();
   base = `http://127.0.0.1:${port}`;

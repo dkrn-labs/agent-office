@@ -1,5 +1,3 @@
-import { Router } from 'express';
-
 function mergeLiveSession(repo, liveSession) {
   const detail = repo.getSessionDetail(liveSession.sessionId);
   return {
@@ -27,39 +25,24 @@ function mergeLiveSession(repo, liveSession) {
 }
 
 export function sessionRoutes({ repo, watcher, aggregator }) {
-  const router = Router();
-
-  router.get('/api/sessions/active', (req, res) => {
-    const active = (watcher?.snapshot?.() ?? []).map((entry) => mergeLiveSession(repo, entry));
-    res.json(active);
-  });
-
-  router.get('/api/sessions', (req, res) => {
-    const { page, pageSize, personaId, projectId, outcome } = req.query ?? {};
-    res.json(
-      repo.listSessionsPage({
-        page,
-        pageSize,
-        personaId,
-        projectId,
-        outcome,
-      }),
+  return async function plugin(fastify) {
+    fastify.get('/api/sessions/active', async () =>
+      (watcher?.snapshot?.() ?? []).map((entry) => mergeLiveSession(repo, entry)),
     );
-  });
 
-  router.get('/api/sessions/stats', (req, res) => {
-    res.json(aggregator.getTodayStats());
-  });
+    fastify.get('/api/sessions', async (req) => {
+      const { page, pageSize, personaId, projectId, outcome } = req.query ?? {};
+      return repo.listSessionsPage({ page, pageSize, personaId, projectId, outcome });
+    });
 
-  router.get('/api/sessions/pulse', (req, res) => {
-    res.json(aggregator.getPulseBuckets());
-  });
+    fastify.get('/api/sessions/stats', async () => aggregator.getTodayStats());
 
-  router.get('/api/sessions/:id', (req, res) => {
-    const session = repo.getSessionDetail(Number(req.params.id));
-    if (!session) return res.status(404).json({ error: 'Session not found' });
-    res.json(session);
-  });
+    fastify.get('/api/sessions/pulse', async () => aggregator.getPulseBuckets());
 
-  return router;
+    fastify.get('/api/sessions/:id', async (req, reply) => {
+      const session = repo.getSessionDetail(Number(req.params.id));
+      if (!session) return reply.code(404).send({ error: 'Session not found' });
+      return session;
+    });
+  };
 }
