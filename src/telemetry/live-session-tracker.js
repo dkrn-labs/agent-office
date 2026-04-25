@@ -140,6 +140,19 @@ export function createLiveSessionTracker({
           unattended: false,
         };
       } else if (typeof createUnattended === 'function') {
+        // Staleness gate for the unattended path: when watchers boot they
+        // discover persisted history files (Codex SQLite threads, Gemini JSON
+        // chats, JSONL logs) and replay them through updateAbsolute. Without
+        // this filter, every recent prior session would land in Live Ops as
+        // a fresh "unattended" entry — and the IDLE → expired timer is
+        // measured from registration, so a 10-day-old thread would still sit
+        // in the rail for `expiryMs` after boot. Drop anything whose own
+        // lastActivity is already past the expiry cutoff. A real reactivation
+        // updates the source file's timestamp, which lets the row back in.
+        const lastActivityMs = lastActivity ? Date.parse(lastActivity) : NaN;
+        if (Number.isFinite(lastActivityMs) && Date.now() - lastActivityMs > expiryMs) {
+          return null;
+        }
         const resolvedProviderId = candidateProviderId ?? providerId ?? null;
         const registration = createUnattended({
           providerId: resolvedProviderId,

@@ -681,6 +681,7 @@ function LauncherPanel({
         skills={skills} toggleSkill={toggleSkill}
         totals={totals} savedPct={savedPct}
         onLaunch={onLaunch}
+        launching={launching} launchError={launchError}
       />
     </div>
   );
@@ -714,6 +715,7 @@ function WizardRow({
   history, toggleHistory,
   skills, toggleSkill,
   totals, savedPct, onLaunch,
+  launching, launchError,
 }) {
   const [openCombo, setOpenCombo] = useState(null);
   const close = () => setOpenCombo(null);

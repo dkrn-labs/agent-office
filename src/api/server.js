@@ -107,6 +107,20 @@ export function createApp({
     if (!providerId || !providerSessionId || !projectPath) return null;
     const project = repo.getProjectByPath(projectPath);
     if (!project) return null;
+    // Idempotent: when the watcher rediscovers a JSONL/codex/gemini session
+    // file across server restarts, the row already exists. Returning the
+    // existing id keeps the caller's flow unchanged (and silences the
+    // UNIQUE-constraint warning spam on boot).
+    const existingId = repo.findHistorySessionIdByProvider(providerId, providerSessionId);
+    if (existingId) {
+      const detail = projectHistory.getDetail(existingId);
+      return {
+        sessionId: existingId,
+        projectId: detail?.projectId ?? project.id,
+        personaId: detail?.personaId ?? null,
+        startedAt: detail?.startedAt ?? lastActivity ?? null,
+      };
+    }
     const startedAt = lastActivity ?? new Date().toISOString();
     const { historySessionId } = projectHistory.createLaunch({
       projectId: project.id,
