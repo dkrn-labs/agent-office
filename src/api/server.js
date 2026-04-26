@@ -32,6 +32,7 @@ import { historyRoutes } from './routes/history.js';
 import { savingsRoutes } from './routes/savings.js';
 import { frontdeskRoutes } from './routes/frontdesk.js';
 import { createDecisionLog } from '../frontdesk/decision-log.js';
+import { createRunLLM } from '../frontdesk/llm.js';
 import { ptyRoutes } from './routes/pty.js';
 import { quotaRoutes } from './routes/quota.js';
 import { createPtyHost } from '../pty/node-pty-host.js';
@@ -412,6 +413,14 @@ export function createApp({
     ? createDecisionLog({ repo })
     : null;
 
+  // P2 — pre-bind the LLM runner. Tests can override the whole thing
+  // by passing `frontdeskLLM` to createApp; otherwise we construct one
+  // from settings (default transport: lmstudio). When frontdesk.llm.enabled
+  // is false, the runner refuses to call — runner.js gates on the flag.
+  const runtimeRunLLM = frontdeskLLM ?? (effectiveSettings.frontdesk?.llm?.enabled
+    ? createRunLLM(effectiveSettings.frontdesk.llm)
+    : null);
+
   app.register(frontdeskRoutes({
     repo,
     getActiveSessions: () => watcher?.snapshot?.() ?? [],
@@ -428,7 +437,7 @@ export function createApp({
       frontdesk: effectiveSettings.frontdesk,
     }),
     getSignals: () => ({}),
-    runLLM: frontdeskLLM,
+    runLLM: runtimeRunLLM,
     decisionLog: frontdeskDecisionLog,
   }), { prefix: '/api/frontdesk/route' });
 

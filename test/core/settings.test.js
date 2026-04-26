@@ -19,6 +19,11 @@ describe('settings.json (P1-11)', () => {
       assert.equal(s.user.dailyDollarCap, null);
       assert.equal(s.frontdesk.llm.enabled, false);
       assert.equal(s.frontdesk.llm.model, 'claude-haiku-4-5');
+      assert.equal(s.frontdesk.llm.transport, 'lmstudio');
+      assert.equal(s.frontdesk.llm.lmstudio.model, 'google/gemma-4-e4b');
+      assert.equal(s.frontdesk.llm.lmstudio.host, 'http://localhost:1234');
+      assert.equal(s.frontdesk.llm.lmstudio.contextLength, 8192);
+      assert.equal(s.frontdesk.llm.eagerPreload, true);
       assert.equal(s.providers['claude-code'].enabled, true);
       assert.equal(s.providers.codex.enabled, true);
       assert.equal(s.providers['gemini-cli'].enabled, true);

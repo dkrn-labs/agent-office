@@ -34,9 +34,26 @@ export function getDefaultSettings() {
     },
     frontdesk: {
       // P1 ships rules-only routing. P2 flips enabled to true and wires
-      // src/frontdesk/llm.js as a second-stage reasoner. The model id
-      // tracks the latest Haiku family per arch §6.2.
-      llm: { enabled: false, model: 'claude-haiku-4-5' },
+      // src/frontdesk/llm.js as a second-stage reasoner.
+      //
+      // Transport choices:
+      //   'lmstudio' — local Gemma 4 E4B via LMStudio (default; $0/call,
+      //                ~6s p50 on M-series; see
+      //                docs/experiments/2026-04-26-frontdesk-llm-local.md)
+      //   'sdk'      — opt-in Anthropic SDK + Haiku 4.5 (sub-second p95
+      //                with prompt caching; requires ANTHROPIC_API_KEY)
+      llm: {
+        enabled: false,
+        transport: 'lmstudio',
+        model: 'claude-haiku-4-5',          // used when transport === 'sdk'
+        maxTokens: 1024,
+        eagerPreload: true,
+        lmstudio: {
+          host: 'http://localhost:1234',
+          model: 'google/gemma-4-e4b',
+          contextLength: 8192,
+        },
+      },
     },
   };
 }
