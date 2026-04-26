@@ -22,6 +22,7 @@ import { formatForContext } from '../memory/memory-injector.js';
 import { listLaunchProviders, resolveLaunchTarget } from './provider-catalog.js';
 import { getAdapter } from '../providers/manifest.js';
 import { buildLaunchBudgetRow } from '../context-budget/index.js';
+import { checkQuotaBeforeSpawn } from './preflight-quota.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -215,6 +216,7 @@ export function createLauncher({
   projectHistory = null,
   watcher = null,
   skillRoots = [],
+  getQuotaForProvider = null,
 } = {}) {
   const memoryEngine = memoryEngineOpt ?? createMemoryEngine(repo);
 
@@ -430,6 +432,21 @@ export function createLauncher({
     });
 
     if (!dryRun) {
+      // Preflight quota check — STUB until P4 wires real abtop-bridge
+      // signals. Today this is essentially a no-op (returns ok:true) but
+      // the call site is wired so the production check is a drop-in
+      // replacement. See src/agents/preflight-quota.js.
+      const preflight = await checkQuotaBeforeSpawn({
+        providerId: ctx.providerId,
+        repo,
+        getQuotaForProvider,
+      });
+      if (!preflight.ok) {
+        const err = new Error(`[launcher] preflight quota check failed: ${preflight.reason}`);
+        err.code = 'QUOTA_PREFLIGHT_FAILED';
+        err.preflight = preflight;
+        throw err;
+      }
       await spawnItermTab({
         projectPath: ctx.projectPath,
         systemPrompt: ctx.systemPrompt,
