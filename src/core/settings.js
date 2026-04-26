@@ -33,9 +33,10 @@ export function getDefaultSettings() {
       'gemini-cli': { enabled: true },
     },
     frontdesk: {
-      // P1 ships rules-only routing. P2 flips this to true and wires
-      // src/frontdesk/llm.js as a second-stage reasoner.
-      llm: { enabled: false },
+      // P1 ships rules-only routing. P2 flips enabled to true and wires
+      // src/frontdesk/llm.js as a second-stage reasoner. The model id
+      // tracks the latest Haiku family per arch §6.2.
+      llm: { enabled: false, model: 'claude-haiku-4-5' },
     },
   };
 }

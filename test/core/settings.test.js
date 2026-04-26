@@ -18,9 +18,24 @@ describe('settings.json (P1-11)', () => {
       assert.equal(s.core.port, 3334);
       assert.equal(s.user.dailyDollarCap, null);
       assert.equal(s.frontdesk.llm.enabled, false);
+      assert.equal(s.frontdesk.llm.model, 'claude-haiku-4-5');
       assert.equal(s.providers['claude-code'].enabled, true);
       assert.equal(s.providers.codex.enabled, true);
       assert.equal(s.providers['gemini-cli'].enabled, true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('preserves frontdesk.llm.model when the file overrides only enabled (P2-4)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ao-settings-'));
+    try {
+      writeFileSync(join(dir, 'settings.json'), JSON.stringify({
+        frontdesk: { llm: { enabled: true } },
+      }));
+      const s = loadSettings(dir);
+      assert.equal(s.frontdesk.llm.enabled, true);
+      assert.equal(s.frontdesk.llm.model, 'claude-haiku-4-5');
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
