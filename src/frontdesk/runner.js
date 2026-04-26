@@ -42,11 +42,13 @@ export function runRules(state, task, initial) {
  *   getActiveSessions?: () => Array,
  *   getQuotaForProvider?: (providerId: string) => Promise<number|null>,
  *   prefs?: object,
- *   signals?: { hasRecentDiffOrPr?: boolean }
+ *   signals?: { hasRecentDiffOrPr?: boolean },
+ *   runLLM?: (arg: { state: object, task: string, candidates: object }) => Promise<{ proposal: object, meta: object }>,
+ *   decisionLog?: { record: (entry: object) => number },
  * }} deps
  * @param {{ task: string }} input
  */
-export async function route({ repo, getActiveSessions, getQuotaForProvider, prefs, signals }, input) {
+export async function route({ repo, getActiveSessions, getQuotaForProvider, prefs, signals, runLLM, decisionLog }, input) {
   const task = String(input?.task ?? '').trim();
   if (!task) {
     return { error: 'task is required', candidates: null };
@@ -91,19 +93,62 @@ export async function route({ repo, getActiveSessions, getQuotaForProvider, pref
 
   const candidates = runRules(state, task, initial);
 
+  // Pull the skill catalog into state for the prompt builder. Lazy on
+  // purpose — it's only relevant when the LLM stage runs.
+  if (typeof repo?.listSkills === 'function') {
+    state.skills = repo.listSkills();
+  }
+
+  // First-of-each-set pick — used both for the rules-only response and
+  // as the implicit fallback shape if the LLM stage is off.
+  const rulesPick = candidates.constraints?.blockedReason
+    ? null
+    : {
+        persona: candidates.personas[0] ?? null,
+        provider: candidates.providers.find((p) => !candidates.constraints?.mustBeLocal || p.kind === 'local')
+                ?? candidates.providers[0]
+                ?? null,
+      };
+
+  // Stage 2 — only when settings flag is on AND a runLLM dep was injected.
+  const llmEnabled = prefs?.frontdesk?.llm?.enabled === true;
+  if (llmEnabled && typeof runLLM === 'function' && !candidates.constraints?.blockedReason) {
+    const llmResult = await runLLM({ state, task, candidates });
+    const proposal = llmResult?.proposal ?? null;
+    const llmMeta = llmResult?.meta ?? { usedLLM: false, fallback: null };
+
+    if (decisionLog && typeof decisionLog.record === 'function') {
+      try {
+        decisionLog.record({
+          task,
+          rulesApplied: candidates.rulesApplied ?? [],
+          llmInput: {
+            task,
+            constraints: candidates.constraints ?? {},
+            personaCount: (candidates.personas ?? []).length,
+            providerCount: (candidates.providers ?? []).length,
+          },
+          llmOutput: proposal,
+        });
+      } catch (err) {
+        console.warn('[frontdesk] decisionLog.record failed:', err.message);
+      }
+    }
+
+    return {
+      task,
+      candidates,
+      pick: rulesPick,
+      proposal,
+      meta: { stage: 'rules+llm', fallback: llmMeta.fallback ?? null },
+    };
+  }
+
   return {
     task,
     candidates,
-    // Convenience picks for UIs that can't pick themselves yet — first of each
-    // narrowed set; null when blocked or no candidates remain.
-    pick: candidates.constraints?.blockedReason
-      ? null
-      : {
-          persona: candidates.personas[0] ?? null,
-          provider: candidates.providers.find((p) => !candidates.constraints?.mustBeLocal || p.kind === 'local')
-                  ?? candidates.providers[0]
-                  ?? null,
-        },
+    pick: rulesPick,
+    meta: { stage: 'rules-only', fallback: null },
   };
 }
 
