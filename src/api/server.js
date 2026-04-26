@@ -111,7 +111,7 @@ export function createApp({
 
   function registerUnattendedSession({ providerId, providerSessionId, projectPath, lastActivity }) {
     if (!providerId || !providerSessionId || !projectPath) return null;
-    const project = repo.getProjectByPath(projectPath);
+    const project = repo.resolveProjectByPath?.(projectPath) ?? repo.getProjectByPath(projectPath);
     if (!project) return null;
     // Idempotent: when the watcher rediscovers a JSONL/codex/gemini session
     // file across server restarts, the row already exists. Returning the

@@ -31,6 +31,20 @@ export function createRepository(db) {
     return JSON.stringify(value);
   }
 
+  function normalizePath(value) {
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    return trimmed.replace(/\/+$/, '') || '/';
+  }
+
+  function isSameOrChildPath(candidatePath, projectPath) {
+    const candidate = normalizePath(candidatePath);
+    const project = normalizePath(projectPath);
+    if (!candidate || !project) return false;
+    return candidate === project || candidate.startsWith(`${project}/`);
+  }
+
   // ── Project ──────────────────────────────────────────────────────────────────
 
   /**
@@ -108,6 +122,30 @@ export function createRepository(db) {
    */
   function getProjectByPath(path) {
     return rowToProject(projectStmts.getByPath.get(path));
+  }
+
+  /**
+   * Resolve a cwd or file path to the nearest registered project root.
+   * Exact matches still win; otherwise the longest project path that contains
+   * the candidate path is returned.
+   *
+   * @param {string} path
+   * @returns {object|null}
+   */
+  function resolveProjectByPath(path) {
+    const normalized = normalizePath(path);
+    if (!normalized) return null;
+    const exact = getProjectByPath(normalized);
+    if (exact) return exact;
+
+    let best = null;
+    for (const project of listProjects()) {
+      if (!isSameOrChildPath(normalized, project.path)) continue;
+      if (!best || normalizePath(project.path).length > normalizePath(best.path).length) {
+        best = project;
+      }
+    }
+    return best;
   }
 
   /**
@@ -1662,6 +1700,7 @@ export function createRepository(db) {
     createProject,
     getProject,
     getProjectByPath,
+    resolveProjectByPath,
     listProjects,
     updateProject,
     deleteProject,

@@ -150,7 +150,9 @@ export function createProjectHistoryStore(repo, { db = null, brief = null } = {}
     if (!providerId) throw new Error('providerId is required');
     if (!projectId && !projectPath) throw new Error('projectId or projectPath is required');
 
-    const project = projectId != null ? repo.getProject(Number(projectId)) : repo.getProjectByPath(projectPath);
+    const project = projectId != null
+      ? repo.getProject(Number(projectId))
+      : (repo.resolveProjectByPath?.(projectPath) ?? repo.getProjectByPath(projectPath));
     if (!project) throw new Error('Project not found');
 
     let historySession = null;

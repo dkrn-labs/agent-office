@@ -26,6 +26,26 @@ function cleanup({ dir, db }) {
 }
 
 describe('historyStore.ingest upsert by historySessionId', () => {
+  it('resolves nested cwd paths to the registered project root', async () => {
+    const ctx = await setup();
+    const { repo, store, projectId } = ctx;
+    try {
+      const result = store.ingest({
+        projectPath: '/tmp/p/src/history',
+        providerId: 'codex',
+        providerSessionId: 'codex-nested-cwd',
+        summary: { summaryKind: 'turn', completed: 'done', createdAt: new Date().toISOString() },
+        observations: [],
+      });
+
+      assert.equal(result.project.id, projectId);
+      const row = repo.getHistorySession(result.historySession.id);
+      assert.equal(row.projectId, projectId);
+    } finally {
+      cleanup(ctx);
+    }
+  });
+
   it('merges observations into the pre-created history_session row', async () => {
     const ctx = await setup();
     const { repo, store, projectId, personaId } = ctx;

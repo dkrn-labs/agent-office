@@ -65,6 +65,19 @@ describe('Projects', () => {
     assert.equal(project.name, 'my-app');
   });
 
+  it('resolveProjectByPath returns the nearest registered parent project', () => {
+    const project = repo.resolveProjectByPath('/test/my-app/src/api/server.js');
+    assert.ok(project);
+    assert.equal(project.name, 'my-app');
+  });
+
+  it('resolveProjectByPath prefers the longest matching project path', () => {
+    repo.createProject({ path: '/test/my-app/packages/plugin', name: 'plugin' });
+    const project = repo.resolveProjectByPath('/test/my-app/packages/plugin/src/index.js');
+    assert.ok(project);
+    assert.equal(project.name, 'plugin');
+  });
+
   it('listProjects returns all projects', () => {
     // Create a second project to ensure list works.
     repo.createProject({ path: '/test/other-app', name: 'other-app' });
