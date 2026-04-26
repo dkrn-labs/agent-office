@@ -33,6 +33,7 @@ import { savingsRoutes } from './routes/savings.js';
 import { frontdeskRoutes } from './routes/frontdesk.js';
 import { createDecisionLog } from '../frontdesk/decision-log.js';
 import { createRunLLM } from '../frontdesk/llm.js';
+import { discoverCapabilities } from '../providers/capability-registry.js';
 import { ptyRoutes } from './routes/pty.js';
 import { quotaRoutes } from './routes/quota.js';
 import { createPtyHost } from '../pty/node-pty-host.js';
@@ -74,6 +75,7 @@ export function createApp({
   startTelemetryWatcher = true,
   settings,
   frontdeskLLM,    // P2 — optional ({ state, task, candidates }) => { proposal, meta }
+  providerCapabilities,   // P2 Task 11 — optional pre-discovered snapshot (tests inject)
 }) {
   // Tests construct createApp without going through bin/agent-office.js
   // so they don't pass `settings`. Falling back to defaults keeps every
@@ -383,11 +385,17 @@ export function createApp({
 
   app.locals.launcher = launcher;
   app.locals.telemetry = { watcher, aggregator };
+  app.locals.providerCapabilities = providerCapabilities ?? null;
   app.locals.stopTelemetry = () => {
     aggregator.stop();
     watcher?.stop();
     claudeMem?.close?.();
   };
+
+  // P2 Task 11 — GET /api/providers returns the merged capability snapshot
+  // so the UI (and the frontdesk prompt builder via runner state) can read
+  // a single source of truth for vendor strengths and installed CLIs.
+  app.get('/api/providers', async () => app.locals.providerCapabilities ?? { providers: {} });
 
   const ptyHost = createPtyHost();
   app.locals.ptyHost = ptyHost;

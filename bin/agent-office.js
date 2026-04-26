@@ -12,6 +12,7 @@ import { loadSettings } from '../src/core/settings.js';
 import { createEventBus } from '../src/core/event-bus.js';
 import { createApp } from '../src/api/server.js';
 import { createWsHub } from '../src/api/ws-hub.js';
+import { discoverCapabilities } from '../src/providers/capability-registry.js';
 import { createLogger } from '../src/core/logger.js';
 import { scanDirectory } from '../src/skills/project-scanner.js';
 import { createPersonaRegistry } from '../src/agents/persona-registry.js';
@@ -168,6 +169,17 @@ program
     const repo = createRepository(db);
     const bus = createEventBus();
 
+    // P2 Task 11 — discover provider capabilities (CLI presence + curated
+    // strengths) before booting the app so the frontdesk prompt builder
+    // can read a single merged snapshot. <100ms; no network.
+    const packageDir = resolve(new URL('..', import.meta.url).pathname);
+    let providerCapabilities = null;
+    try {
+      providerCapabilities = await discoverCapabilities({ dataDir, packageDir });
+    } catch (err) {
+      log.warn('Provider capability discovery failed; proceeding with empty registry', { error: err.message });
+    }
+
     // Create Fastify app
     const app = createApp({
       repo,
@@ -178,6 +190,7 @@ program
       dryRun: opts.dryRun ?? false,
       telemetry: true,
       settings,
+      providerCapabilities,
     });
 
     // Wait for plugins to register so app.server has Fastify's request
@@ -289,6 +302,43 @@ program
   .description('Run the memory garden (not yet implemented)')
   .action(() => {
     console.log('not yet implemented');
+  });
+
+// ── providers ────────────────────────────────────────────────────────────────
+
+const providers = program.command('providers').description('Inspect/refresh provider capability registry');
+
+providers
+  .command('list')
+  .description('Show installed CLIs and configured models from the capability registry')
+  .action(async () => {
+    const dataDir = process.env.AGENT_OFFICE_HOME ?? join(os.homedir(), '.agent-office');
+    const packageDir = resolve(new URL('..', import.meta.url).pathname);
+    const caps = await discoverCapabilities({ dataDir, packageDir });
+    for (const [id, p] of Object.entries(caps.providers ?? {})) {
+      const status = p.installed
+        ? `[32m✓ installed[0m (${p.installedVersion ?? 'unknown version'})`
+        : `[2m· not installed[0m`;
+      console.log(`${p.label.padEnd(20)} [${p.kind}]  ${status}`);
+      for (const m of p.models ?? []) {
+        const mark = m.default ? '★' : ' ';
+        console.log(`  ${mark} ${m.id}  ${m.costTier ?? ''}`);
+      }
+    }
+    console.log(`\nlast verified: ${caps.lastVerifiedAt ?? 'unknown'}`);
+  });
+
+providers
+  .command('refresh')
+  .description('Refresh provider strengths/models from upstream docs (TODO — manual edit for now)')
+  .action(() => {
+    const dataDir = process.env.AGENT_OFFICE_HOME ?? join(os.homedir(), '.agent-office');
+    const userPath = join(dataDir, 'provider-capabilities.json');
+    console.log('Provider capability auto-refresh is not yet implemented (P5).');
+    console.log('To update strengths/models in the meantime, edit:');
+    console.log(`  ${userPath}`);
+    console.log('and bump `lastVerifiedAt` to today. Restart agent-office to');
+    console.log('pick up the changes.');
   });
 
 program.parseAsync(process.argv);

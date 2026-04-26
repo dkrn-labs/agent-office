@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "lastVerifiedAt": "2026-04-26T10:00:00Z",
+  "verifiedBy": "manual+websearch",
+  "providers": {
+    "claude-code": {
+      "label": "Claude Code",
+      "vendor": "anthropic",
+      "kind": "cloud",
+      "cli": { "binary": "claude", "versionCommand": ["--version"] },
+      "models": [
+        {
+          "id": "claude-opus-4-7",
+          "label": "Opus 4.7",
+          "default": true,
+          "costTier": "$$$",
+          "strengths": [
+            "multi-file refactors with sustained reasoning",
+            "race conditions and concurrency bugs",
+            "computer use and long-context coding",
+            "agent task execution"
+          ],
+          "weaknesses": ["highest cost"],
+          "swebenchVerified": 0.876,
+          "verifiedAt": "2026-04-26",
+          "source": "https://www.vellum.ai/blog/claude-opus-4-7-benchmarks-explained"
+        }
+      ]
+    },
+    "codex": {
+      "label": "Codex",
+      "vendor": "openai",
+      "kind": "cloud",
+      "cli": { "binary": "codex", "versionCommand": ["--version"] },
+      "models": [
+        {
+          "id": "gpt-5.5-codex",
+          "label": "GPT-5.5 Codex",
+          "default": true,
+          "costTier": "$$",
+          "strengths": [
+            "tight-loop iterative coding",
+            "documents, spreadsheets, slide generation",
+            "knowledge work and research workflows",
+            "token-efficient (fewer tokens for similar results)"
+          ],
+          "verifiedAt": "2026-04-26",
+          "source": "https://openai.com/index/introducing-gpt-5-5/"
+        }
+      ]
+    },
+    "gemini-cli": {
+      "label": "Gemini",
+      "vendor": "google",
+      "kind": "cloud",
+      "cli": { "binary": "gemini", "versionCommand": ["--version"] },
+      "models": [
+        {
+          "id": "gemini-3-flash",
+          "label": "Gemini 3 Flash",
+          "default": true,
+          "costTier": "$",
+          "strengths": [
+            "high-frequency terminal workflows",
+            "fast agentic coding (SWE-bench 78%)",
+            "multimodal video and cross-modal review",
+            "3x faster than Gemini 2.5 Pro"
+          ],
+          "swebenchVerified": 0.78,
+          "verifiedAt": "2026-04-26",
+          "source": "https://developers.googleblog.com/gemini-3-flash-is-now-available-in-gemini-cli/"
+        },
+        {
+          "id": "gemini-3-pro",
+          "label": "Gemini 3 Pro",
+          "costTier": "$$",
+          "strengths": [
+            "complex multi-step planning",
+            "1M-token context reasoning",
+            "ARC-AGI 77.1% — best reasoning in tier"
+          ],
+          "verifiedAt": "2026-04-26"
+        }
+      ]
+    },
+    "lmstudio": {
+      "label": "Local (LMStudio)",
+      "vendor": "local",
+      "kind": "local",
+      "cli": { "binary": "lms", "versionCommand": ["version"] },
+      "models": [
+        {
+          "id": "google/gemma-4-e4b",
+          "label": "Gemma 4 E4B",
+          "default": true,
+          "costTier": "free",
+          "strengths": [
+            "mechanical edits (rename, format, comment)",
+            "commits and small docs",
+            "privacy-strict tasks (no data leaves machine)",
+            "function calling built in"
+          ],
+          "weaknesses": [
+            "5-9s per call vs <1s cloud cached",
+            "weaker on cross-codebase reasoning"
+          ],
+          "verifiedAt": "2026-04-26"
+        }
+      ]
+    }
+  }
+}

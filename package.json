@@ -19,8 +19,8 @@
     "install:hooks": "node scripts/install-hooks.js",
     "postinstall": "node -e \"try { const fs = require('fs'); const p = require.resolve('node-pty/package.json'); const dir = require('path').join(require('path').dirname(p), 'prebuilds'); for (const sub of fs.readdirSync(dir)) { const helper = require('path').join(dir, sub, 'spawn-helper'); if (fs.existsSync(helper)) fs.chmodSync(helper, 0o755); } } catch {}\"",
     "test": "npm run test:unit && npm run test:integration",
-    "test:unit": "node --test 'test/db/**/*.test.js' 'test/history/**/*.test.js' 'test/memory/**/*.test.js' 'test/skills/**/*.test.js' 'test/frontdesk/**/*.test.js' 'test/context-budget/**/*.test.js' 'test/core/**/*.test.js' 'test/agents/**/*.test.js' 'test/telemetry/pricing.test.js' 'test/telemetry/session-aggregator.test.js' 'test/telemetry/tracker-unattended.test.js' 'test/telemetry/claude-projects-path.test.js'",
-    "test:integration": "node --test 'test/integration/**/*.test.js' 'test/api/**/*.test.js' 'test/cli.test.js' 'test/providers/**/*.test.js' 'test/stats/**/*.test.js' 'test/telemetry/codex-watcher.test.js' 'test/telemetry/gemini-watcher.test.js' 'test/telemetry/jsonl-watcher.test.js' 'test/telemetry/outcome-inference.test.js'",
+    "test:unit": "node --test 'test/db/**/*.test.js' 'test/history/**/*.test.js' 'test/memory/**/*.test.js' 'test/skills/**/*.test.js' 'test/frontdesk/**/*.test.js' 'test/context-budget/**/*.test.js' 'test/core/**/*.test.js' 'test/agents/**/*.test.js' 'test/providers/capability-registry.test.js' 'test/telemetry/pricing.test.js' 'test/telemetry/session-aggregator.test.js' 'test/telemetry/tracker-unattended.test.js' 'test/telemetry/claude-projects-path.test.js'",
+    "test:integration": "node --test 'test/integration/**/*.test.js' 'test/api/**/*.test.js' 'test/cli.test.js' 'test/providers/manifest.test.js' 'test/stats/**/*.test.js' 'test/telemetry/codex-watcher.test.js' 'test/telemetry/gemini-watcher.test.js' 'test/telemetry/jsonl-watcher.test.js' 'test/telemetry/outcome-inference.test.js'",
     "test:watch": "node --test --watch 'test/**/*.test.js'"
   },
   "engines": {
