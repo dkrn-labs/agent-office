@@ -397,6 +397,46 @@ export function createApp({
   // a single source of truth for vendor strengths and installed CLIs.
   app.get('/api/providers', async () => app.locals.providerCapabilities ?? { providers: {} });
 
+  // P2 Task 12 — eager preload for LMStudio. The first frontdesk routing
+  // call against a cold model loads ~10s on M-series; preloading here
+  // turns it into a 1.3s warm-cache hit (per the 2026-04-26 experiment).
+  // Three gates: enabled, transport=lmstudio, eagerPreload=true.
+  // Failure is logged and swallowed — LMStudio not running is fine, the
+  // route falls back to rules-only on first call.
+  if (
+    effectiveSettings.frontdesk?.llm?.enabled &&
+    effectiveSettings.frontdesk?.llm?.transport === 'lmstudio' &&
+    effectiveSettings.frontdesk?.llm?.eagerPreload !== false
+  ) {
+    setImmediate(() => {
+      const lm = effectiveSettings.frontdesk.llm.lmstudio ?? {};
+      const host = lm.host ?? 'http://localhost:1234';
+      const model = lm.model ?? 'google/gemma-4-e4b';
+      const controller = new AbortController();
+      const t = setTimeout(() => controller.abort(), 5000);
+      fetch(`${host}/v1/chat/completions`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: 'ok' }],
+          max_tokens: 1,
+          temperature: 0,
+          // LMStudio respects keep_alive — keeps the KV cache hot for the
+          // first real routing call.
+          keep_alive: '15m',
+        }),
+        signal: controller.signal,
+      }).then((r) => {
+        if (!r.ok) {
+          console.warn(`[server] LMStudio preload returned HTTP ${r.status}; first frontdesk call may be cold`);
+        }
+      }).catch((err) => {
+        console.warn(`[server] LMStudio preload failed (${err.message}); first frontdesk call may be cold`);
+      }).finally(() => clearTimeout(t));
+    });
+  }
+
   const ptyHost = createPtyHost();
   app.locals.ptyHost = ptyHost;
 
@@ -424,10 +464,18 @@ export function createApp({
   // P2 — pre-bind the LLM runner. Tests can override the whole thing
   // by passing `frontdeskLLM` to createApp; otherwise we construct one
   // from settings (default transport: lmstudio). When frontdesk.llm.enabled
-  // is false, the runner refuses to call — runner.js gates on the flag.
-  const runtimeRunLLM = frontdeskLLM ?? (effectiveSettings.frontdesk?.llm?.enabled
-    ? createRunLLM(effectiveSettings.frontdesk.llm)
-    : null);
+  // is false the runner doesn't get wired at all; if construction fails
+  // (e.g. transport=sdk without a client provided), log and skip — the
+  // route falls back to rules-only.
+  let runtimeRunLLM = frontdeskLLM ?? null;
+  if (!runtimeRunLLM && effectiveSettings.frontdesk?.llm?.enabled) {
+    try {
+      runtimeRunLLM = createRunLLM(effectiveSettings.frontdesk.llm);
+    } catch (err) {
+      console.warn(`[server] frontdesk.llm enabled but createRunLLM failed (${err.message}); falling back to rules-only`);
+      runtimeRunLLM = null;
+    }
+  }
 
   app.register(frontdeskRoutes({
     repo,
