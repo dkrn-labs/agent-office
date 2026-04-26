@@ -112,6 +112,9 @@ export const useOfficeStore = create((set, get) => ({
   recentSessions: [],
   terrainSessions: [],
   historyPage: null,
+  // P5-C — sessions awaiting an operator outcome click. Each entry:
+  // { historySessionId, sessionId, projectPath, endedAt }.
+  awaitingOutcomes: [],
   historyLoading: false,
   selectedHistorySessionId: null,
   historyDetail: null,
@@ -371,6 +374,29 @@ export const useOfficeStore = create((set, get) => ({
     });
   },
 
+  // P5-C — session:awaiting-outcome surfaces the OutcomePrompt banner.
+  onSessionAwaitingOutcome(payload) {
+    if (!payload?.historySessionId) return;
+    set((state) => ({
+      awaitingOutcomes: [
+        ...state.awaitingOutcomes.filter((e) => e.historySessionId !== payload.historySessionId),
+        {
+          historySessionId: payload.historySessionId,
+          sessionId: payload.sessionId ?? null,
+          projectPath: payload.projectPath ?? null,
+          endedAt: payload.endedAt ?? new Date().toISOString(),
+        },
+      ],
+    }));
+  },
+  // Called when the operator clicks one of the outcome buttons OR
+  // when the heuristic later writes its own outcome (the WS event
+  // session:outcome:updated covers both).
+  dismissAwaitingOutcome(historySessionId) {
+    set((state) => ({
+      awaitingOutcomes: state.awaitingOutcomes.filter((e) => e.historySessionId !== historySessionId),
+    }));
+  },
   onSessionEnded(payload) {
     const { personaId } = payload;
     set((state) => {

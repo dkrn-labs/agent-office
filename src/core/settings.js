@@ -41,6 +41,16 @@ export function getDefaultSettings() {
         lmstudioHost: 'http://localhost:1234',
       },
     },
+    outcomePrompt: {
+      // P5-C — when a session ends, surface a banner asking the
+      // operator to mark the outcome. The heuristic (`inferOutcome`)
+      // defers to the operator click for `gracePeriodMs`, then writes
+      // its own classification with outcome_source='heuristic'.
+      // Operators who hate the modal can disable; the heuristic still
+      // runs (immediately, no grace).
+      enabled: true,
+      gracePeriodMs: 120_000,
+    },
     abtop: {
       // P4-A — when enabled and the binary is on PATH, the bridge polls
       // `abtop --once` for live per-session telemetry (CTX %, tokens,

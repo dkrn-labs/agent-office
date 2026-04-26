@@ -1,5 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import XTermPane from '../term/XTermPane.jsx';
+import OutcomePrompt from '../dashboard/OutcomePrompt.jsx';
 
 // ─── Mock data ─────────────────────────────────────────────────────────────
 
@@ -1196,6 +1197,7 @@ export default function LightV2() {
     <div className="flex h-screen flex-col bg-slate-950 font-sans text-slate-100">
       <Header />
       <TelemetryZone />
+      <OutcomePrompt />
       <div className="flex flex-1 overflow-hidden">
         {/* Left rail: live ops */}
         <LiveOpsRail expandedId={expandedId} setExpandedId={setExpandedId} />

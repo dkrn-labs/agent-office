@@ -29,3 +29,16 @@ export const SKILL_UPDATED = 'skill:updated';
 // instant a producer starts firing it; no need to redeploy the wire format.
 export const SAVINGS_TICK = 'savings:tick';
 export const QUOTA_TICK = 'quota:tick';
+
+// P5-C — operator-confirmed outcome flow.
+// `session:awaiting-outcome` fires the moment the watcher emits
+// session:expired (before the heuristic runs); the dashboard surfaces
+// the OutcomePrompt banner when it sees this.
+// `session:outcome:updated` fires on every outcome write — operator OR
+// heuristic — so consumers can refresh their views uniformly.
+export const SESSION_AWAITING_OUTCOME = 'session:awaiting-outcome';
+export const SESSION_OUTCOME_UPDATED = 'session:outcome:updated';
+
+// P4-A — abtop bridge per-call telemetry.
+export const SESSION_DETAIL_TICK = 'session:detail:tick';
+export const SESSION_DETAIL_GONE = 'session:detail:gone';

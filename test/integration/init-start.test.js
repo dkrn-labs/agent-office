@@ -30,7 +30,7 @@ function httpGet(url) {
 }
 
 /**
- * Retries GET /api/health until it returns HTTP 200, up to maxAttempts times
+ * Retries GET /api/_health until it returns HTTP 200, up to maxAttempts times
  * with delayMs between each attempt.
  * @param {string} baseUrl
  * @param {{ maxAttempts?: number, delayMs?: number }} opts
@@ -39,7 +39,7 @@ function httpGet(url) {
 async function waitForServer(baseUrl, { maxAttempts = 10, delayMs = 200 } = {}) {
   for (let i = 0; i < maxAttempts; i++) {
     try {
-      const { statusCode } = await httpGet(`${baseUrl}/api/health`);
+      const { statusCode } = await httpGet(`${baseUrl}/api/_health`);
       if (statusCode === 200) return;
     } catch {
       // Not ready yet
@@ -117,10 +117,10 @@ describe('agent-office init + start integration', () => {
 
   // ── 5. Assertions ──────────────────────────────────────────────────────────
 
-  it('GET /api/health returns { status: "ok" }', async () => {
-    const { statusCode, body } = await httpGet(`${baseUrl}/api/health`);
+  it('GET /api/_health returns { status: "ok" }', async () => {
+    const { statusCode, body } = await httpGet(`${baseUrl}/api/_health`);
     assert.equal(statusCode, 200);
-    assert.equal(body.status, 'ok');
+    assert.equal(body.data.status, 'ok');
   });
 
   it('GET /api/projects returns the discovered repo with correct name', async () => {

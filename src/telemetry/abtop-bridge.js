@@ -87,7 +87,10 @@ export function createAbtopBridge({
     refresh,
     async start() {
       if (timer) return;
-      await refresh();
+      // Fire the first refresh asynchronously — don't block boot on a
+      // subprocess spawn. Tests that need the snapshot populated can
+      // call refresh() directly.
+      refresh().catch((err) => log.warn(`[abtop-bridge] initial refresh failed: ${err?.message ?? err}`));
       timer = setInterval(() => { refresh(); }, pollMs);
       timer.unref?.();
     },

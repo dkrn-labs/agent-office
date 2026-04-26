@@ -55,6 +55,12 @@ export function createWsClient(store) {
         case 'session:ended':
           state.onSessionEnded(payload);
           break;
+        case 'session:awaiting-outcome':
+          state.onSessionAwaitingOutcome?.(payload);
+          break;
+        case 'session:outcome:updated':
+          state.dismissAwaitingOutcome?.(payload?.historySessionId);
+          break;
         case 'activity:tick':
           state.onActivityTick(payload);
           break;

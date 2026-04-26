@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { healthRoutes } from './routes/health.js';
 import { metricsRoutes } from './routes/metrics.js';
+import { sessionOutcomeRoutes } from './routes/session-outcome.js';
 import { projectRoutes } from './routes/projects.js';
 import { portfolioRoutes } from './routes/portfolio.js';
 import { configRoutes } from './routes/config.js';
@@ -300,20 +301,68 @@ export function createApp({
       ?? null;
     const detailBefore = projectHistory.getDetail(historySessionId ?? payload.sessionId);
     const startedAt = detailBefore?.startedAt ?? payload.startedAt ?? endedAt;
-    const inferred = await inferOutcome({
+
+    // P5-C2 — give the operator a grace window to mark the outcome
+    // themselves before the heuristic does. Surface the prompt now so
+    // the dashboard can show the modal; the heuristic runs only if no
+    // operator click lands in the window.
+    bus.emit('session:awaiting-outcome', {
+      historySessionId,
+      sessionId: payload.sessionId ?? null,
       projectPath: payload.projectPath ?? detailBefore?.projectPath ?? null,
       startedAt,
       endedAt,
     });
 
-    if (historySessionId) {
-      repo.updateHistorySession(historySessionId, { endedAt, status: 'completed' });
-      repo.upsertHistorySessionMetrics(historySessionId, {
-        commitsProduced: inferred.signals?.commitsProduced ?? null,
-        diffExists: inferred.signals?.diffExists ?? null,
-        outcome: inferred.outcome,
+    const operatorGraceMs = effectiveSettings.outcomePrompt?.gracePeriodMs ?? 120_000;
+    const operatorPromptEnabled = effectiveSettings.outcomePrompt?.enabled !== false;
+
+    const runHeuristic = async () => {
+      // Skip when the operator has already supplied an outcome.
+      if (historySessionId && typeof repo.getHistorySessionOutcomeSource === 'function') {
+        if (repo.getHistorySessionOutcomeSource(historySessionId) === 'operator') return;
+      }
+      const inferred = await inferOutcome({
+        projectPath: payload.projectPath ?? detailBefore?.projectPath ?? null,
+        startedAt,
+        endedAt,
       });
+
+      if (historySessionId) {
+        repo.updateHistorySession(historySessionId, { endedAt, status: 'completed' });
+        repo.upsertHistorySessionMetrics(historySessionId, {
+          commitsProduced: inferred.signals?.commitsProduced ?? null,
+          diffExists: inferred.signals?.diffExists ?? null,
+          outcome: inferred.outcome,
+        });
+        // Stamp source='heuristic' so a later operator click can still
+        // override it (operator > heuristic).
+        if (inferred.outcome && typeof repo.setHistorySessionOutcome === 'function') {
+          try { repo.setHistorySessionOutcome(historySessionId, { outcome: inferred.outcome, source: 'heuristic' }); }
+          catch { /* outcome may not pass validation; ignore */ }
+        }
+      }
+      // Continue with the legacy mirror + savings flow inside the
+      // closure so the heuristic-only path runs end-to-end after the
+      // grace window.
+      await tailHeuristicWrites(payload, historySessionId, endedAt, inferred);
+    };
+
+    // Run immediately when prompt disabled OR no historySessionId
+    // (nothing to gate on); otherwise defer.
+    if (!operatorPromptEnabled || !historySessionId) {
+      await runHeuristic();
+      return;
     }
+    setTimeout(() => { runHeuristic().catch((err) => console.warn('[heuristic-after-grace]', err.message)); }, operatorGraceMs);
+    // Stop here — the deferred runHeuristic owns the rest of the flow.
+    return;
+
+    // ── inner helper, defined inside the handler so it closes over
+    // detailBefore + startedAt without re-passing them. Hoisted by
+    // function declaration so it's visible to the runHeuristic
+    // closure above.
+    async function tailHeuristicWrites(payload, historySessionId, endedAt, inferred) {
 
     // Mirror outcome/diff/commits onto the legacy session row so the
     // v1 GET /api/sessions/:id endpoint stays consistent (issue #0003).
@@ -387,7 +436,8 @@ export function createApp({
         costUsd: detail?.costUsd ?? legacyDetail?.costUsd ?? null,
       },
     });
-  });
+    } // ← closes async function tailHeuristicWrites
+  }); // ← closes watcher.on('session:expired', ...) handler
 
   if (telemetry && startTelemetryWatcher) watcher?.start();
   if (telemetry) aggregator.start();
@@ -505,6 +555,7 @@ export function createApp({
   app.register(skillRoutes(repo, resolver));
   app.register(officeRoutes(launcher, { ptyHost }));
   app.register(sessionRoutes({ repo, watcher, aggregator }));
+  app.register(sessionOutcomeRoutes({ repo, bus }), { prefix: '/api/sessions' });
   app.register(memoryRoutes(memoryEngine, repo, importFromClaudeProjects, db));
   app.register(historyRoutes(projectHistory, { repo }));
   app.register(savingsRoutes({ repo }), { prefix: '/api/savings' });

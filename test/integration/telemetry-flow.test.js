@@ -119,6 +119,10 @@ describe('telemetry flow', () => {
       telemetryIdleMs: 75,
       telemetryExpiryMs: 120,
       startTelemetryWatcher: false,
+      // P5-C2 — disable the operator-grace deferral so SESSION_ENDED
+      // fires synchronously (the test asserts `ended.length === 1`
+      // within waitFor's default window).
+      settings: { ...(await import('../../src/core/settings.js')).getDefaultSettings(), outcomePrompt: { enabled: false, gracePeriodMs: 0 } },
     });
 
     assert.ok(app.locals.launcher, 'createApp should expose the launcher for integration tests');

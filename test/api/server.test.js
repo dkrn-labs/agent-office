@@ -115,15 +115,15 @@ after(() => {
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-describe('GET /api/health', () => {
+describe('GET /api/_health', () => {
   it('returns status ok, uptime, and version', async () => {
-    const { status, body } = await get(`${base}/api/health`);
+    const { status, body } = await get(`${base}/api/_health`);
     assert.equal(status, 200);
-    assert.equal(body.status, 'ok');
-    assert.equal(typeof body.uptime, 'number');
-    assert.ok(body.uptime >= 0, 'uptime should be a non-negative number');
-    assert.equal(typeof body.version, 'string');
-    assert.ok(body.version.length > 0, 'version should be a non-empty string');
+    assert.equal(body.data.status, 'ok');
+    assert.equal(typeof body.data.uptime, 'number');
+    assert.ok(body.data.uptime >= 0, 'uptime should be a non-negative number');
+    assert.equal(typeof body.data.version, 'string');
+    assert.ok(body.data.version.length > 0, 'version should be a non-empty string');
   });
 });
 

@@ -66,7 +66,7 @@ function httpPost(url, data) {
 }
 
 /**
- * Retries GET /api/health until it returns HTTP 200, up to maxAttempts times
+ * Retries GET /api/_health until it returns HTTP 200, up to maxAttempts times
  * with delayMs between each attempt.
  * @param {string} baseUrl
  * @param {{ maxAttempts?: number, delayMs?: number }} opts
@@ -75,7 +75,7 @@ function httpPost(url, data) {
 async function waitForServer(baseUrl, { maxAttempts = 20, delayMs = 300 } = {}) {
   for (let i = 0; i < maxAttempts; i++) {
     try {
-      const { statusCode } = await httpGet(`${baseUrl}/api/health`);
+      const { statusCode } = await httpGet(`${baseUrl}/api/_health`);
       if (statusCode === 200) return;
     } catch {
       // Not ready yet
@@ -136,12 +136,20 @@ describe('agent-office full persona launch flow', () => {
       '--dry-run',
     ], { stdio: 'pipe' });
 
+    const stderrChunks = [];
+    serverProcess.stderr.on('data', (c) => stderrChunks.push(c));
+    serverProcess.stdout.on('data', (c) => stderrChunks.push(c));
     serverProcess.on('error', (err) => {
       throw new Error(`Failed to spawn server: ${err.message}`);
     });
 
     // ── 4. Wait for server ready ───────────────────────────────────────────────
-    await waitForServer(baseUrl);
+    try {
+      await waitForServer(baseUrl);
+    } catch (err) {
+      const out = Buffer.concat(stderrChunks).toString('utf8');
+      throw new Error(`${err.message}\n--- server output ---\n${out}`);
+    }
   });
 
   after(() => {

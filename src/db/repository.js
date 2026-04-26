@@ -1147,6 +1147,41 @@ export function createRepository(db) {
     return rowToHistorySessionMetrics(historyMetricsStmts.get.get(Number(historySessionId)));
   }
 
+  // P5-C — outcome + outcome_source helpers. The heuristic
+  // (`inferOutcome`) consults outcome_source to defer to operator
+  // clicks; the C1 route writes 'operator', the watcher pipeline
+  // writes 'heuristic' or 'hook' depending on its source.
+  const setOutcomeStmt = db.prepare(`
+    INSERT INTO history_session_metrics (history_session_id, outcome, outcome_source, recorded_at)
+    VALUES (@historySessionId, @outcome, @source, @recordedAt)
+    ON CONFLICT(history_session_id) DO UPDATE SET
+      outcome        = @outcome,
+      outcome_source = @source,
+      recorded_at    = @recordedAt
+  `);
+  const getOutcomeSourceStmt = db.prepare(`
+    SELECT outcome_source FROM history_session_metrics WHERE history_session_id = ?
+  `);
+
+  function setHistorySessionOutcome(historySessionId, { outcome, source = 'operator' } = {}) {
+    if (!['accepted', 'partial', 'rejected'].includes(String(outcome))) {
+      throw new Error(`setHistorySessionOutcome: invalid outcome '${outcome}'`);
+    }
+    if (!['operator', 'heuristic', 'hook'].includes(String(source))) {
+      throw new Error(`setHistorySessionOutcome: invalid source '${source}'`);
+    }
+    setOutcomeStmt.run({
+      historySessionId: Number(historySessionId),
+      outcome: String(outcome),
+      source: String(source),
+      recordedAt: new Date().toISOString(),
+    });
+  }
+
+  function getHistorySessionOutcomeSource(historySessionId) {
+    return getOutcomeSourceStmt.get(Number(historySessionId))?.outcome_source ?? null;
+  }
+
   const getHistorySessionDetailStmt = db.prepare(`
     SELECT
       hs.history_session_id AS sessionId,
@@ -1820,6 +1855,8 @@ export function createRepository(db) {
     listHistorySessionsPage,
     upsertHistorySessionMetrics,
     getHistorySessionMetrics,
+    setHistorySessionOutcome,
+    getHistorySessionOutcomeSource,
     getHistorySessionDetail,
     findHistorySessionIdByProvider,
     findLauncherHistorySessionId,
