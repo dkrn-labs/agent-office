@@ -76,6 +76,7 @@ export function createApp({
   settings,
   frontdeskLLM,    // P2 — optional ({ state, task, candidates }) => { proposal, meta }
   providerCapabilities,   // P2 Task 11 — optional pre-discovered snapshot (tests inject)
+  getLocalBackendHealthy, // P3-7 — optional async () => boolean for R7 routing decisions
 }) {
   // Tests construct createApp without going through bin/agent-office.js
   // so they don't pass `settings`. Falling back to defaults keeps every
@@ -496,6 +497,11 @@ export function createApp({
     runLLM: runtimeRunLLM,
     decisionLog: frontdeskDecisionLog,
     getProviderCapabilities: () => app.locals.providerCapabilities,
+    // P3-7 — pre-check the local backend so R7 can decide synchronously.
+    // The bridge caches healthy results for 5s; unhealthy probes return
+    // false within the fetch timeout. Falls back to "no probe" when the
+    // aider-local provider isn't enabled.
+    getLocalBackendHealthy: getLocalBackendHealthy ?? app.locals.getLocalBackendHealthy ?? undefined,
   }), { prefix: '/api/frontdesk/route' });
 
   // Static file serving for production builds. In dev, Vite proxies instead.

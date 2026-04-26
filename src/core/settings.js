@@ -31,6 +31,15 @@ export function getDefaultSettings() {
       'claude-code': { enabled: true },
       codex: { enabled: true },
       'gemini-cli': { enabled: true },
+      // P3-5 — Aider pointed at LMStudio. Disabled by default; the
+      // operator opts in once LMStudio is running and a model is loaded.
+      // R7 (mustBeLocal but no local model) only routes to this adapter
+      // when `enabled` is true *and* the LMStudio bridge health-probes OK.
+      'aider-local': {
+        enabled: false,
+        model: 'openai/google/gemma-4-e4b',
+        lmstudioHost: 'http://localhost:1234',
+      },
     },
     frontdesk: {
       // P1 ships rules-only routing. P2 flips enabled to true and wires

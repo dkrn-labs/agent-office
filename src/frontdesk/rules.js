@@ -108,11 +108,32 @@ function R6_demote_quota_yellow(state, _task, candidates) {
   return withApplied({ ...candidates, providers }, 'R6');
 }
 
-/** R7 — `mustBeLocal` is set but no local model is loaded → block launch. */
+/**
+ * R7 — `mustBeLocal` is set. Two outcomes after P3:
+ *
+ *   1. A local provider exists in the candidate set AND the local
+ *      backend health-probe is OK (`prefs.localModelLoaded !== false`):
+ *      narrow `candidates.providers` to local-only so the LLM stage
+ *      and the launcher can't bleed through to a cloud provider.
+ *   2. No local provider, or the backend is unhealthy: block with a
+ *      reason naming the unhealthy backend (LMStudio by default).
+ */
 function R7_block_local_unavailable(state, _task, candidates) {
   if (!candidates.constraints?.mustBeLocal) return candidates;
-  if (state.prefs?.localModelLoaded) return candidates;
-  return withApplied(setConstraint(candidates, { blockedReason: 'mustBeLocal but no local model is loaded — load one (e.g. `ollama pull llama3.1:70b`) before launching' }), 'R7');
+
+  const localProviders = (candidates.providers ?? []).filter((p) => p.kind === 'local');
+  const backendHealthy = state.prefs?.localModelLoaded !== false;
+
+  if (localProviders.length > 0 && backendHealthy) {
+    // Narrow providers to local only — cloud peers must not survive R7
+    // when mustBeLocal is in effect.
+    return withApplied({ ...candidates, providers: localProviders }, 'R7');
+  }
+
+  const reason = localProviders.length === 0
+    ? 'mustBeLocal but no local provider is enabled — set `providers["aider-local"].enabled = true` in settings.json and start LMStudio'
+    : 'mustBeLocal but the local backend is unreachable — start LMStudio (`lms server start`) and load a model';
+  return withApplied(setConstraint(candidates, { blockedReason: reason }), 'R7');
 }
 
 /** R8 — task verbs deploy/release/rollback → restrict to devops persona. */

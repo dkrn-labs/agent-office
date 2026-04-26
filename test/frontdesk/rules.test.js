@@ -103,15 +103,30 @@ describe('frontdesk rule chain', () => {
   });
 
   describe('R7 — block when local needed but not loaded', () => {
-    it('sets blockedReason when mustBeLocal but no model loaded', () => {
+    it('sets blockedReason when mustBeLocal but local backend unreachable', () => {
       const out = runRules(baseState({ prefs: { privacyMode: 'strict', localModelLoaded: false } }), 'task', initial());
       assert.equal(out.constraints.mustBeLocal, true);
-      assert.match(out.constraints.blockedReason, /no local model/i);
+      assert.match(out.constraints.blockedReason, /local backend is unreachable|no local provider/i);
       assert.ok(out.rulesApplied.includes('R7'));
     });
-    it('does not block when a local model is loaded', () => {
+    it('does not block when a local provider is present and healthy', () => {
       const out = runRules(baseState({ prefs: { privacyMode: 'strict', localModelLoaded: true } }), 'task', initial());
       assert.equal(out.constraints.blockedReason, null);
+    });
+    it('narrows providers to local-only when mustBeLocal is set and backend is healthy', () => {
+      const out = runRules(baseState({ prefs: { privacyMode: 'strict', localModelLoaded: true } }), 'task', initial());
+      assert.ok(out.providers.every((p) => p.kind === 'local'),
+        `expected only local providers, got: ${out.providers.map((p) => p.id).join(', ')}`);
+      assert.ok(out.rulesApplied.includes('R7'));
+    });
+    it('blocks with a "no local provider enabled" reason when none registered', () => {
+      const cloudOnly = PROVIDERS.filter((p) => p.kind !== 'local');
+      const out = runRules(
+        baseState({ prefs: { privacyMode: 'strict', localModelLoaded: true } }),
+        'task',
+        initial({ providers: cloudOnly }),
+      );
+      assert.match(out.constraints.blockedReason, /no local provider/i);
     });
   });
 
@@ -171,7 +186,7 @@ describe('frontdesk rule chain', () => {
         initial(),
       );
       assert.equal(out.constraints.mustBeLocal, true);
-      assert.match(out.constraints.blockedReason, /no local model/i);
+      assert.match(out.constraints.blockedReason, /local backend is unreachable|no local provider/i);
     });
     it('rules trace is preserved in order', () => {
       const out = runRules(baseState(), 'fix the gemini hook in agent-office', initial());

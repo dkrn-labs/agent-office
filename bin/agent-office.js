@@ -15,6 +15,7 @@ import { createWsHub } from '../src/api/ws-hub.js';
 import { discoverCapabilities } from '../src/providers/capability-registry.js';
 import { listAdapters } from '../src/providers/manifest.js';
 import { installHooksForAdapters } from '../src/providers/install-hooks-on-boot.js';
+import { createLmStudioBridge } from '../src/providers/lmstudio-bridge.js';
 import { createLogger } from '../src/core/logger.js';
 import { scanDirectory } from '../src/skills/project-scanner.js';
 import { createPersonaRegistry } from '../src/agents/persona-registry.js';
@@ -192,6 +193,17 @@ program
       log.warn('Hook install pass failed', { error: err.message });
     }
 
+    // P3-7 — local-backend health probe for R7. Only constructed when
+    // aider-local is enabled; the bridge caches healthy results for 5s
+    // so the probe is essentially free on every routing call.
+    let getLocalBackendHealthy;
+    const aiderEnabled = settings.providers?.['aider-local']?.enabled === true;
+    if (aiderEnabled) {
+      const host = settings.providers['aider-local'].lmstudioHost ?? 'http://localhost:1234';
+      const bridge = createLmStudioBridge({ host, cacheMs: 5000 });
+      getLocalBackendHealthy = async () => (await bridge.healthCheck()).ok === true;
+    }
+
     // Create Fastify app
     const app = createApp({
       repo,
@@ -203,6 +215,7 @@ program
       telemetry: true,
       settings,
       providerCapabilities,
+      getLocalBackendHealthy,
     });
 
     // Wait for plugins to register so app.server has Fastify's request

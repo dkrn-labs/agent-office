@@ -46,10 +46,11 @@ export function runRules(state, task, initial) {
  *   runLLM?: (arg: { state: object, task: string, candidates: object }) => Promise<{ proposal: object, meta: object }>,
  *   decisionLog?: { record: (entry: object) => number },
  *   getProviderCapabilities?: () => object|null,
+ *   getLocalBackendHealthy?: () => Promise<boolean>|boolean,
  * }} deps
  * @param {{ task: string }} input
  */
-export async function route({ repo, getActiveSessions, getQuotaForProvider, prefs, signals, runLLM, decisionLog, getProviderCapabilities }, input) {
+export async function route({ repo, getActiveSessions, getQuotaForProvider, prefs, signals, runLLM, decisionLog, getProviderCapabilities, getLocalBackendHealthy }, input) {
   const task = String(input?.task ?? '').trim();
   if (!task) {
     return { error: 'task is required', candidates: null };
@@ -76,11 +77,22 @@ export async function route({ repo, getActiveSessions, getQuotaForProvider, pref
   })));
   const activeSessions = typeof getActiveSessions === 'function' ? getActiveSessions() : [];
 
+  // P3-7 — when a probe is wired, pre-resolve local backend health so
+  // R7 can decide synchronously. The bridge caches healthy results for
+  // 5s, so this is ~constant-cost on a warm backend and a single HTTP
+  // timeout when it's down. When no probe is wired (unit tests, P1
+  // call-sites) we leave prefs.localModelLoaded untouched.
+  const resolvedPrefs = { ...(prefs ?? {}) };
+  if (typeof getLocalBackendHealthy === 'function') {
+    try { resolvedPrefs.localModelLoaded = !!(await getLocalBackendHealthy()); }
+    catch { resolvedPrefs.localModelLoaded = false; }
+  }
+
   const state = {
     personas,
     projects,
     activeSessions,
-    prefs: prefs ?? {},
+    prefs: resolvedPrefs,
     signals: signals ?? {},
   };
 

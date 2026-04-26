@@ -10,8 +10,9 @@ import { assertValidAdapter } from './types.js';
 import claudeCode from './claude-code.js';
 import codex from './codex.js';
 import geminiCli from './gemini-cli.js';
+import aiderLocal from './aider-local.js';
 
-const ADAPTERS = [claudeCode, codex, geminiCli];
+const ADAPTERS = [claudeCode, codex, geminiCli, aiderLocal];
 
 // Validate all adapters at module-load time so misregistrations are loud.
 for (const adapter of ADAPTERS) {
