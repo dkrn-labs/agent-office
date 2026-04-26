@@ -48,6 +48,7 @@ const SYSTEM_TEXT = [
   '- **Cloud providers (kind=cloud)** carry token cost (`costTier`: $ < $$ < $$$). Pick the cheapest tier whose `strengths` match the task domain. Use the most expensive tier only when the task explicitly demands it (cross-codebase refactors, sustained reasoning, multi-step planning).',
   '- When two providers have similar `strengths`, prefer the one with the lower `costTier`.',
   '- When a provider in the candidate set is `installed=false`, treat it as last-resort — pick another candidate if any installed alternative is reasonable.',
+  '- **If your chosen provider has a configured `fallback`, populate `fallback_if_blocked` with that fallback id and a short reason** (e.g. "rate limit on primary"). The launcher uses this to recover when the primary\'s quota is exhausted at spawn time. Set to `null` only when no fallback is configured.',
 ].join('\n');
 
 /**
@@ -179,6 +180,7 @@ export function buildProviderCatalogBlock(candidateProviders = [], providerCapab
                      : 'unknown';
     lines.push(`- ${cand.id} — ${label} (${kind}, costTier=${cost}, ${installed})`);
     if (defaultModel?.id) lines.push(`  default model: ${defaultModel.id}`);
+    if (meta?.fallback) lines.push(`  fallback when blocked: ${meta.fallback}`);
     if (Array.isArray(defaultModel?.strengths) && defaultModel.strengths.length) {
       lines.push(`  strengths: ${defaultModel.strengths.join('; ')}`);
     }

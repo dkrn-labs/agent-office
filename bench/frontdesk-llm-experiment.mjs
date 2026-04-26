@@ -247,6 +247,9 @@ async function main() {
       const reasoning = r.validation?.data?.reasoning ?? r.parsed?.reasoning ?? '(none)';
       console.log(`${ok ? '✓' : '✗'} ${r.latencyMs.toFixed(0)}ms · ${r.usage?.prompt_tokens ?? '?'}→${r.usage?.completion_tokens ?? '?'} tok`);
       console.log(`     persona=${r.parsed?.persona}  provider=${r.parsed?.provider}  type=${r.parsed?.taskType}`);
+      const fb = r.parsed?.fallback_if_blocked;
+      const fbStr = fb && typeof fb === 'object' ? `${fb.provider} (${fb.reason})` : (fb ?? 'null');
+      console.log(`     fallback_if_blocked: ${fbStr}`);
       console.log(`     reasoning: ${reasoning.slice(0, 160)}${reasoning.length > 160 ? '…' : ''}`);
       if (!ok) {
         if (r.parseError) console.log(`     parse error: ${r.parseError}`);

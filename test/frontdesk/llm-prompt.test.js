@@ -109,6 +109,41 @@ describe('frontdesk prompt builder', () => {
     assert.match(sys, /costTier/i);
   });
 
+  it('renders provider fallback chains when configured (rate-limit recovery)', () => {
+    const providerCapabilities = {
+      providers: {
+        codex: {
+          label: 'Codex',
+          kind: 'cloud',
+          installed: true,
+          fallback: 'claude-code',
+          models: [{ id: 'gpt-5.5-codex', default: true, costTier: '$$', strengths: ['coding'] }],
+        },
+        'claude-code': {
+          label: 'Claude Code',
+          kind: 'cloud',
+          installed: true,
+          fallback: 'codex',
+          models: [{ id: 'claude-opus-4-7', default: true, costTier: '$$$', strengths: ['refactors'] }],
+        },
+      },
+    };
+    const out = buildPrompt({
+      state: { ...fixtureState(), providerCapabilities },
+      task: 't',
+      candidates: {
+        ...fixtureCandidates(),
+        providers: [{ id: 'codex', kind: 'cloud' }, { id: 'claude-code', kind: 'cloud' }],
+      },
+    });
+    const flat = JSON.stringify(out.system);
+    assert.match(flat, /fallback when blocked: claude-code/);
+    assert.match(flat, /fallback when blocked: codex/);
+    // System prompt instructs the LLM to populate fallback_if_blocked.
+    assert.match(flat, /fallback_if_blocked/);
+    assert.match(flat, /rate limit/i);
+  });
+
   it('falls back to a minimal provider listing when capabilities are missing (back-compat)', () => {
     const out = buildPrompt({
       state: fixtureState(),         // no providerCapabilities

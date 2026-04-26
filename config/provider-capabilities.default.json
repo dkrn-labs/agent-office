@@ -8,6 +8,7 @@
       "vendor": "anthropic",
       "kind": "cloud",
       "cli": { "binary": "claude", "versionCommand": ["--version"] },
+      "fallback": "codex",
       "models": [
         {
           "id": "claude-opus-4-7",
@@ -33,6 +34,7 @@
       "vendor": "openai",
       "kind": "cloud",
       "cli": { "binary": "codex", "versionCommand": ["--version"] },
+      "fallback": "claude-code",
       "models": [
         {
           "id": "gpt-5.5-codex",
@@ -60,6 +62,7 @@
       "vendor": "google",
       "kind": "cloud",
       "cli": { "binary": "gemini", "versionCommand": ["--version"] },
+      "fallback": "claude-code",
       "models": [
         {
           "id": "gemini-3-flash",
