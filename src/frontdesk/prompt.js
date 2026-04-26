@@ -39,6 +39,15 @@ const SYSTEM_TEXT = [
   '}',
   '',
   'Pick only from the provided candidates. Never invent personas or providers. Keep `reasoning` short — operators read it at a glance.',
+  '',
+  '## Vendor selection criteria',
+  '',
+  'When multiple providers are candidates, choose by matching the task to vendor strengths — do NOT default to the first one in the list.',
+  '',
+  '- **Local providers (kind=local, costTier=free)** are the right choice for trivial mechanical tasks (rename, format, single-file comment edits, commits) and any task where `mustBeLocal=true`. They cost $0 and never burn cloud quota.',
+  '- **Cloud providers (kind=cloud)** carry token cost (`costTier`: $ < $$ < $$$). Pick the cheapest tier whose `strengths` match the task domain. Use the most expensive tier only when the task explicitly demands it (cross-codebase refactors, sustained reasoning, multi-step planning).',
+  '- When two providers have similar `strengths`, prefer the one with the lower `costTier`.',
+  '- When a provider in the candidate set is `installed=false`, treat it as last-resort — pick another candidate if any installed alternative is reasonable.',
 ].join('\n');
 
 /**
@@ -143,19 +152,62 @@ export function buildDynamicSuffix({ task, candidates }) {
 }
 
 /**
+ * Build the provider catalog block. When `state.providerCapabilities`
+ * (the registry from Task 11) is supplied, render strengths + costTier +
+ * weaknesses + installed status per candidate. Otherwise emit a minimal
+ * id+kind list (back-compat for tests/callers that don't have a registry
+ * wired up).
+ *
+ * @param {Array<{id: string, kind?: string}>} candidateProviders
+ * @param {object|null} providerCapabilities
+ * @returns {string}
+ */
+export function buildProviderCatalogBlock(candidateProviders = [], providerCapabilities = null) {
+  const lines = ['# Provider catalog', ''];
+  if (!candidateProviders.length) {
+    lines.push('(no providers in candidate set)');
+    return lines.join('\n');
+  }
+  for (const cand of candidateProviders) {
+    const meta = providerCapabilities?.providers?.[cand.id];
+    const defaultModel = meta?.models?.find((m) => m.default) ?? meta?.models?.[0] ?? null;
+    const label = meta?.label ?? cand.id;
+    const kind = cand.kind ?? meta?.kind ?? 'unknown';
+    const cost = defaultModel?.costTier ?? '?';
+    const installed = meta?.installed === true ? 'installed'
+                     : meta?.installed === false ? 'not installed'
+                     : 'unknown';
+    lines.push(`- ${cand.id} — ${label} (${kind}, costTier=${cost}, ${installed})`);
+    if (defaultModel?.id) lines.push(`  default model: ${defaultModel.id}`);
+    if (Array.isArray(defaultModel?.strengths) && defaultModel.strengths.length) {
+      lines.push(`  strengths: ${defaultModel.strengths.join('; ')}`);
+    }
+    if (Array.isArray(defaultModel?.weaknesses) && defaultModel.weaknesses.length) {
+      lines.push(`  weaknesses: ${defaultModel.weaknesses.join('; ')}`);
+    }
+  }
+  return lines.join('\n');
+}
+
+/**
  * @param {{ state: object, task: string, candidates: object }} arg
  * @returns {{ system: Array<object>, messages: Array<object> }}
  */
 export function buildPrompt({ state, task, candidates }) {
   const personaBlock = buildPersonaCatalogBlock(state?.personas ?? []);
   const skillBlock = buildSkillCatalogBlock(state?.skills ?? []);
+  const providerBlock = buildProviderCatalogBlock(
+    candidates?.providers ?? [],
+    state?.providerCapabilities ?? null,
+  );
   const ruleSummary = buildRuleChainSummary(candidates?.rulesApplied ?? []);
 
   const system = [
     { type: 'text', text: SYSTEM_TEXT },
-    { type: 'text', text: personaBlock, cache_control: { type: 'ephemeral' } },
-    { type: 'text', text: skillBlock,   cache_control: { type: 'ephemeral' } },
-    { type: 'text', text: ruleSummary,  cache_control: { type: 'ephemeral' } },
+    { type: 'text', text: personaBlock,  cache_control: { type: 'ephemeral' } },
+    { type: 'text', text: skillBlock,    cache_control: { type: 'ephemeral' } },
+    { type: 'text', text: providerBlock, cache_control: { type: 'ephemeral' } },
+    { type: 'text', text: ruleSummary,   cache_control: { type: 'ephemeral' } },
   ];
 
   const messages = [

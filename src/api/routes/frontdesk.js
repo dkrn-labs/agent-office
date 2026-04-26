@@ -42,6 +42,7 @@ export function frontdeskRoutes(deps = {}) {
             signals,
             runLLM: deps.runLLM,
             decisionLog: deps.decisionLog,
+            getProviderCapabilities: deps.getProviderCapabilities,
           },
           { task },
         );

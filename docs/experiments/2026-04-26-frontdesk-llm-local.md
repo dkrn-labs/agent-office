@@ -123,6 +123,29 @@ a one-time ~10s tax baked into agent-office startup. Acceptable.
    hit the 600-token output cap mid-JSON on one task. Production must
    bump `max_tokens` to 1024 to be safe (cost is trivial at local speed).
 
+## Vendor-selection re-bench after Task 13
+
+After Task 13 enriched the provider catalog block with strengths,
+costTier, weaknesses, and installed status (sourced from
+`config/provider-capabilities.default.json`) plus a "Vendor selection
+criteria" block in the system prompt, the same 5-task fixture set
+**switched from 5/5 claude-code (baseline) to a real cross-vendor
+distribution**:
+
+| Task | Provider picked | Why the LLM chose it |
+|---|---|---|
+| short bug fix | gemini-cli ($) | "fast agentic coding, cost-effective for focused fix" |
+| mechanical rename | lmstudio (free) | "simple mechanical rename, free and local" |
+| long-running refactor | claude-code ($$$) | "sustained reasoning, multi-file refactors" |
+| frontend feature | gemini-cli ($) | "modern frontend skills" |
+| devops deploy | gemini-cli ($) | "speed in terminal/CI workflows" |
+
+The model correctly routes trivial mechanical work to the free local
+provider instead of burning cloud quota on it. Input-token cost rose
+from 643 → 1153 (the new catalog block adds ~500 tokens) and p50
+latency from 5.8s → 6.2s — acceptable for the routing-quality and
+cost-routing wins.
+
 ## Decisions locked in for the implementation
 
 - **Backend default:** LMStudio. Settings key

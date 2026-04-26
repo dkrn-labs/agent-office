@@ -11,7 +11,13 @@
  */
 
 import { z } from 'zod';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import { buildPrompt } from '../src/frontdesk/prompt.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const PROVIDER_CAPABILITIES = JSON.parse(readFileSync(join(__dirname, '..', 'config', 'provider-capabilities.default.json'), 'utf8'));
 
 const MODEL = process.argv[2] ?? 'google/gemma-4-e4b';
 const HOST  = process.argv[3] ?? 'http://localhost:1234';
@@ -53,10 +59,10 @@ const STATE = {
 };
 
 const PROVIDERS = [
-  { id: 'claude-code',  kind: 'cloud', model: 'claude-opus-4-7' },
-  { id: 'codex',        kind: 'cloud', model: 'gpt-5' },
-  { id: 'gemini-cli',   kind: 'cloud', model: 'gemini-2.5-pro' },
-  { id: 'ollama-aider', kind: 'local', model: 'llama3.1:8b' },
+  { id: 'claude-code', kind: 'cloud', model: 'claude-opus-4-7' },
+  { id: 'codex',       kind: 'cloud', model: 'gpt-5.5-codex' },
+  { id: 'gemini-cli',  kind: 'cloud', model: 'gemini-3-flash' },
+  { id: 'lmstudio',    kind: 'local', model: 'google/gemma-4-e4b' },
 ];
 
 // 5 representative tasks — cover the rule classes the router should distinguish.
@@ -159,7 +165,8 @@ function buildCandidates(rulesApplied) {
 }
 
 async function runOnce({ host, model, task, candidates }) {
-  const built = buildPrompt({ state: STATE, task, candidates });
+  const stateWithCaps = { ...STATE, providerCapabilities: PROVIDER_CAPABILITIES };
+  const built = buildPrompt({ state: stateWithCaps, task, candidates });
   const oai   = renderForOpenAI(built);
   const body  = {
     model,

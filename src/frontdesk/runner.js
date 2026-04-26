@@ -45,10 +45,11 @@ export function runRules(state, task, initial) {
  *   signals?: { hasRecentDiffOrPr?: boolean },
  *   runLLM?: (arg: { state: object, task: string, candidates: object }) => Promise<{ proposal: object, meta: object }>,
  *   decisionLog?: { record: (entry: object) => number },
+ *   getProviderCapabilities?: () => object|null,
  * }} deps
  * @param {{ task: string }} input
  */
-export async function route({ repo, getActiveSessions, getQuotaForProvider, prefs, signals, runLLM, decisionLog }, input) {
+export async function route({ repo, getActiveSessions, getQuotaForProvider, prefs, signals, runLLM, decisionLog, getProviderCapabilities }, input) {
   const task = String(input?.task ?? '').trim();
   if (!task) {
     return { error: 'task is required', candidates: null };
@@ -97,6 +98,13 @@ export async function route({ repo, getActiveSessions, getQuotaForProvider, pref
   // purpose — it's only relevant when the LLM stage runs.
   if (typeof repo?.listSkills === 'function') {
     state.skills = repo.listSkills();
+  }
+
+  // P2 Task 13 — provider capabilities (vendor strengths, cost tiers,
+  // installed status) for the prompt builder. Read lazily so rules-only
+  // calls don't pay for the lookup.
+  if (typeof getProviderCapabilities === 'function') {
+    try { state.providerCapabilities = getProviderCapabilities(); } catch { state.providerCapabilities = null; }
   }
 
   // First-of-each-set pick — used both for the rules-only response and

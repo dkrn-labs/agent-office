@@ -495,6 +495,7 @@ export function createApp({
     getSignals: () => ({}),
     runLLM: runtimeRunLLM,
     decisionLog: frontdeskDecisionLog,
+    getProviderCapabilities: () => app.locals.providerCapabilities,
   }), { prefix: '/api/frontdesk/route' });
 
   // Static file serving for production builds. In dev, Vite proxies instead.

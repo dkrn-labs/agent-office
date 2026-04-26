@@ -36,7 +36,8 @@ describe('frontdesk prompt builder', () => {
     });
 
     assert.ok(Array.isArray(out.system), 'system must be an array of blocks for cache_control');
-    assert.ok(out.system.length >= 4, 'expected at least: system, persona catalog, skill catalog, rule summary');
+    // P2 Task 13 — system / persona / skill / provider / rule summary = 5 blocks.
+    assert.ok(out.system.length >= 5, 'expected at least: system, persona catalog, skill catalog, provider catalog, rule summary');
 
     // The last static block must carry cache_control: ephemeral so the
     // Anthropic SDK caches the prefix.
@@ -47,6 +48,77 @@ describe('frontdesk prompt builder', () => {
     assert.equal(out.messages.length, 1);
     assert.equal(out.messages[0].role, 'user');
     assert.match(JSON.stringify(out.messages[0].content), /fix the auth crash on login/);
+  });
+
+  it('renders enriched provider blocks when providerCapabilities is supplied (P2 Task 13)', () => {
+    const providerCapabilities = {
+      providers: {
+        'claude-code': {
+          label: 'Claude Code',
+          kind: 'cloud',
+          installed: true,
+          models: [{
+            id: 'claude-opus-4-7',
+            default: true,
+            costTier: '$$$',
+            strengths: ['multi-file refactors', 'concurrency bugs'],
+            weaknesses: ['highest cost'],
+          }],
+        },
+        lmstudio: {
+          label: 'Local',
+          kind: 'local',
+          installed: true,
+          models: [{
+            id: 'google/gemma-4-e4b',
+            default: true,
+            costTier: 'free',
+            strengths: ['mechanical edits', 'commits'],
+          }],
+        },
+      },
+    };
+    const out = buildPrompt({
+      state: { ...fixtureState(), providerCapabilities },
+      task: 'rename foo to bar',
+      candidates: {
+        ...fixtureCandidates(),
+        providers: [
+          { id: 'claude-code', kind: 'cloud' },
+          { id: 'lmstudio', kind: 'local' },
+        ],
+      },
+    });
+    const flat = JSON.stringify(out.system);
+    assert.match(flat, /multi-file refactors/);
+    assert.match(flat, /mechanical edits/);
+    assert.match(flat, /costTier=\$\$\$/);
+    assert.match(flat, /costTier=free/);
+    assert.match(flat, /installed/);
+  });
+
+  it('emits the vendor-selection criteria block in the system prompt', () => {
+    const out = buildPrompt({
+      state: fixtureState(),
+      task: 't',
+      candidates: fixtureCandidates(),
+    });
+    const sys = JSON.stringify(out.system);
+    assert.match(sys, /Vendor selection criteria/i);
+    assert.match(sys, /local/i);
+    assert.match(sys, /costTier/i);
+  });
+
+  it('falls back to a minimal provider listing when capabilities are missing (back-compat)', () => {
+    const out = buildPrompt({
+      state: fixtureState(),         // no providerCapabilities
+      task: 't',
+      candidates: fixtureCandidates(),
+    });
+    // Block exists but doesn't fail when there's no registry data.
+    const flat = JSON.stringify(out.system);
+    assert.match(flat, /Provider catalog/);
+    assert.match(flat, /claude-code/);
   });
 
   it('persona catalog block lists every persona with its domain', () => {
