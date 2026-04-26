@@ -11,6 +11,13 @@ import { openDatabase, runMigrations } from '../../src/db/database.js';
 import { createEventBus } from '../../src/core/event-bus.js';
 import { loadConfig } from '../../src/core/config.js';
 
+// Time-relative windows (active sessions, today/7d/30d stats) need
+// time-relative fixtures — see issue #0001. Anchor every timestamp to
+// "now" so the suite doesn't rot once the chosen date ages out.
+function pastIso(minutesAgo) {
+  return new Date(Date.now() - minutesAgo * 60 * 1000).toISOString();
+}
+
 function get(url) {
   return new Promise((resolve, reject) => {
     const req = httpGet(url, (res) => {
@@ -57,11 +64,11 @@ before(async () => {
   sessionId = repo.createSession({
     projectId,
     personaId,
-    startedAt: '2026-04-15T08:00:00.000Z',
+    startedAt: pastIso(60),  // 60 minutes ago
     systemPrompt: 'prompt text',
   });
   repo.updateSession(sessionId, {
-    endedAt: '2026-04-15T08:10:00.000Z',
+    endedAt: pastIso(50),    // 50 minutes ago
     tokensIn: 1000,
     tokensOut: 500,
     costUsd: 1.5,
@@ -71,7 +78,7 @@ before(async () => {
   activeSessionId = repo.createSession({
     projectId,
     personaId,
-    startedAt: '2026-04-15T09:00:00.000Z',
+    startedAt: pastIso(15),  // 15 minutes ago — still inside the active window
     systemPrompt: 'active prompt',
   });
 
@@ -93,12 +100,12 @@ before(async () => {
     sessionId: activeSessionId,
     personaId,
     projectId,
-    launchedAt: '2026-04-15T09:00:00.000Z',
+    launchedAt: pastIso(15),
   });
   app.locals.telemetry.watcher.ingestUsage('provider-active', '/tmp/test-proj', {
     providerSessionId: 'provider-active',
     cwd: '/tmp/test-proj',
-    timestamp: '2026-04-15T09:01:00.000Z',
+    timestamp: pastIso(14),
     model: 'claude-sonnet-4-6',
     tokensIn: 250,
     tokensOut: 125,

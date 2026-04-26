@@ -425,6 +425,7 @@ export function createLauncher({
     watcher?.registerLaunch?.({
       projectPath: ctx.projectPath,
       sessionId: ctx.sessionId,
+      historySessionId: ctx.historySessionId ?? null,
       personaId,
       projectId,
       launchedAt: ctx.startedAt,

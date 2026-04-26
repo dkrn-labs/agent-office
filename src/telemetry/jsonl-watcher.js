@@ -61,11 +61,12 @@ export function createJsonlWatcher({
     }
   }
 
-  function registerLaunch({ projectPath, sessionId, personaId, projectId, launchedAt, providerId }) {
+  function registerLaunch({ projectPath, sessionId, historySessionId = null, personaId, projectId, launchedAt, providerId }) {
     if (providerId && providerId !== 'claude-code') return;
     pendingLaunches.push({
       projectPath,
       sessionId,
+      historySessionId,    // Issue #0003 — carry alongside the legacy session id
       personaId,
       projectId,
       launchedAt: launchedAt ?? new Date().toISOString(),
@@ -85,6 +86,7 @@ export function createJsonlWatcher({
   function buildSnapshot(entry) {
     return {
       sessionId: entry.sessionId,
+      historySessionId: entry.historySessionId ?? null,
       providerSessionId: entry.providerSessionId,
       providerId: entry.providerId,
       personaId: entry.personaId,
@@ -103,6 +105,7 @@ export function createJsonlWatcher({
     sessionsByProvider.delete(entry.providerSessionId);
     emitter.emit('session:expired', {
       sessionId: entry.sessionId,
+      historySessionId: entry.historySessionId ?? null,
       providerSessionId: entry.providerSessionId,
       personaId: entry.personaId,
       projectId: entry.projectId,
@@ -120,6 +123,7 @@ export function createJsonlWatcher({
           providerSessionId,
           providerId: claimed.providerId ?? 'claude-code',
           sessionId: claimed.sessionId,
+          historySessionId: claimed.historySessionId ?? null,
           personaId: claimed.personaId,
           projectId: claimed.projectId,
           projectPath,
@@ -145,6 +149,7 @@ export function createJsonlWatcher({
           providerSessionId,
           providerId: 'claude-code',
           sessionId: registration.sessionId,
+          historySessionId: registration.historySessionId ?? registration.sessionId ?? null,
           personaId: registration.personaId ?? null,
           projectId: registration.projectId ?? null,
           projectPath,
@@ -183,6 +188,7 @@ export function createJsonlWatcher({
       entry.isIdle = true;
       emitter.emit('session:idle', {
         sessionId: entry.sessionId,
+        historySessionId: entry.historySessionId ?? null,
         providerSessionId: entry.providerSessionId,
         personaId: entry.personaId,
         projectId: entry.projectId,

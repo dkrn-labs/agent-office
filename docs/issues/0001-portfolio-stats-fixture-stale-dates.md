@@ -1,9 +1,10 @@
 # Issue #0001 — `portfolio-stats.test.js` fails due to stale fixture dates
 
-**Status:** Open
+**Status:** Fixed (this commit)
 **Opened:** 2026-04-26
 **Severity:** Low (test only — production code unaffected)
-**Area:** `test/stats/portfolio-stats.test.js`
+**Area:** `test/stats/portfolio-stats.test.js`, `test/api/portfolio.test.js`,
+`test/api/sessions.test.js`, `test/integration/telemetry-flow.test.js`
 
 ## Summary
 
@@ -53,9 +54,18 @@ and need the same treatment.
 
 ## Acceptance
 
-- `npm run test:integration` passes cleanly on `main`.
+- `npm run test:integration` passes cleanly on `main`. ✅
 - Re-running the test on any future date still passes (no further fixture
-  bumps needed).
+  bumps needed). ✅
+
+## Resolution (2026-04-26)
+
+The same hardcoded-date pattern was found in three additional test files.
+All four now use a `pastIso(minutesAgo)` / `nowIso(offsetMs)` helper that
+anchors fixtures to `Date.now()`. While fixing this, a second underlying
+bug surfaced and was fixed in parallel — see issue #0003 (the watcher's
+`sessionId` was being conflated with `history_session.id`, masking the
+date-staleness as an FK error in the sessions and telemetry-flow tests).
 
 ## Notes
 

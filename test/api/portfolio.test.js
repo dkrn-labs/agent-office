@@ -50,9 +50,15 @@ before(async () => {
   git(repoDir, ['init']);
   writeFileSync(join(repoDir, 'a.txt'), 'hello\n', 'utf8');
   git(repoDir, ['add', '.']);
+  // Time-relative windows (today / 7d / 30d) need time-relative fixtures —
+  // see issue #0001. Anchor every commit and session timestamp to "now"
+  // minus a small offset so they always fall inside the asserted window.
+  const commitIso = new Date(Date.now() - 60 * 60 * 1000).toISOString();      // 1h ago
+  const sessionStart = new Date(Date.now() - 30 * 60 * 1000).toISOString();   // 30m ago
+  const sessionEnd   = new Date(Date.now() - 20 * 60 * 1000).toISOString();   // 20m ago
   git(repoDir, ['commit', '-m', 'init'], {
-    GIT_AUTHOR_DATE: '2026-04-15T08:00:00Z',
-    GIT_COMMITTER_DATE: '2026-04-15T08:00:00Z',
+    GIT_AUTHOR_DATE: commitIso,
+    GIT_COMMITTER_DATE: commitIso,
   });
 
   const db = openDatabase(':memory:');
@@ -69,14 +75,27 @@ before(async () => {
   const sessionId = repo.createSession({
     projectId,
     personaId,
-    startedAt: '2026-04-15T09:00:00.000Z',
+    startedAt: sessionStart,
     systemPrompt: 'prompt',
   });
   repo.updateSession(sessionId, {
-    endedAt: '2026-04-15T09:10:00.000Z',
+    endedAt: sessionEnd,
     tokensIn: 300_000,
     tokensOut: 200_000,
     commitsProduced: 1,
+  });
+  // portfolio-stats.js counts via repo.countHistorySessionsSince — legacy
+  // `session` rows don't show up. Mirror this session into history_session
+  // so today.sessionCount reflects what the operator actually sees.
+  repo.createHistorySession({
+    projectId,
+    personaId,
+    providerId: 'claude-code',
+    providerSessionId: 'pf-api-test-a',
+    startedAt: sessionStart,
+    endedAt: sessionEnd,
+    status: 'completed',
+    source: 'launcher',
   });
 
   const bus = createEventBus();

@@ -147,7 +147,10 @@ describe('telemetry flow', () => {
     const live = app.locals.telemetry.watcher.ingestUsage('provider-session-1', projectPath, {
       providerSessionId: 'provider-session-1',
       cwd: projectPath,
-      timestamp: '2026-04-15T09:00:00.000Z',
+      // The tracker rejects usage records whose timestamp is older than
+      // expiryMs. Anchor to "now" so the suite doesn't rot once the
+      // hardcoded date ages out (issue #0001).
+      timestamp: new Date().toISOString(),
       model: 'claude-sonnet-4-6',
       tokensIn: 120,
       tokensOut: 80,

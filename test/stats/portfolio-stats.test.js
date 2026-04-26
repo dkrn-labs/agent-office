@@ -22,6 +22,15 @@ function git(cwd, args, env = {}) {
   });
 }
 
+// Time-relative assertions need time-relative fixtures. Pinning these to a
+// hardcoded date causes the suite to silently rot once `today` rolls past
+// the chosen day (issue #0001). Use a "now"-anchored helper so commits and
+// session timestamps always land inside the rolling windows the assertions
+// check, regardless of when the suite runs.
+function nowIso(offsetMs = 0) {
+  return new Date(Date.now() + offsetMs).toISOString();
+}
+
 describe('createPortfolioStatsService', () => {
   it('scans repos and stores window snapshots', async () => {
     const root = mkdtempSync(join(tmpdir(), 'agent-office-portfolio-'));
@@ -30,9 +39,10 @@ describe('createPortfolioStatsService', () => {
     git(repoDir, ['init']);
     writeFileSync(join(repoDir, 'a.txt'), 'hello\n', 'utf8');
     git(repoDir, ['add', '.']);
+    const commitIso = nowIso(-60 * 60 * 1000); // 1h ago — safely inside the today window
     git(repoDir, ['commit', '-m', 'init'], {
-      GIT_AUTHOR_DATE: '2026-04-15T08:00:00Z',
-      GIT_COMMITTER_DATE: '2026-04-15T08:00:00Z',
+      GIT_AUTHOR_DATE: commitIso,
+      GIT_COMMITTER_DATE: commitIso,
     });
 
     const db = openDatabase(':memory:');
@@ -46,14 +56,16 @@ describe('createPortfolioStatsService', () => {
       skillIds: [],
       source: 'test',
     }));
+    const sessionStart = nowIso(-30 * 60 * 1000); // 30m ago
+    const sessionEnd   = nowIso(-20 * 60 * 1000); // 20m ago
     const sessionId = repo.createSession({
       projectId,
       personaId,
-      startedAt: '2026-04-15T09:00:00.000Z',
+      startedAt: sessionStart,
       systemPrompt: 'prompt',
     });
     repo.updateSession(sessionId, {
-      endedAt: '2026-04-15T09:10:00.000Z',
+      endedAt: sessionEnd,
       tokensIn: 1_000_000,
       tokensOut: 500_000,
       commitsProduced: 1,
@@ -63,8 +75,8 @@ describe('createPortfolioStatsService', () => {
       personaId,
       providerId: 'claude-code',
       providerSessionId: 'pf-test-a',
-      startedAt: '2026-04-15T09:00:00.000Z',
-      endedAt: '2026-04-15T09:10:00.000Z',
+      startedAt: sessionStart,
+      endedAt: sessionEnd,
       status: 'completed',
       source: 'launcher',
     }));
@@ -100,20 +112,23 @@ describe('createPortfolioStatsService', () => {
     mkdirSync(repoA, { recursive: true });
     mkdirSync(repoB, { recursive: true });
 
+    const commitA = nowIso(-2 * 60 * 60 * 1000); // 2h ago
+    const commitB = nowIso(-1 * 60 * 60 * 1000); // 1h ago
+
     git(repoA, ['init']);
     writeFileSync(join(repoA, 'a.txt'), 'hello\n', 'utf8');
     git(repoA, ['add', '.']);
     git(repoA, ['commit', '-m', 'init-a'], {
-      GIT_AUTHOR_DATE: '2026-04-15T08:00:00Z',
-      GIT_COMMITTER_DATE: '2026-04-15T08:00:00Z',
+      GIT_AUTHOR_DATE: commitA,
+      GIT_COMMITTER_DATE: commitA,
     });
 
     git(repoB, ['init']);
     writeFileSync(join(repoB, 'b.txt'), 'world\n', 'utf8');
     git(repoB, ['add', '.']);
     git(repoB, ['commit', '-m', 'init-b'], {
-      GIT_AUTHOR_DATE: '2026-04-15T09:00:00Z',
-      GIT_COMMITTER_DATE: '2026-04-15T09:00:00Z',
+      GIT_AUTHOR_DATE: commitB,
+      GIT_COMMITTER_DATE: commitB,
     });
 
     const db = openDatabase(':memory:');

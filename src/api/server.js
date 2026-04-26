@@ -178,6 +178,9 @@ export function createApp({
   const projectSync = createProjectSyncService({ repo, projectsDir: config.projectsDir });
 
   const mirrorMetrics = (providerId, providerSessionId, historySessionId, fields) => {
+    // Issue #0003 — historySessionId MUST be a real history_session.id.
+    // Callers used to pass payload.sessionId (legacy) here; that path
+    // violates the FK as soon as the two tables' sequences diverge.
     let targetId = historySessionId ?? null;
     if (!targetId) {
       targetId = repo.findHistorySessionIdByProvider(providerId, providerSessionId);
@@ -195,8 +198,11 @@ export function createApp({
       cacheWrite: payload.totals.cacheWrite,
     });
 
-    const detail = projectHistory.getDetail(payload.sessionId);
-    mirrorMetrics(detail?.providerId ?? payload.providerId ?? null, payload.providerSessionId, payload.sessionId, {
+    // Prefer the watcher-carried historySessionId (issue #0003); fall back
+    // to provider-session lookup; never use payload.sessionId (legacy) as
+    // a history_session.id.
+    const detail = projectHistory.getDetail(payload.historySessionId ?? payload.sessionId);
+    mirrorMetrics(detail?.providerId ?? payload.providerId ?? null, payload.providerSessionId, payload.historySessionId ?? null, {
       tokensIn: payload.totals.tokensIn,
       tokensOut: payload.totals.tokensOut,
       tokensCacheRead: payload.totals.cacheRead,
@@ -204,6 +210,28 @@ export function createApp({
       costUsd,
       lastModel: payload.lastModel,
     });
+
+    // Mirror onto the legacy `session` row too so the v1 endpoints (e.g.
+    // GET /api/sessions/:id) stay consistent with telemetry. This was
+    // present in earlier commits and got dropped during the unified-history
+    // refactor; restoring it is a no-op for v2 paths but fixes the v1
+    // shim. Skipped when the watcher has no legacy sessionId.
+    if (payload.sessionId != null) {
+      try {
+        repo.updateSession(payload.sessionId, {
+          providerSessionId: payload.providerSessionId,
+          lastModel: payload.lastModel,
+          tokensIn: payload.totals.tokensIn,
+          tokensOut: payload.totals.tokensOut,
+          tokensCacheRead: payload.totals.cacheRead,
+          tokensCacheWrite: payload.totals.cacheWrite,
+          costUsd,
+        });
+      } catch (err) {
+        // Stale legacy session id (e.g. unattended-only session never had
+        // a legacy row) — fine, nothing to mirror.
+      }
+    }
 
     bus.emit(SESSION_UPDATE, {
       sessionId: payload.sessionId,
@@ -230,7 +258,7 @@ export function createApp({
   });
 
   watcher?.on('session:idle', async (payload) => {
-    const detail = projectHistory.getDetail(payload.sessionId);
+    const detail = projectHistory.getDetail(payload.historySessionId ?? payload.sessionId);
     bus.emit(SESSION_IDLE, {
       ...payload,
       providerId: detail?.providerId ?? null,
@@ -253,7 +281,12 @@ export function createApp({
 
   watcher?.on('session:expired', async (payload) => {
     const endedAt = new Date().toISOString();
-    const detailBefore = projectHistory.getDetail(payload.sessionId);
+    // Issue #0003 — prefer the watcher-carried historySessionId over the
+    // legacy sessionId for every history_session-keyed write below.
+    const historySessionId = payload.historySessionId
+      ?? repo.findHistorySessionIdByProvider(payload.providerId ?? null, payload.providerSessionId ?? null)
+      ?? null;
+    const detailBefore = projectHistory.getDetail(historySessionId ?? payload.sessionId);
     const startedAt = detailBefore?.startedAt ?? payload.startedAt ?? endedAt;
     const inferred = await inferOutcome({
       projectPath: payload.projectPath ?? detailBefore?.projectPath ?? null,
@@ -261,58 +294,85 @@ export function createApp({
       endedAt,
     });
 
-    repo.updateHistorySession(payload.sessionId, { endedAt, status: 'completed' });
-    repo.upsertHistorySessionMetrics(payload.sessionId, {
-      commitsProduced: inferred.signals?.commitsProduced ?? null,
-      diffExists: inferred.signals?.diffExists ?? null,
-      outcome: inferred.outcome,
-    });
+    if (historySessionId) {
+      repo.updateHistorySession(historySessionId, { endedAt, status: 'completed' });
+      repo.upsertHistorySessionMetrics(historySessionId, {
+        commitsProduced: inferred.signals?.commitsProduced ?? null,
+        diffExists: inferred.signals?.diffExists ?? null,
+        outcome: inferred.outcome,
+      });
+    }
 
-    if (inferred.outcome && typeof repo.setLaunchBudgetOutcome === 'function') {
+    // Mirror outcome/diff/commits onto the legacy session row so the
+    // v1 GET /api/sessions/:id endpoint stays consistent (issue #0003).
+    if (payload.sessionId != null) {
       try {
-        repo.setLaunchBudgetOutcome(payload.sessionId, inferred.outcome);
+        repo.updateSession(payload.sessionId, {
+          endedAt,
+          commitsProduced: inferred.signals?.commitsProduced ?? null,
+          diffExists: inferred.signals?.diffExists ?? null,
+          outcome: inferred.outcome,
+        });
+      } catch {
+        // Stale legacy session id — fine to skip.
+      }
+    }
+
+    if (inferred.outcome && typeof repo.setLaunchBudgetOutcome === 'function' && historySessionId) {
+      try {
+        repo.setLaunchBudgetOutcome(historySessionId, inferred.outcome);
         // P1-10 — savings:tick lets the UI's savings pill refresh without
         // polling. Outcome flips can flip a row in/out of the rollup
         // (rejected is excluded), so this is the right moment to emit.
         bus.emit(SAVINGS_TICK, {
           reason: 'outcome-resolved',
           sessionId: payload.sessionId,
+          historySessionId,
           outcome: inferred.outcome,
         });
       } catch {}
     }
 
-    const detail = detailBefore ? projectHistory.getDetail(payload.sessionId) : null;
+    const detail = detailBefore && historySessionId ? projectHistory.getDetail(historySessionId) : null;
     const resolvedProviderId = detail?.providerId ?? payload.providerId ?? null;
     const resolvedProviderSessionId = payload.providerSessionId ?? detail?.providerSessionId ?? null;
-    mirrorMetrics(resolvedProviderId, resolvedProviderSessionId, payload.sessionId, {
+    mirrorMetrics(resolvedProviderId, resolvedProviderSessionId, historySessionId, {
       commitsProduced: inferred.signals?.commitsProduced ?? null,
       diffExists: inferred.signals?.diffExists ?? null,
       outcome: inferred.outcome,
     });
 
+    // The legacy `session` row carries the most recent telemetry totals
+    // because the session:update handler mirrors there too. Pull from it
+    // when projectHistory's detail doesn't have what the consumer needs.
+    const legacyDetail = payload.sessionId != null
+      ? repo.getSessionDetail(payload.sessionId)
+      : null;
+
     bus.emit(SESSION_ENDED, {
       sessionId: payload.sessionId,
+      historySessionId,
       providerId: resolvedProviderId,
       providerSessionId: resolvedProviderSessionId,
-      personaId: detail?.personaId ?? null,
-      projectId: detail?.projectId ?? null,
-      projectName: detail?.projectName ?? null,
-      projectPath: detail?.projectPath ?? payload.projectPath ?? null,
-      personaLabel: detail?.personaLabel ?? null,
-      personaDomain: detail?.personaDomain ?? null,
+      personaId: detail?.personaId ?? legacyDetail?.personaId ?? null,
+      projectId: detail?.projectId ?? legacyDetail?.projectId ?? null,
+      projectName: detail?.projectName ?? legacyDetail?.projectName ?? null,
+      projectPath: detail?.projectPath ?? legacyDetail?.projectPath ?? payload.projectPath ?? null,
+      personaLabel: detail?.personaLabel ?? legacyDetail?.personaLabel ?? null,
+      personaDomain: detail?.personaDomain ?? legacyDetail?.personaDomain ?? null,
+      lastModel: detail?.lastModel ?? legacyDetail?.lastModel ?? null,
       startedAt,
       endedAt,
       outcome: inferred.outcome,
       commitsProduced: inferred.signals?.commitsProduced ?? null,
       diffExists: inferred.signals?.diffExists ?? null,
       totals: {
-        tokensIn: detail?.tokensIn ?? 0,
-        tokensOut: detail?.tokensOut ?? 0,
-        cacheRead: detail?.tokensCacheRead ?? 0,
-        cacheWrite: detail?.tokensCacheWrite ?? 0,
-        total: detail?.totalTokens ?? 0,
-        costUsd: detail?.costUsd ?? null,
+        tokensIn: detail?.tokensIn ?? legacyDetail?.tokensIn ?? 0,
+        tokensOut: detail?.tokensOut ?? legacyDetail?.tokensOut ?? 0,
+        cacheRead: detail?.tokensCacheRead ?? legacyDetail?.tokensCacheRead ?? 0,
+        cacheWrite: detail?.tokensCacheWrite ?? legacyDetail?.tokensCacheWrite ?? 0,
+        total: detail?.totalTokens ?? legacyDetail?.totalTokens ?? 0,
+        costUsd: detail?.costUsd ?? legacyDetail?.costUsd ?? null,
       },
     });
   });
