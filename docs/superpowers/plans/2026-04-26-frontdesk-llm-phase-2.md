@@ -9,32 +9,44 @@
 > phase-exit checklist — that's where DB-backed and Fastify-graph tests
 > live.
 
-**Goal.** Add a Haiku 4.5 LLM stage 2 to the frontdesk router. Rules
-remain stage 1 and stay authoritative for hard constraints; the LLM
-re-orders / picks within the candidates rules produced, validated by Zod,
-and falls back to "first candidate of each type" when the schema fails.
-Every decision gets logged to a new `frontdesk_decision` table for the
-learning loop. Implements the remaining rules 9–12 and 15–16 from
-architecture §6.1.
+**Goal.** Add an LLM stage 2 to the frontdesk router. Rules remain
+stage 1 and stay authoritative for hard constraints; the LLM re-orders /
+picks within the candidates rules produced, validated by Zod, and falls
+back to "first candidate of each type" when the schema fails. Every
+decision gets logged to a new `frontdesk_decision` table for the learning
+loop. Implements the remaining rules 9–12 and 15–16 from architecture
+§6.1.
 
-**Trigger.** P1 is shipped. Settings flag `frontdesk.llm.enabled` is the
-only gate; default stays `false` until acceptance is met (see exit
+**Pivot — 2026-04-26.** The original plan defaulted to Anthropic SDK +
+Haiku 4.5. The local-LLM experiment
+(`docs/experiments/2026-04-26-frontdesk-llm-local.md`) showed Gemma 4
+E4B via LMStudio gives 5/5 schema pass and 5.8s p50 latency at zero
+marginal cost — and avoids requiring a separate `ANTHROPIC_API_KEY`.
+**Default transport switched to LMStudio**; the SDK code path stays
+opt-in. Tasks 10–13 below were added to land the LMStudio transport,
+provider-capabilities discovery, eager preload, and the
+vendor-selection prompt enrichment that the experiment surfaced.
+
+**Trigger.** P1 is shipped. Settings flag `frontdesk.llm.enabled` is
+the only gate; default stays `false` until acceptance is met (see exit
 checklist).
 
 **Architecture references.**
 - `docs/architecture/agent-commander.md` §6.1, §6.2, §6.3
 - `docs/architecture/implementation-plan.md` §P2
 - `docs/architecture/benchmark-plan.md` (D-band: `llm`)
+- `docs/experiments/2026-04-26-frontdesk-llm-local.md` (local-model bench)
 
 **Tech stack.** Node 22 ESM · `better-sqlite3` · `node:test` · Zod 4 ·
-`@anthropic-ai/sdk` (new dep). Prompt caching via the SDK's
-`cache_control: { type: 'ephemeral' }` blocks.
+LMStudio's OpenAI-compatible HTTP API (default) · `@anthropic-ai/sdk`
+(opt-in alternative).
 
 **Out of scope.**
-- Local-provider routing for the LLM stage (P3 swaps in `frontdesk.llm.provider`).
 - Persona-evolution mining job (P5-4).
 - 5-shot fewshot block beyond a static placeholder (P5-3 — "learning loop").
 - UI redesign — only the existing reasoning string slot is populated.
+- Web-based fact-check refresh of provider capabilities (Task 11 ships
+  the JSON contract + manual-refresh CLI; auto-refresh deferred to P5).
 
 ---
 
@@ -54,6 +66,18 @@ checklist).
 - `test/db/migration-008-frontdesk-decision.test.js` (unit, temp DB)
 - `test/frontdesk/rules-extended.test.js` (unit, R9–R12, R15, R16)
 - `test/api/frontdesk-route-llm.test.js` (integration)
+- `src/frontdesk/transport-lmstudio.js` — local-LLM transport (Task 10).
+- `src/frontdesk/transport-sdk.js` — opt-in Anthropic SDK transport
+  (Task 10 — wraps the existing `llm.js` for transport selection).
+- `src/providers/capability-registry.js` — startup CLI discovery + JSON
+  capabilities loader (Task 11).
+- `config/provider-capabilities.default.json` — package-shipped baseline
+  with verified vendor strengths (Task 11).
+- `test/frontdesk/transport-lmstudio.test.js` (unit, mocks fetch).
+- `test/providers/capability-registry.test.js` (unit, mocks `which` +
+  `fs`).
+- `bin/agent-office.js` — `agent-office providers refresh` subcommand
+  stub (Task 11).
 
 **Modify:**
 - `src/frontdesk/rules.js` — add R9, R10, R11, R12, R15, R16.
@@ -298,23 +322,178 @@ decision via the injected `decisionLog`, and returns the proposal with
 
 ---
 
-## Task 9 — Phase-exit verification
+## Task 10 — LMStudio transport (default) + transport selection
+
+The original Task 5 (`runLLM`) talks to the Anthropic SDK directly. After
+the local-model experiment we keep that as one of two transports.
+Refactor so `runLLM` is a thin selector and add a local LMStudio transport
+that hits LMStudio's OpenAI-compatible endpoint. Uses strict
+`json_schema` constrained decoding (the experiment showed 5/5 schema pass
+with this setup).
+
+**Files:**
+- Create: `src/frontdesk/transport-lmstudio.js`
+- Create: `src/frontdesk/transport-sdk.js` (factor existing logic out of
+  `llm.js`)
+- Modify: `src/frontdesk/llm.js` — keep `runLLM` as the public API but
+  dispatch to the configured transport; preserve the Zod fallback contract
+  unchanged.
+- Modify: `src/core/settings.js` — add
+  `frontdesk.llm.transport: 'lmstudio' | 'sdk'` (default `'lmstudio'`)
+  and `frontdesk.llm.lmstudio: { host, model, contextLength, maxTokens }`.
+- Create: `test/frontdesk/transport-lmstudio.test.js` (unit, mocks
+  `fetch`).
+
+- [ ] **Step 1 — Failing test (3 cases).** Mock `fetch`:
+      1. Happy path — endpoint returns valid JSON; transport returns
+         `{ proposal, meta: { fallback: null, transport: 'lmstudio' } }`.
+      2. Schema fail — endpoint returns malformed JSON; Zod fallback
+         fires, `meta.fallback === 'schema'`.
+      3. Network error — `fetch` rejects; `meta.fallback === 'error'`,
+         no throw.
+- [ ] **Step 2 — Run** `npm run test:unit`. Confirm fail.
+- [ ] **Step 3 — Implement.** `transport-lmstudio.js` posts to
+      `${host}/v1/chat/completions` with `response_format.type = 'json_schema'`,
+      `temperature: 0`, `max_tokens: 1024`. Reuses the pure prompt builder
+      from Task 4 via a new `renderForOpenAI(blocks)` helper.
+- [ ] **Step 4 — Refactor** `llm.js`:
+      `runLLM` reads `state.transport` (or settings) and dispatches to the
+      right module. Both transports return `{ proposal, meta }` of the
+      same shape.
+- [ ] **Step 5 — Run** unit suite. All green.
+- [ ] **Step 6 — Commit.**
+      ```
+      feat(frontdesk): LMStudio transport + transport selection
+      ```
+
+---
+
+## Task 11 — Provider capabilities JSON + startup discovery
+
+**The vendor-selection bias surfaced in the experiment** (every model
+defaulted to `provider=claude-code`) is a prompt issue, not a model issue:
+the candidates block lacked criteria for differentiating cloud vendors.
+Fix it with a versioned, refreshable JSON config rather than hardcoded
+strings in source.
+
+**Files:**
+- Create: `config/provider-capabilities.default.json` — package-shipped
+  baseline with verified vendor strengths (per
+  `docs/experiments/2026-04-26-frontdesk-llm-local.md` and the web-search
+  validation done 2026-04-26).
+- Create: `src/providers/capability-registry.js` —
+  `discoverCapabilities({ dataDir, packageDir })` that loads defaults,
+  deep-merges the user override at
+  `~/.agent-office/provider-capabilities.json`, detects installed CLIs
+  via `which $bin` + `--version`, lists available models per vendor,
+  and writes the merged snapshot back to the user file.
+- Create: `test/providers/capability-registry.test.js` — unit tests
+  that mock the binary detector and the fs layer.
+- Modify: `src/api/server.js` — call `discoverCapabilities` once at
+  boot and surface the result on `app.locals.providerCapabilities`.
+- Modify: `bin/agent-office.js` — add `agent-office providers refresh`
+  subcommand. **Stub** today: logs guidance about manually editing the
+  JSON file and re-running discovery. Real web-fact-check in P5.
+
+- [ ] **Step 1 — Failing test.** Discover with a temp dataDir + a fake
+      `which`. Verify: defaults loaded, user override merged, installed
+      CLIs annotated, snapshot persisted.
+- [ ] **Step 2 — Run.** Confirm fail.
+- [ ] **Step 3 — Implement.** No network calls in the discovery path —
+      keep it under 200ms total. Stale warning if the snapshot's
+      `lastVerifiedAt` is > 14 days old.
+- [ ] **Step 4 — Wire** into `createApp`. Add a `providers` API route
+      (`GET /api/providers`) that returns the snapshot for the UI.
+- [ ] **Step 5 — Add** the CLI stub.
+- [ ] **Step 6 — Run** unit + integration. All green.
+- [ ] **Step 7 — Commit.**
+      ```
+      feat(providers): capability registry with startup CLI discovery
+      ```
+
+---
+
+## Task 12 — Eager LMStudio preload at agent-office start
+
+Reduces "first routing call" latency from ~10s (cold-cold) or ~6s (cold
+inference) down to <500ms warm-cache reload. Only fires when the
+configured transport is `lmstudio` AND LMStudio is installed.
+
+**Files:**
+- Modify: `src/api/server.js` — after `discoverCapabilities`, if
+  transport is `lmstudio`, fire-and-forget POST `/v1/chat/completions`
+  with a 1-token noop request and `keep_alive: '15m'`.
+- Modify: `src/core/settings.js` — `frontdesk.llm.eagerPreload: true`
+  (settings flag, default true; users on slow machines can disable).
+
+- [ ] **Step 1 — Failing test.** `test/api/server-preload.test.js`:
+      mock `fetch`, boot `createApp` with transport=lmstudio, assert
+      one POST to `/v1/chat/completions` was made within 500ms.
+- [ ] **Step 2 — Run.** Confirm fail.
+- [ ] **Step 3 — Implement.** Use `setImmediate` so preload doesn't
+      block `app.ready()`. Timeout 5s; on fail, log a warning and move
+      on (don't crash the server because LMStudio isn't running).
+- [ ] **Step 4 — Run.** All green.
+- [ ] **Step 5 — Commit.**
+      ```
+      feat(server): eager LMStudio preload at startup
+      ```
+
+---
+
+## Task 13 — Vendor-selection prompt enrichment
+
+Consume the capability registry from Task 11 inside the prompt builder
+so the LLM gets real differentiating info about each vendor (label,
+strengths list, cost tier, kind), plus an explicit "Vendor selection
+criteria" block in the system prompt.
+
+**Files:**
+- Modify: `src/frontdesk/prompt.js` — `buildPrompt` accepts
+  `state.providerCapabilities`; emit enriched provider blocks.
+- Modify: `src/frontdesk/runner.js` — pull capabilities from
+  `app.locals.providerCapabilities` (or a getter dep) and put on the
+  state passed to the prompt builder.
+- Update: `test/frontdesk/llm-prompt.test.js` — assert the enriched
+  blocks include strengths and kind for each candidate provider.
+
+- [ ] **Step 1 — Update tests** to assert the new prompt content.
+- [ ] **Step 2 — Run.** Confirm fail.
+- [ ] **Step 3 — Implement.** Add `buildProviderCatalogBlock` that
+      mirrors the persona/skill catalog pattern. Add a "Vendor selection
+      criteria" section to `SYSTEM_TEXT` (≈8 lines: prefer local for
+      mechanical tasks, prefer matching `strengths` over default order,
+      cost-tier as tiebreaker).
+- [ ] **Step 4 — Re-bench.** Run
+      `node bench/frontdesk-llm-experiment.mjs` against Gemma 4 E4B and
+      compare provider distribution to the 2026-04-26 baseline (was
+      5/5 claude-code). Aim for at least one cross-vendor pick on the
+      5 fixtures.
+- [ ] **Step 5 — Commit.**
+      ```
+      feat(frontdesk): enrich prompt with provider capabilities
+      ```
+
+---
+
+## Task 14 — Phase-exit verification
 
 - [ ] **Step 1 — Lint/typecheck/format** if a script exists; otherwise
       skip.
 - [ ] **Step 2 — Run** `npm run test:unit` → all green.
-- [ ] **Step 3 — Run** `npm run test:integration` → all green except
-      issue #0001 (still pending fix). Confirm no new failures introduced.
-- [ ] **Step 4 — Manual smoke (optional, requires an `ANTHROPIC_API_KEY`):**
-      flip `frontdesk.llm.enabled = true` in `~/.agent-office/settings.json`,
-      restart the server, POST a representative task, confirm
-      `data.reasoning` reads as a sensible 1–2 sentence justification, and
-      a row appears in `frontdesk_decision`.
-- [ ] **Step 5 — Update** `docs/superpowers/plans/unified-history-roadmap.md`
-      *only if it tracks P2 phase status* (it doesn't today — that file is
-      scoped to unified-history). Update the P2 row in
-      `docs/architecture/implementation-plan.md` if/when acceptance below
-      is hit on a benchmark.
+- [ ] **Step 3 — Run** `npm run test:integration` → all green.
+- [ ] **Step 4 — Manual smoke.** With LMStudio running and Gemma 4 E4B
+      loaded, flip `frontdesk.llm.enabled = true` in
+      `~/.agent-office/settings.json`, restart the server, POST a
+      representative task, confirm `data.proposal.reasoning` reads
+      sensibly, a row lands in `frontdesk_decision`, and the routing
+      call returns within ~10s including model wakeup.
+- [ ] **Step 5 — Re-run** `bench/frontdesk-llm-experiment.mjs` against
+      the configured transport one final time and snapshot the result
+      into `docs/experiments/`.
+- [ ] **Step 6 — Update** the P2 row in
+      `docs/architecture/implementation-plan.md` once acceptance below
+      is hit on a real benchmark.
 
 ---
 
