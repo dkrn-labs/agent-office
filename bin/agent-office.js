@@ -350,6 +350,25 @@ program
     process.exitCode = checks.every(([, ok]) => ok) ? 0 : 1;
   });
 
+// ── bench ─────────────────────────────────────────────────────────────────────
+
+const bench = program.command('bench').description('Run agent-office benchmarks');
+
+bench
+  .command('frontdesk-acceptance')
+  .description('20-task acceptance benchmark for the frontdesk router (≥18/20 gates the LLM-on-by-default flip)')
+  .option('--llm', 'also exercise stage 2 LLM (requires LMStudio running on settings.frontdesk.llm.lmstudio.host)', false)
+  .option('--report <path>', 'write a markdown report to this path', null)
+  .action(async (opts) => {
+    const { spawn } = await import('node:child_process');
+    const packageDir = resolve(new URL('..', import.meta.url).pathname);
+    const args = ['bench/frontdesk-acceptance/run.mjs'];
+    if (opts.llm) args.push('--llm');
+    if (opts.report) args.push('--report', opts.report);
+    const child = spawn(process.execPath, args, { cwd: packageDir, stdio: 'inherit' });
+    child.on('exit', (code) => process.exit(code ?? 1));
+  });
+
 // ── garden ────────────────────────────────────────────────────────────────────
 
 program

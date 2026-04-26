@@ -1,0 +1,109 @@
+{
+  "$schema": "./tasks.schema.md",
+  "version": 1,
+  "description": "20-task acceptance benchmark for the frontdesk router. Spans the rule space (debug, refactor, mechanical, deploy, frontend, secrets, privacy). Each `expected` field is the floor for a passing pick — `personaDomain` matches `pick.persona.domain`, `providerKind` matches the kind of `pick.provider`. taskType maps to the LLM proposal's taskType when present.",
+  "tasks": [
+    {
+      "id": "debug-1",
+      "prompt": "Fix the auth crash when the email field contains a plus sign — repro with a@b+c@example.com",
+      "expected": { "personaDomain": "debug", "providerKind": "cloud" }
+    },
+    {
+      "id": "debug-2",
+      "prompt": "There's a flaky test in the payment integration suite — investigate why it passes locally but fails in CI",
+      "expected": { "personaDomain": "debug", "providerKind": "cloud" }
+    },
+    {
+      "id": "debug-3",
+      "prompt": "Track down the memory leak in the websocket session aggregator — heap growth after 30 minutes",
+      "expected": { "personaDomain": "debug", "providerKind": "cloud" }
+    },
+    {
+      "id": "debug-4",
+      "prompt": "Why is the rate limiter dropping legitimate requests? Look at the bucket logic in middleware.",
+      "expected": { "personaDomain": "debug", "providerKind": "cloud" }
+    },
+    {
+      "id": "refactor-1",
+      "prompt": "Refactor the entire payment processing module to use the new IPaymentGateway interface across all 12 implementations",
+      "expected": { "personaDomain": "backend", "providerKind": "cloud", "taskType": "long-running" }
+    },
+    {
+      "id": "refactor-2",
+      "prompt": "Migrate all REST endpoints to the new Fastify v5 plugin shape — covers about 40 routes across the codebase",
+      "expected": { "personaDomain": "backend", "providerKind": "cloud", "taskType": "long-running" }
+    },
+    {
+      "id": "refactor-3",
+      "prompt": "Replace every direct better-sqlite3 usage with the repository abstraction; touches about 30 files",
+      "expected": { "personaDomain": "backend", "providerKind": "cloud", "taskType": "long-running" }
+    },
+    {
+      "id": "refactor-4",
+      "prompt": "Untangle the circular dependency between user, session, and audit modules — restructure the imports",
+      "expected": { "personaDomain": "backend", "providerKind": "cloud", "taskType": "long-running" }
+    },
+    {
+      "id": "mechanical-1",
+      "prompt": "Rename getUserById to findUserById across the auth module",
+      "expected": { "personaDomain": "backend", "providerKind": "local", "taskType": "oneshot" }
+    },
+    {
+      "id": "mechanical-2",
+      "prompt": "Format every file in src/utils with prettier and commit",
+      "expected": { "personaDomain": "backend", "providerKind": "local", "taskType": "oneshot" }
+    },
+    {
+      "id": "mechanical-3",
+      "prompt": "Add a one-line JSDoc comment to the top of each exported function in src/db/repository.js",
+      "expected": { "personaDomain": "backend", "providerKind": "local", "taskType": "oneshot" }
+    },
+    {
+      "id": "mechanical-4",
+      "prompt": "Bump the package.json version from 0.1.0 to 0.1.1 and commit",
+      "expected": { "personaDomain": "backend", "providerKind": "local", "taskType": "oneshot" }
+    },
+    {
+      "id": "deploy-1",
+      "prompt": "Deploy the staging build to production — green CI, all checks passed",
+      "expected": { "personaDomain": "devops", "providerKind": "cloud" }
+    },
+    {
+      "id": "deploy-2",
+      "prompt": "Roll back yesterday's release — there's a regression in the checkout flow",
+      "expected": { "personaDomain": "devops", "providerKind": "cloud" }
+    },
+    {
+      "id": "frontend-1",
+      "prompt": "Build a settings panel UI with three tabs (Profile, Notifications, Billing) using the existing design system",
+      "expected": { "personaDomain": "frontend", "providerKind": "cloud" }
+    },
+    {
+      "id": "frontend-2",
+      "prompt": "The dashboard's drawer component flickers on first paint — fix the rendering glitch in the Framer Motion transition",
+      "expected": { "personaDomain": "frontend", "providerKind": "cloud" }
+    },
+    {
+      "id": "secret-1",
+      "prompt": "Rotate the password for the admin account in the production database",
+      "expected": { "providerKind": "local", "mustBeLocal": true }
+    },
+    {
+      "id": "secret-2",
+      "prompt": "I need to update the Stripe API key in the .env file with a new secret value",
+      "expected": { "providerKind": "local", "mustBeLocal": true }
+    },
+    {
+      "id": "privacy-1",
+      "prompt": "Summarize what changed in this internal HR memo — privacy mode is on",
+      "expected": { "providerKind": "local", "mustBeLocal": true },
+      "prefs": { "privacyMode": "strict" }
+    },
+    {
+      "id": "privacy-2",
+      "prompt": "Review the financial statements draft for next quarter's board meeting",
+      "expected": { "providerKind": "local", "mustBeLocal": true },
+      "prefs": { "privacyMode": "strict" }
+    }
+  ]
+}
