@@ -31,6 +31,7 @@ import { createProjectHistoryStore } from '../history/project-history.js';
 import { historyRoutes } from './routes/history.js';
 import { savingsRoutes } from './routes/savings.js';
 import { frontdeskRoutes } from './routes/frontdesk.js';
+import { createDecisionLog } from '../frontdesk/decision-log.js';
 import { ptyRoutes } from './routes/pty.js';
 import { quotaRoutes } from './routes/quota.js';
 import { createPtyHost } from '../pty/node-pty-host.js';
@@ -71,6 +72,7 @@ export function createApp({
   telemetryExpiryMs,
   startTelemetryWatcher = true,
   settings,
+  frontdeskLLM,    // P2 — optional ({ state, task, candidates }) => { proposal, meta }
 }) {
   // Tests construct createApp without going through bin/agent-office.js
   // so they don't pass `settings`. Falling back to defaults keeps every
@@ -344,6 +346,12 @@ export function createApp({
   app.register(savingsRoutes({ repo }), { prefix: '/api/savings' });
   app.register(ptyRoutes({ ptyHost }), { prefix: '/api/pty' });
   app.register(quotaRoutes());
+  // P2 — decision log writer. Always wired; no-ops gracefully if the
+  // table isn't there (older DBs that haven't run migration 008).
+  const frontdeskDecisionLog = repo && typeof repo.recordFrontdeskDecision === 'function'
+    ? createDecisionLog({ repo })
+    : null;
+
   app.register(frontdeskRoutes({
     repo,
     getActiveSessions: () => watcher?.snapshot?.() ?? [],
@@ -354,8 +362,14 @@ export function createApp({
       // providers are filtered out of the candidate set before the rule
       // chain runs, so they never appear in `pick.provider`.
       enabledProviders: enabledProviderIds(effectiveSettings),
+      // P2 — gate stage 2 on settings.frontdesk.llm.enabled. The runner
+      // also requires a runLLM function to actually call the model, so
+      // the flag alone never causes a stray network request.
+      frontdesk: effectiveSettings.frontdesk,
     }),
     getSignals: () => ({}),
+    runLLM: frontdeskLLM,
+    decisionLog: frontdeskDecisionLog,
   }), { prefix: '/api/frontdesk/route' });
 
   // Static file serving for production builds. In dev, Vite proxies instead.

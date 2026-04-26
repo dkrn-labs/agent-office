@@ -6,10 +6,18 @@ const RouteRequestSchema = z.object({
 });
 
 /**
- * Frontdesk router endpoint — rules-only in P1, becomes hybrid in P2.
+ * Frontdesk router endpoint — rules-only in P1, hybrid (rules + LLM) in P2.
  *
  * POST / (mounted at /api/frontdesk/route)
  * body: { task: string }
+ *
+ * Optional deps for the P2 LLM stage:
+ *   - runLLM:      injected reasoner; signature ({ state, task, candidates }) => { proposal, meta }
+ *   - decisionLog: { record(entry) }; persists each rules+llm outcome
+ *
+ * Response shape stays the same. New `meta.stage` value: 'rules+llm' when
+ * the LLM stage ran. `meta.fallback` is null on success and 'schema'/'error'
+ * when the LLM safety net kicked in.
  *
  * @returns {import('fastify').FastifyPluginAsync}
  */
@@ -32,13 +40,17 @@ export function frontdeskRoutes(deps = {}) {
             getQuotaForProvider: deps.getQuotaForProvider,
             prefs,
             signals,
+            runLLM: deps.runLLM,
+            decisionLog: deps.decisionLog,
           },
           { task },
         );
         if (result.error) {
           return reply.code(400).send({ data: null, error: result.error, meta: {} });
         }
-        return { data: result, error: null, meta: { stage: 'rules-only' } };
+        const stage = result.meta?.stage ?? 'rules-only';
+        const fallback = result.meta?.fallback ?? null;
+        return { data: result, error: null, meta: { stage, fallback } };
       } catch (err) {
         return reply.code(500).send({ data: null, error: err.message, meta: {} });
       }
