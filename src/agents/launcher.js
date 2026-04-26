@@ -21,7 +21,7 @@ import { createMemoryEngine } from '../memory/memory-engine.js';
 import { formatForContext } from '../memory/memory-injector.js';
 import { listLaunchProviders, resolveLaunchTarget } from './provider-catalog.js';
 import { getAdapter } from '../providers/manifest.js';
-import { buildLaunchBudgetRow } from '../context-budget/index.js';
+import { buildLaunchBudgetRow, computeOptimized } from '../context-budget/index.js';
 import { checkQuotaBeforeSpawn } from './preflight-quota.js';
 
 const execFileAsync = promisify(execFile);
@@ -331,6 +331,27 @@ export function createLauncher({
           ? repo.listHistoryObservations({ projectId, limit: 50 })
           : [];
         const personaTemplate = persona.systemPromptTemplate ?? '';
+        // P3-8 — for local providers, pre-fill cloudEquivalentDollars at
+        // spawn time using the optimized token count so the savings pill
+        // credits the local routing immediately. Cloud providers stay
+        // null here; their cost lands when the post-session hook fires.
+        let preCost = null;
+        try {
+          const launchAdapter = getAdapter(launchTarget.providerId);
+          if (launchAdapter?.kind === 'local' && typeof launchAdapter.cost === 'function') {
+            const optimizedSummary = computeOptimized({
+              systemPrompt: personaTemplate,
+              skills: resolvedSkills.map((s) => ({ body: s.preview ?? '' })),
+              personaObservations,
+              memories,
+            });
+            preCost = launchAdapter.cost(
+              { input: optimizedSummary.total, output: 0 },
+              launchTarget.model,
+            );
+          }
+        } catch { /* leave preCost null on any failure */ }
+
         const budget = buildLaunchBudgetRow({
           providerId: launchTarget.providerId,
           model: launchTarget.model,
@@ -346,7 +367,7 @@ export function createLauncher({
             allObservations,
             allMemories: memories,
           },
-          cost: null,
+          cost: preCost,
         });
         repo.upsertLaunchBudget({
           historySessionId,

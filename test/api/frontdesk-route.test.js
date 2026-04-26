@@ -68,7 +68,7 @@ describe('POST /api/frontdesk/route', () => {
         task: 'rotate the password',
       });
       assert.equal(status, 200);
-      assert.match(body.data.candidates.constraints.blockedReason, /no local model/i);
+      assert.match(body.data.candidates.constraints.blockedReason, /local backend is unreachable|no local provider/i);
       assert.equal(body.data.pick, null);
     } finally {
       await app.close();

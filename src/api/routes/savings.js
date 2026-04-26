@@ -1,4 +1,38 @@
 import { rollupSavings } from '../../context-budget/index.js';
+import { getAdapter } from '../../providers/manifest.js';
+
+function emptySide() {
+  return { sessions: 0, savedTokens: 0, savedDollars: 0 };
+}
+
+function computeBreakdown(rows) {
+  const cloud = { sessions: 0, baselineTokens: 0, optimizedTokens: 0, savedDollars: 0 };
+  const local = { sessions: 0, savedDollars: 0 };
+  for (const r of rows) {
+    if (r.outcome === 'rejected') continue;
+    const adapter = r.providerId ? getAdapter(r.providerId) : null;
+    const isLocal = adapter?.kind === 'local';
+    if (isLocal) {
+      local.sessions += 1;
+      // Savings credit for local routing = what this would have cost on
+      // a cloud peer (filled by the adapter's cost(usage) at session
+      // end). Falls back to 0 when not populated.
+      local.savedDollars += Number(r.cloudEquivalentDollars ?? 0);
+    } else {
+      cloud.sessions += 1;
+      cloud.baselineTokens += Number(r.baselineTokens ?? 0);
+      cloud.optimizedTokens += Number(r.optimizedTokens ?? 0);
+    }
+  }
+  return {
+    cloud: {
+      sessions: cloud.sessions,
+      savedTokens: Math.max(0, cloud.baselineTokens - cloud.optimizedTokens),
+      savedDollars: 0, // cloud "savings" are token-side; $-side is just spend, not savings
+    },
+    local: { ...emptySide(), ...local },
+  };
+}
 
 const RANGES = {
   today: () => {
@@ -19,6 +53,7 @@ function emptyRollup(range) {
     savedTokens: 0,
     savedPct: 0,
     costDollars: 0,
+    breakdown: { cloud: emptySide(), local: emptySide() },
   };
 }
 
@@ -53,8 +88,9 @@ export function savingsRoutes({ repo } = {}) {
       }
       const rows = repo.listLaunchBudgetsSince(since());
       const rollup = rollupSavings(rows);
+      const breakdown = computeBreakdown(rows);
       return {
-        data: { range, ...rollup },
+        data: { range, ...rollup, breakdown },
         error: null,
         meta: { range, since: since(), rowCount: rows.length },
       };

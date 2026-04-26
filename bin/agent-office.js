@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { createRequire } from 'node:module';
-import { mkdirSync, existsSync } from 'node:fs';
+import { mkdirSync, existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import os from 'node:os';
@@ -340,11 +340,35 @@ providers
     const dataDir = process.env.AGENT_OFFICE_HOME ?? join(os.homedir(), '.agent-office');
     const packageDir = resolve(new URL('..', import.meta.url).pathname);
     const caps = await discoverCapabilities({ dataDir, packageDir });
+
+    // For aider-local, an LMStudio reachability dot beats the static
+    // "installed" CLI check — Aider being on PATH doesn't tell you whether
+    // the local backend is up.
+    const settingsPath = join(dataDir, 'settings.json');
+    let lmHost = 'http://localhost:1234';
+    let aiderEnabled = false;
+    try {
+      const s = JSON.parse(readFileSync(settingsPath, 'utf8'));
+      const a = s.providers?.['aider-local'];
+      if (a?.enabled === true) aiderEnabled = true;
+      if (a?.lmstudioHost) lmHost = a.lmstudioHost;
+    } catch { /* settings.json optional */ }
+    let aiderHealth = null;
+    if (aiderEnabled) {
+      const bridge = createLmStudioBridge({ host: lmHost });
+      aiderHealth = await bridge.healthCheck().catch((err) => ({ ok: false, reason: err?.message ?? String(err) }));
+    }
+
     for (const [id, p] of Object.entries(caps.providers ?? {})) {
-      const status = p.installed
+      let status = p.installed
         ? `[32m✓ installed[0m (${p.installedVersion ?? 'unknown version'})`
         : `[2m· not installed[0m`;
-      console.log(`${p.label.padEnd(20)} [${p.kind}]  ${status}`);
+      if (id === 'aider-local') {
+        if (!aiderEnabled) status += ' · disabled in settings';
+        else if (aiderHealth?.ok) status += ' · LMStudio reachable';
+        else status += ` · LMStudio unreachable: ${aiderHealth?.reason ?? '?'}`;
+      }
+      console.log(`${p.label.padEnd(34)} [${p.kind}]  ${status}`);
       for (const m of p.models ?? []) {
         const mark = m.default ? '★' : ' ';
         console.log(`  ${mark} ${m.id}  ${m.costTier ?? ''}`);

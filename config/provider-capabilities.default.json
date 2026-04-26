@@ -92,6 +92,30 @@
         }
       ]
     },
+    "aider-local": {
+      "label": "Aider (local via LMStudio)",
+      "vendor": "local",
+      "kind": "local",
+      "cli": { "binary": "aider", "versionCommand": ["--version"] },
+      "models": [
+        {
+          "id": "openai/google/gemma-4-e4b",
+          "label": "Aider · Gemma 4 E4B (LMStudio)",
+          "default": true,
+          "costTier": "free",
+          "strengths": [
+            "any task that R3/R4 forces local",
+            "mechanical edits with file-write capability (Aider applies diffs)",
+            "$0 marginal cost — credits cloudEquivalent on the savings pill"
+          ],
+          "weaknesses": [
+            "depends on LMStudio being reachable at the configured host",
+            "weaker on cross-codebase reasoning than cloud peers"
+          ],
+          "verifiedAt": "2026-04-26"
+        }
+      ]
+    },
     "lmstudio": {
       "label": "Local (LMStudio)",
       "vendor": "local",

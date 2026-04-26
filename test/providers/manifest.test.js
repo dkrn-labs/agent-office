@@ -34,7 +34,7 @@ describe('ProviderAdapter manifest', () => {
 
   it('listProvidersForUi shape matches legacy listLaunchProviders', () => {
     const list = listProvidersForUi();
-    assert.equal(list.length, 3);
+    assert.equal(list.length, 4);
     for (const p of list) {
       assert.equal(typeof p.id, 'string');
       assert.equal(typeof p.label, 'string');
