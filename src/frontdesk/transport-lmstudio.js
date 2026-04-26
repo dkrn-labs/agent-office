@@ -1,5 +1,6 @@
 import { buildPrompt } from './prompt.js';
 import { validateAndFallback, buildFallbackProposal } from './llm.js';
+import { createLmStudioBridge, LmStudioError } from '../providers/lmstudio-bridge.js';
 
 /**
  * Strict JSON Schema constraint passed to LMStudio's
@@ -76,51 +77,28 @@ export async function runLmstudio({ host, model, state, task, candidates, maxTok
   const built = buildPrompt({ state, task, candidates });
   const messages = renderForOpenAI(built);
 
-  const body = {
-    model,
-    temperature: 0,
-    max_tokens: maxTokens,
-    response_format: {
-      type: 'json_schema',
-      json_schema: { name: 'frontdesk_proposal', strict: true, schema: JSON_SCHEMA },
-    },
-    messages,
-  };
-
-  let response;
-  try {
-    response = await fetch(`${host}/v1/chat/completions`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-  } catch (err) {
-    return {
-      proposal: buildFallbackProposal({ candidates, fallback: 'error', errorMessage: err?.message }),
-      meta: { usedLLM: true, transport: 'lmstudio', fallback: 'error', errorMessage: err?.message ?? String(err) },
-    };
-  }
-
-  if (!response.ok) {
-    const detail = await response.text().catch(() => '');
-    return {
-      proposal: buildFallbackProposal({ candidates, fallback: 'error', errorMessage: `HTTP ${response.status}` }),
-      meta: {
-        usedLLM: true,
-        transport: 'lmstudio',
-        fallback: 'error',
-        errorMessage: `HTTP ${response.status}${detail ? `: ${detail.slice(0, 200)}` : ''}`,
-      },
-    };
-  }
+  // Frontdesk shouldn't use the cached health probe — every routing
+  // call wants a fresh completion. We construct the bridge per-call;
+  // it's a thin object with no I/O of its own at construction time.
+  const bridge = createLmStudioBridge({ host });
 
   let payload;
   try {
-    payload = await response.json();
+    payload = await bridge.complete({
+      model,
+      messages,
+      maxTokens,
+      temperature: 0,
+      responseFormat: {
+        type: 'json_schema',
+        json_schema: { name: 'frontdesk_proposal', strict: true, schema: JSON_SCHEMA },
+      },
+    });
   } catch (err) {
+    const msg = err instanceof LmStudioError ? err.message : err?.message ?? String(err);
     return {
-      proposal: buildFallbackProposal({ candidates, fallback: 'error', errorMessage: 'invalid JSON in response body' }),
-      meta: { usedLLM: true, transport: 'lmstudio', fallback: 'error', errorMessage: err?.message ?? String(err) },
+      proposal: buildFallbackProposal({ candidates, fallback: 'error', errorMessage: msg }),
+      meta: { usedLLM: true, transport: 'lmstudio', fallback: 'error', errorMessage: msg },
     };
   }
 
