@@ -1,9 +1,14 @@
 /**
- * Gemini CLI provider adapter — minimal P1 implementation.
+ * Gemini CLI provider adapter — full contract (P3-3).
  *
- * Full migration (parseTranscript, telemetry sample, hook installer
- * delegation) lands in P3-2.
+ * Same shape as the codex migration. parseTranscript reads a single
+ * gemini session-*.json (the watcher already knows how to enumerate
+ * project dirs; this method is the recovery path / single-file probe).
  */
+
+import { existsSync, readFileSync } from 'node:fs';
+import { ensureGeminiHook } from './hook-installer.js';
+import { parseGeminiSession } from '../telemetry/gemini-watcher.js';
 
 /** @type {import('./types.js').ProviderAdapter} */
 const geminiCliAdapter = {
@@ -27,10 +32,6 @@ const geminiCliAdapter = {
     { id: 'gemini-2.5-flash-lite', tier: 'small', contextWindow: 1_000_000, costInPer1k: 0.0001, costOutPer1k: 0.0004 },
   ],
 
-  /**
-   * Gemini interactive mode takes the prompt via `--prompt-interactive`.
-   * Same `$PROMPT` substitution convention as the other adapters.
-   */
   spawn(ctx) {
     const model = ctx.model?.trim() || geminiCliAdapter.defaultModel;
     const env = { ...ctx.extraEnv };
@@ -53,6 +54,47 @@ const geminiCliAdapter = {
       (usage.input / 1000) * entry.costInPer1k +
       (usage.output / 1000) * entry.costOutPer1k;
     return { dollars };
+  },
+
+  async installHook(opts = {}) {
+    return ensureGeminiHook(opts);
+  },
+
+  /**
+   * Parse a single gemini session-*.json transcript. Returns one summary
+   * event in the same shape the watcher emits via tracker.updateAbsolute.
+   *
+   * @param {string} transcriptPath
+   * @returns {Array<object>}
+   */
+  parseTranscript(transcriptPath) {
+    if (!transcriptPath || !existsSync(transcriptPath)) return [];
+    try {
+      // Validate the file is parseable before we delegate.
+      JSON.parse(readFileSync(transcriptPath, 'utf8'));
+    } catch {
+      return [];
+    }
+    const session = parseGeminiSession(transcriptPath);
+    if (!session?.providerSessionId) return [];
+    return [{ providerId: 'gemini-cli', ...session }];
+  },
+
+  telemetry: {
+    sample(sessionId, { repo } = {}) {
+      if (!repo || typeof repo.getLaunchBudgetForSession !== 'function') return null;
+      const row = repo.getLaunchBudgetForSession(sessionId);
+      if (!row) return null;
+      return {
+        inputTokens: row.tokensInOptimized ?? row.tokensIn ?? 0,
+        outputTokens: row.tokensOutOptimized ?? row.tokensOut ?? 0,
+        costDollars: row.costDollars ?? 0,
+      };
+    },
+  },
+
+  async quota() {
+    return null;
   },
 };
 

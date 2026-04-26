@@ -13,6 +13,8 @@ import { createEventBus } from '../src/core/event-bus.js';
 import { createApp } from '../src/api/server.js';
 import { createWsHub } from '../src/api/ws-hub.js';
 import { discoverCapabilities } from '../src/providers/capability-registry.js';
+import { listAdapters } from '../src/providers/manifest.js';
+import { installHooksForAdapters } from '../src/providers/install-hooks-on-boot.js';
 import { createLogger } from '../src/core/logger.js';
 import { scanDirectory } from '../src/skills/project-scanner.js';
 import { createPersonaRegistry } from '../src/agents/persona-registry.js';
@@ -178,6 +180,16 @@ program
       providerCapabilities = await discoverCapabilities({ dataDir, packageDir });
     } catch (err) {
       log.warn('Provider capability discovery failed; proceeding with empty registry', { error: err.message });
+    }
+
+    // P3-4 — install per-provider post-session hooks at boot. Idempotent;
+    // each adapter's installHook returns { changed: false, reason: 'already
+    // installed' } on repeat runs. Failures are logged, not thrown — a
+    // missing CLI shouldn't crash boot.
+    try {
+      await installHooksForAdapters(listAdapters(), { log });
+    } catch (err) {
+      log.warn('Hook install pass failed', { error: err.message });
     }
 
     // Create Fastify app
