@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { healthRoutes } from './routes/health.js';
+import { metricsRoutes } from './routes/metrics.js';
 import { projectRoutes } from './routes/projects.js';
 import { portfolioRoutes } from './routes/portfolio.js';
 import { configRoutes } from './routes/config.js';
@@ -450,7 +451,53 @@ export function createApp({
 
   // Register all route plugins. Order doesn't matter functionally for Fastify
   // but matches the previous Express mount order for diff reviewers.
-  app.register(healthRoutes());
+  app.register(healthRoutes({
+    pingDb: () => {
+      try { return repo?.db?.prepare?.('SELECT 1').get() != null; }
+      catch { return false; }
+    },
+    dataDir: configDir,
+  }), { prefix: '/api/_health' });
+  app.register(metricsRoutes({
+    countLiveSessions: () => {
+      const live = aggregator?.snapshot?.()?.length ?? 0;
+      const byProvider = {};
+      for (const s of (aggregator?.snapshot?.() ?? [])) {
+        byProvider[s.providerId ?? 'unknown'] = (byProvider[s.providerId ?? 'unknown'] ?? 0) + 1;
+      }
+      return { live, byProvider };
+    },
+    countFrontdeskDecisions: () => {
+      // Placeholder until repo helper lands in P5-D1 — count is best-effort.
+      const today = typeof repo?.countFrontdeskDecisionsToday === 'function'
+        ? repo.countFrontdeskDecisionsToday() : 0;
+      const fallbackRate7d = typeof repo?.frontdeskFallbackRate7d === 'function'
+        ? repo.frontdeskFallbackRate7d() : 0;
+      return { today, fallbackRate7d };
+    },
+    rollupSavingsToday: () => {
+      try {
+        const sinceEpoch = Math.floor(new Date(new Date().toDateString()).getTime() / 1000);
+        const rows = repo?.listLaunchBudgetsSince?.(sinceEpoch) ?? [];
+        const savedDollarsToday = rows.reduce((acc, r) => acc + Number(r.cloudEquivalentDollars ?? 0), 0);
+        const sevenDaysAgo = Math.floor(Date.now() / 1000) - 7 * 24 * 3600;
+        const rows7d = repo?.listLaunchBudgetsSince?.(sevenDaysAgo) ?? [];
+        const savedTokens7d = rows7d.reduce((acc, r) => acc + Math.max(0, (r.baselineTokens ?? 0) - (r.optimizedTokens ?? 0)), 0);
+        return { savedDollarsToday, savedTokens7d };
+      } catch { return { savedDollarsToday: 0, savedTokens7d: 0 }; }
+    },
+    abtopState: () => {
+      const b = app.locals.abtopBridge;
+      if (!b) return { reachable: false, lastTickEpoch: null };
+      const snap = b.snapshot?.();
+      return { reachable: !!snap, lastTickEpoch: snap ? Math.floor(Date.now() / 1000) : null };
+    },
+    watcherStats: () => ({
+      claude: { sessionsTracked: watcher?.snapshot?.().length ?? 0 },
+      codex: { sessionsTracked: 0 },
+      gemini: { sessionsTracked: 0 },
+    }),
+  }), { prefix: '/api/_metrics' });
   app.register(projectRoutes(repo, db, projectSync));
   app.register(portfolioRoutes(portfolioStats));
   app.register(configRoutes(configDir));

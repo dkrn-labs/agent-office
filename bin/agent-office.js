@@ -163,6 +163,18 @@ program
     const settings = loadSettings(dataDir);
     const port = opts.port ?? settings.core?.port ?? config.port ?? 3333;
 
+    // P5-A4 — warn once if stdout is redirected to a growing file. We
+    // don't rotate ourselves; this is the only nudge to a user who
+    // teed our output into a file that will balloon.
+    try {
+      const stdoutFd = 1;
+      const fsModule = await import('node:fs');
+      const stat = fsModule.fstatSync(stdoutFd);
+      if (stat.isFile() && stat.size > 10 * 1024 * 1024 && !process.env.LOG_ROTATE_PATH) {
+        log.warn('stdout is a regular file >10MB without LOG_ROTATE_PATH set; consider docker logs or piping into rotatelogs', { sizeMB: Math.round(stat.size / 1024 / 1024) });
+      }
+    } catch { /* not all environments allow fstat on stdout */ }
+
     // Open DB and run migrations
     const dbPath = join(dataDir, 'agent-office.db');
     const db = openDatabase(dbPath);

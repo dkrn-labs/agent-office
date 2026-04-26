@@ -1769,6 +1769,11 @@ export function createRepository(db) {
   // ── Public API ───────────────────────────────────────────────────────────────
 
   return {
+    // P5-A1 — expose the underlying handle so the /_health route can
+    // `SELECT 1`. Treat as read-only — direct callers shouldn't bypass
+    // the repository's transactional helpers.
+    db,
+
     // Projects
     createProject,
     getProject,
