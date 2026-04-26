@@ -914,6 +914,79 @@ export function createRepository(db) {
     return launchBudgetStmts.listSince.all({ since: Number(sinceEpoch) || 0 }).map(rowToLaunchBudget);
   }
 
+  // ── Frontdesk decisions ───────────────────────────────────────────────────────
+
+  const frontdeskDecisionStmts = {
+    insert: db.prepare(`
+      INSERT INTO frontdesk_decision (
+        task_hash, rules_applied, llm_input, llm_output,
+        user_accepted, outcome, created_at_epoch
+      ) VALUES (
+        @taskHash, @rulesApplied, @llmInput, @llmOutput,
+        @userAccepted, @outcome, @createdAtEpoch
+      )
+    `),
+    listAll: db.prepare(`
+      SELECT id, task_hash, rules_applied, llm_input, llm_output,
+             user_accepted, outcome, created_at_epoch
+        FROM frontdesk_decision
+       ORDER BY created_at_epoch DESC
+       LIMIT @limit
+    `),
+    listByOutcome: db.prepare(`
+      SELECT id, task_hash, rules_applied, llm_input, llm_output,
+             user_accepted, outcome, created_at_epoch
+        FROM frontdesk_decision
+       WHERE outcome = @outcome
+       ORDER BY created_at_epoch DESC
+       LIMIT @limit
+    `),
+  };
+
+  function rowToFrontdeskDecision(row) {
+    if (!row) return null;
+    return {
+      id: row.id,
+      taskHash: row.task_hash,
+      rulesApplied: parseJson(row.rules_applied, []),
+      llmInput: parseJson(row.llm_input, null),
+      llmOutput: parseJson(row.llm_output, null),
+      userAccepted: parseJson(row.user_accepted, null),
+      outcome: row.outcome ?? null,
+      createdAtEpoch: row.created_at_epoch,
+    };
+  }
+
+  function recordFrontdeskDecision({
+    taskHash,
+    rulesApplied = [],
+    llmInput = null,
+    llmOutput = null,
+    userAccepted = null,
+    outcome = null,
+    createdAtEpoch,
+  }) {
+    if (!taskHash) throw new Error('taskHash is required');
+    const result = frontdeskDecisionStmts.insert.run({
+      taskHash,
+      rulesApplied: toJson(rulesApplied),
+      llmInput: toJson(llmInput),
+      llmOutput: toJson(llmOutput),
+      userAccepted: userAccepted == null ? null : toJson(userAccepted),
+      outcome: outcome ?? null,
+      createdAtEpoch: Number(createdAtEpoch) || Math.floor(Date.now() / 1000),
+    });
+    return Number(result.lastInsertRowid);
+  }
+
+  function listFrontdeskDecisions({ limit = 50, outcome = null } = {}) {
+    const params = { limit: Number(limit) || 50 };
+    const rows = outcome
+      ? frontdeskDecisionStmts.listByOutcome.all({ ...params, outcome })
+      : frontdeskDecisionStmts.listAll.all(params);
+    return rows.map(rowToFrontdeskDecision);
+  }
+
   const historySummaryStmts = {
     insert: db.prepare(`
       INSERT INTO history_summary (
@@ -1754,6 +1827,8 @@ export function createRepository(db) {
     upsertLaunchBudget,
     setLaunchBudgetOutcome,
     listLaunchBudgetsSince,
+    recordFrontdeskDecision,
+    listFrontdeskDecisions,
     createHistorySummary,
     listHistorySummaries,
     createHistoryObservation,
