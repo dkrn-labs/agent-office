@@ -185,6 +185,20 @@ export function buildProviderCatalogBlock(candidateProviders = [], providerCapab
     if (Array.isArray(defaultModel?.weaknesses) && defaultModel.weaknesses.length) {
       lines.push(`  weaknesses: ${defaultModel.weaknesses.join('; ')}`);
     }
+    // Surface benchmark numbers as a bulleted list. The router model
+    // anchors on numbers when present; cross-vendor comparison only works
+    // when each vendor has the same benchmark surfaced.
+    const benchParts = [];
+    if (typeof defaultModel?.swebenchVerified === 'number') {
+      benchParts.push(`SWE-bench Verified ${(defaultModel.swebenchVerified * 100).toFixed(1)}%`);
+    }
+    if (typeof defaultModel?.swebenchPro === 'number') {
+      benchParts.push(`SWE-bench Pro ${(defaultModel.swebenchPro * 100).toFixed(1)}%`);
+    }
+    if (typeof defaultModel?.terminalBench2 === 'number') {
+      benchParts.push(`Terminal-Bench 2.0 ${(defaultModel.terminalBench2 * 100).toFixed(1)}%`);
+    }
+    if (benchParts.length) lines.push(`  benchmarks: ${benchParts.join(', ')}`);
   }
   return lines.join('\n');
 }

@@ -22,6 +22,7 @@
           ],
           "weaknesses": ["highest cost"],
           "swebenchVerified": 0.876,
+          "swebenchPro": 0.643,
           "verifiedAt": "2026-04-26",
           "source": "https://www.vellum.ai/blog/claude-opus-4-7-benchmarks-explained"
         }
@@ -39,11 +40,16 @@
           "default": true,
           "costTier": "$$",
           "strengths": [
-            "tight-loop iterative coding",
-            "documents, spreadsheets, slide generation",
-            "knowledge work and research workflows",
-            "token-efficient (fewer tokens for similar results)"
+            "implementation, refactors, debugging, testing, validation",
+            "Terminal-Bench 2.0 state of the art (82.7%) — best at terminal/CLI workflows",
+            "agentic coding and computer use (rank #2 of 112 on agentic tool use)",
+            "holding context across large systems",
+            "reasoning through ambiguous failures and checking assumptions with tools",
+            "token-efficient (better results with fewer tokens than GPT-5.4)",
+            "knowledge work: documents, spreadsheets, slides (bonus, non-coding)"
           ],
+          "terminalBench2": 0.827,
+          "swebenchPro": 0.586,
           "verifiedAt": "2026-04-26",
           "source": "https://openai.com/index/introducing-gpt-5-5/"
         }
