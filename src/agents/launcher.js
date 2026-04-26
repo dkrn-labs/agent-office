@@ -217,6 +217,7 @@ export function createLauncher({
   watcher = null,
   skillRoots = [],
   getQuotaForProvider = null,
+  abtopSnapshot = null,
 } = {}) {
   const memoryEngine = memoryEngineOpt ?? createMemoryEngine(repo);
 
@@ -454,14 +455,14 @@ export function createLauncher({
     });
 
     if (!dryRun) {
-      // Preflight quota check — STUB until P4 wires real abtop-bridge
-      // signals. Today this is essentially a no-op (returns ok:true) but
-      // the call site is wired so the production check is a drop-in
-      // replacement. See src/agents/preflight-quota.js.
+      // Preflight quota check — P4-A — uses the abtop-bridge snapshot
+      // when available, falls through to the legacy getQuotaForProvider
+      // otherwise. See src/agents/preflight-quota.js.
       const preflight = await checkQuotaBeforeSpawn({
         providerId: ctx.providerId,
         repo,
         getQuotaForProvider,
+        abtopSnapshot,
       });
       if (!preflight.ok) {
         const err = new Error(`[launcher] preflight quota check failed: ${preflight.reason}`);

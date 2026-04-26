@@ -1,0 +1,5 @@
+abtop — 1 session
+
+  12345 my-project(abc1234)  Refactor the auth module ⚠ RateLimit opus-4-7   CTX: 88% Tok:512.8M Mem:611M 2h 14m
+       └─ rate limit: resets in 14m
+       12399 npm exec @upstash/context7-mcp 0K

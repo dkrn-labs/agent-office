@@ -1,9 +1,22 @@
 # Issue #0002 — Preflight quota check before agent spawn (stub today, real check in P4)
 
-**Status:** Stub merged — production implementation deferred
+**Status:** Closed — real signal landed via abtop-bridge in P4-A5 (2026-04-26)
 **Opened:** 2026-04-26
+**Closed:** 2026-04-26
 **Severity:** Medium
 **Area:** `src/agents/preflight-quota.js`, `src/agents/launcher.js`
+
+## Resolution (2026-04-26)
+
+P4-A5 wired `abtopSnapshot` into `checkQuotaBeforeSpawn`. When the
+abtop-bridge is running, the preflight check reads `ctxPct` and
+`status` from the most-recent matching session and rejects on
+`ctxPct >= 0.99` or `status === 'rate-limited'`. Legacy
+`getQuotaForProvider` path stays as the fallback when no abtop
+snapshot is available. Tests under `test/agents/preflight-quota.test.js`
+"P4-A — abtop snapshot path".
+
+---
 
 ## Summary
 

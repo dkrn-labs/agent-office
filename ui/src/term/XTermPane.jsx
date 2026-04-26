@@ -2,7 +2,9 @@ import { useEffect, useRef } from 'react';
 import { Terminal } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import { WebLinksAddon } from 'xterm-addon-web-links';
+import { ImageAddon } from 'xterm-addon-image';
 import 'xterm/css/xterm.css';
+import { installClipboardImagePaste, blobToBase64 } from '../lib/clipboard-image-paste.js';
 
 /**
  * Real xterm.js pane bound to a node-pty session over WebSocket.
@@ -36,9 +38,46 @@ export default function XTermPane({ ptyId }) {
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.loadAddon(new WebLinksAddon());
+    // P4-B2 — inline image OUTPUT (SIXEL + iTerm protocol). Image
+    // *input* (clipboard paste) is handled by installClipboardImagePaste
+    // below.
+    term.loadAddon(new ImageAddon());
 
     term.open(containerRef.current);
     fit.fit();
+
+    // P4-B4 — clipboard image paste end-to-end:
+    //   1. Browser paste handler picks up the image blob.
+    //   2. POST to /api/paste/image saves it under ~/.agent-office/paste/<uuid>.<ext>.
+    //   3. The returned absolute path is "typed" at the cursor as a string,
+    //      so Claude Code / Codex can attach it natively from the prompt.
+    const pasteDispose = installClipboardImagePaste(containerRef.current, {
+      onImage: async (blob, mime) => {
+        try {
+          const dataBase64 = await blobToBase64(blob);
+          const proto = window.location.protocol === 'https:' ? 'https' : 'http';
+          const host = window.location.hostname;
+          const apiPort = window.location.port === '5174' || window.location.port === '5173' ? '3334' : window.location.port;
+          const res = await fetch(`${proto}://${host}:${apiPort}/api/paste/image`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ mime, dataBase64 }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            term.write(`\r\n\x1b[31m[paste: ${err.error ?? `HTTP ${res.status}`}]\x1b[0m\r\n`);
+            return;
+          }
+          const { data } = await res.json();
+          // Type the path at the cursor (with trailing space) so the CLI
+          // sees it like the user typed it. paste() preserves bracketed-
+          // paste semantics where the terminal supports them.
+          term.paste(`${data.path} `);
+        } catch (err) {
+          term.write(`\r\n\x1b[31m[paste failed: ${err?.message ?? err}]\x1b[0m\r\n`);
+        }
+      },
+    });
 
     termRef.current = term;
     fitRef.current = fit;
@@ -93,6 +132,7 @@ export default function XTermPane({ ptyId }) {
       window.removeEventListener('resize', onWindowResize);
       dataDispose.dispose();
       resizeDispose.dispose();
+      try { pasteDispose(); } catch {}
       try { ws.close(); } catch {}
       try { term.dispose(); } catch {}
       termRef.current = null;

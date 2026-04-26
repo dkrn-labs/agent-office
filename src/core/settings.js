@@ -41,6 +41,15 @@ export function getDefaultSettings() {
         lmstudioHost: 'http://localhost:1234',
       },
     },
+    abtop: {
+      // P4-A — when enabled and the binary is on PATH, the bridge polls
+      // `abtop --once` for live per-session telemetry (CTX %, tokens,
+      // child processes, rate-limit indicator). Powers the drawer
+      // timeline panel and the real preflight quota check.
+      enabled: true,
+      binPath: 'abtop',
+      pollMs: 3000,
+    },
     frontdesk: {
       // P1 ships rules-only routing. P2 flips enabled to true and wires
       // src/frontdesk/llm.js as a second-stage reasoner.

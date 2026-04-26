@@ -1,0 +1,29 @@
+abtop — 2 sessions
+
+  54601 agent-office(90288a9) (no response) ◌ Wait opus-4-7   CTX:  2% Tok:222.2M Mem:498M 6h 16m
+       └─ Bash mkdir -p /Users/dehakuran/Projects/agen…
+       54619 npm exec @playwright/mcp@latest 0K 
+       54696 node /Users/dehakuran/.npm/_npx/9833c18b2d85bc59/node_modules/.bin/playwright-mcp 0K 
+       54616 npm exec firebase-tools@latest 0K 
+       54736 node /Users/dehakuran/.npm/_npx/ba4f1959e38407b5/node_modules/.bin/firebase mcp 0K 
+       22860 caffeinate -i -t 2K 
+       23628 /bin/zsh -c source 2K 
+       23631 abtop --once 3K 
+       23655 ps -ww -eo 1K 
+       54615 npm exec @upstash/context7-mcp 0K 
+       54677 node /Users/dehakuran/.npm/_npx/eea2bd7412d4593b/node_modules/.bin/context7-mcp 0K 
+  29026 lens(48aa072)        Check Pending Pull Requests ◌ Wait opus-4-7   CTX: 34% Tok:80.5M Mem:404M 16h 41m
+       └─ waiting for input
+       29080 npm exec @playwright/mcp@latest 0K 
+       29124 node /Users/dehakuran/.npm/_npx/9833c18b2d85bc59/node_modules/.bin/playwright-mcp 0K 
+       12533 /bin/zsh -c source 1K 
+       12535 docker run --rm 24K 
+       29175 npm exec @stripe/mcp 0K 
+       29265 node /Users/dehakuran/.npm/_npx/bce731a0395adf49/node_modules/.bin/mcp --api-key=sk_test_FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE 0K
+       29076 npm exec @upstash/context7-mcp 0K 
+       29143 node /Users/dehakuran/.npm/_npx/eea2bd7412d4593b/node_modules/.bin/context7-mcp 0K 
+       29077 npm exec firebase-tools@latest 0K 
+       29162 node /Users/dehakuran/.npm/_npx/ba4f1959e38407b5/node_modules/.bin/firebase mcp 0K 
+       12649 /bin/zsh -c source 2K 
+       12652 ugrep -G --ignore-files 5K 
+       12651 tail -f /private/tmp/claude-501/-Users-dehakuran-Projects-lens/48aa0721-1fc4-481a-ad2b-473fa69b0998/tasks/b4zjrsgzv.output 1K 

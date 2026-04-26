@@ -30,6 +30,8 @@ import { createPortfolioStatsService } from '../stats/portfolio-stats.js';
 import { createProjectHistoryStore } from '../history/project-history.js';
 import { historyRoutes } from './routes/history.js';
 import { savingsRoutes } from './routes/savings.js';
+import { abtopRoutes } from './routes/abtop.js';
+import { pasteRoutes } from './routes/paste.js';
 import { frontdeskRoutes } from './routes/frontdesk.js';
 import { createDecisionLog } from '../frontdesk/decision-log.js';
 import { createRunLLM } from '../frontdesk/llm.js';
@@ -77,12 +79,15 @@ export function createApp({
   frontdeskLLM,    // P2 — optional ({ state, task, candidates }) => { proposal, meta }
   providerCapabilities,   // P2 Task 11 — optional pre-discovered snapshot (tests inject)
   getLocalBackendHealthy, // P3-7 — optional async () => boolean for R7 routing decisions
+  abtopBridge,             // P4-A — optional createAbtopBridge() instance for live telemetry
 }) {
   // Tests construct createApp without going through bin/agent-office.js
   // so they don't pass `settings`. Falling back to defaults keeps every
   // settings consumer below (frontdesk, savings cap, etc.) working.
   const effectiveSettings = settings ?? getDefaultSettings();
-  const app = Fastify({ logger: false });
+  // bodyLimit raised to fit base64-encoded clipboard images (P4-B1).
+  // The /api/paste/image route enforces a stricter 10MB-after-decode cap.
+  const app = Fastify({ logger: false, bodyLimit: 32 * 1024 * 1024 });
 
   // Test/back-compat shim — code (and tests) read `app.locals.launcher` etc.
   // Kept as a plain object so callers can mutate it like Express's locals.
@@ -176,6 +181,8 @@ export function createApp({
     projectHistory,
     watcher,
     skillRoots: config.skillRoots,
+    // P4-A — preflight quota reads from abtop-bridge when wired.
+    abtopSnapshot: () => app.locals.abtopBridge?.snapshot() ?? null,
   });
   const aggregator = createAggregator({ repo, claudeMem, bus, watcher });
   const portfolioStats = createPortfolioStatsService({ repo, projectsDir: config.projectsDir });
@@ -454,6 +461,16 @@ export function createApp({
   app.register(memoryRoutes(memoryEngine, repo, importFromClaudeProjects, db));
   app.register(historyRoutes(projectHistory, { repo }));
   app.register(savingsRoutes({ repo }), { prefix: '/api/savings' });
+  app.locals.abtopBridge = abtopBridge ?? null;
+  app.register(abtopRoutes({ getBridge: () => app.locals.abtopBridge }), { prefix: '/api/abtop' });
+  app.register(pasteRoutes({ dataDir: configDir }), { prefix: '/api/paste' });
+
+  // P4-A — fan abtop ticks onto the existing ws-bus so the dashboard
+  // drawer can render per-call timeline bars without polling.
+  if (abtopBridge && typeof abtopBridge.on === 'function' && bus && typeof bus.emit === 'function') {
+    abtopBridge.on('session:detail:tick', (sample) => bus.emit('session:detail:tick', sample));
+    abtopBridge.on('session:detail:gone', (sample) => bus.emit('session:detail:gone', sample));
+  }
   app.register(ptyRoutes({ ptyHost }), { prefix: '/api/pty' });
   app.register(quotaRoutes());
   // P2 — decision log writer. Always wired; no-ops gracefully if the

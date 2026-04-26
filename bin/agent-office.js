@@ -16,6 +16,7 @@ import { discoverCapabilities } from '../src/providers/capability-registry.js';
 import { listAdapters } from '../src/providers/manifest.js';
 import { installHooksForAdapters } from '../src/providers/install-hooks-on-boot.js';
 import { createLmStudioBridge } from '../src/providers/lmstudio-bridge.js';
+import { createAbtopBridge } from '../src/telemetry/abtop-bridge.js';
 import { createLogger } from '../src/core/logger.js';
 import { scanDirectory } from '../src/skills/project-scanner.js';
 import { createPersonaRegistry } from '../src/agents/persona-registry.js';
@@ -204,6 +205,21 @@ program
       getLocalBackendHealthy = async () => (await bridge.healthCheck()).ok === true;
     }
 
+    // P4-A — abtop bridge: when settings allow and abtop is on PATH,
+    // poll `abtop --once` for live per-session telemetry. Started before
+    // createApp so app.locals.abtopBridge is populated at boot.
+    let abtopBridge = null;
+    const abtopEnabled = settings.abtop?.enabled !== false;
+    if (abtopEnabled && commandOnPath(settings.abtop?.binPath ?? 'abtop')) {
+      abtopBridge = createAbtopBridge({
+        binPath: settings.abtop?.binPath ?? 'abtop',
+        pollMs: settings.abtop?.pollMs ?? 3000,
+        log,
+      });
+      try { await abtopBridge.start(); }
+      catch (err) { log.warn('abtop bridge start failed', { error: err.message }); abtopBridge = null; }
+    }
+
     // Create Fastify app
     const app = createApp({
       repo,
@@ -216,6 +232,7 @@ program
       settings,
       providerCapabilities,
       getLocalBackendHealthy,
+      abtopBridge,
     });
 
     // Wait for plugins to register so app.server has Fastify's request
@@ -301,6 +318,7 @@ program
       ['Claude CLI on PATH', commandOnPath('claude'), 'claude'],
       ['Codex CLI on PATH', commandOnPath('codex'), 'codex'],
       ['Gemini CLI on PATH', commandOnPath('gemini'), 'gemini'],
+      ['abtop on PATH (live telemetry)', commandOnPath('abtop'), 'abtop'],
     ];
 
     console.log('agent-office doctor\n');
@@ -375,6 +393,13 @@ providers
       }
     }
     console.log(`\nlast verified: ${caps.lastVerifiedAt ?? 'unknown'}`);
+
+    // P4-C1 — abtop bridge status footer.
+    const abtopOnPath = commandOnPath('abtop');
+    const abtopFooter = abtopOnPath
+      ? 'abtop bridge: ✓ available (live telemetry will run when agent-office starts)'
+      : 'abtop bridge: ✗ not installed (drawer timeline + real preflight quota disabled)';
+    console.log(abtopFooter);
   });
 
 providers
