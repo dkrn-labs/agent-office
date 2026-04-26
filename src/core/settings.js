@@ -81,6 +81,16 @@ export function getDefaultSettings() {
           model: 'google/gemma-4-e4b',
           contextLength: 8192,
         },
+        // P5-D — few-shot block in the cached system prefix sampled
+        // from accepted decisions in the rolling window. Cold-start
+        // safe: when fewer than minSampleSize exist, the block is
+        // skipped entirely.
+        fewShot: {
+          enabled: true,
+          windowHours: 168,    // 7 days
+          count: 5,
+          minSampleSize: 3,
+        },
       },
     },
   };

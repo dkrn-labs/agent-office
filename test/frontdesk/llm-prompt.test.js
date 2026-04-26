@@ -230,4 +230,49 @@ describe('frontdesk prompt builder', () => {
     assert.ok(out.system.length >= 3);
     assert.equal(out.messages.length, 1);
   });
+
+  describe('P5-D — few-shot block', () => {
+    function decision(task, persona, provider, reasoning) {
+      return {
+        taskHash: 'h', rulesApplied: ['B'],
+        llmInput: { task },
+        llmOutput: { persona, provider, reasoning },
+        outcome: 'accepted',
+        createdAtEpoch: 1_700_000_000,
+      };
+    }
+
+    it('omits the block when state.recentAcceptedDecisions is empty', () => {
+      const out = buildPrompt({ state: fixtureState(), task: 't', candidates: fixtureCandidates() });
+      const flat = JSON.stringify(out.system);
+      assert.ok(!/Recent picks the operator accepted/.test(flat));
+    });
+
+    it('inserts the block when decisions are present', () => {
+      const state = {
+        ...fixtureState(),
+        recentAcceptedDecisions: [
+          decision('fix login crash', 'Debug', 'claude-code', 'bug verbs → debug'),
+          decision('rename foo to bar', 'Backend', 'lmstudio', 'mechanical → local free'),
+          decision('refactor payment module', 'Backend', 'claude-code', 'long-running → cloud'),
+        ],
+      };
+      const out = buildPrompt({ state, task: 't', candidates: fixtureCandidates() });
+      const flat = JSON.stringify(out.system);
+      assert.match(flat, /Recent picks the operator accepted/);
+      assert.match(flat, /Task: fix login crash/);
+      assert.match(flat, /Pick: persona=Debug, provider=claude-code/);
+    });
+
+    it('marks the few-shot block with cache_control: ephemeral', () => {
+      const state = {
+        ...fixtureState(),
+        recentAcceptedDecisions: [decision('t', 'Backend', 'claude-code', 'r')],
+      };
+      const out = buildPrompt({ state, task: 't', candidates: fixtureCandidates() });
+      const fewShotBlock = out.system.find((b) => /Recent picks/.test(b.text ?? ''));
+      assert.ok(fewShotBlock);
+      assert.equal(fewShotBlock.cache_control?.type, 'ephemeral');
+    });
+  });
 });

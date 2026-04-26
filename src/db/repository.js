@@ -987,6 +987,32 @@ export function createRepository(db) {
     return rows.map(rowToFrontdeskDecision);
   }
 
+  // P5-D — for the frontdesk learning loop's few-shot block. Returns
+  // the most recent N decisions with a positive outcome (accepted or
+  // partial — rejected is anti-signal, excluded) within the time
+  // window. Cold-start safe: empty result is handled by the prompt
+  // builder via minSampleSize.
+  const listRecentAcceptedStmt = db.prepare(`
+    SELECT id, task_hash, rules_applied, llm_input, llm_output,
+           user_accepted, outcome, created_at_epoch
+      FROM frontdesk_decision
+     WHERE outcome IN ('accepted', 'partial')
+       AND created_at_epoch >= @sinceEpoch
+     ORDER BY created_at_epoch DESC
+     LIMIT @limit
+  `);
+
+  function listRecentAcceptedDecisions({ sinceEpoch, limit = 5 } = {}) {
+    const since = Number(sinceEpoch);
+    if (!Number.isFinite(since)) {
+      throw new Error('listRecentAcceptedDecisions: sinceEpoch must be a number');
+    }
+    return listRecentAcceptedStmt.all({
+      sinceEpoch: since,
+      limit: Number(limit) || 5,
+    }).map(rowToFrontdeskDecision);
+  }
+
   const historySummaryStmts = {
     insert: db.prepare(`
       INSERT INTO history_summary (
@@ -1870,6 +1896,7 @@ export function createRepository(db) {
     setLaunchBudgetOutcome,
     listLaunchBudgetsSince,
     recordFrontdeskDecision,
+    listRecentAcceptedDecisions,
     listFrontdeskDecisions,
     createHistorySummary,
     listHistorySummaries,

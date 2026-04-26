@@ -119,6 +119,25 @@ export async function route({ repo, getActiveSessions, getQuotaForProvider, pref
     try { state.providerCapabilities = getProviderCapabilities(); } catch { state.providerCapabilities = null; }
   }
 
+  // P5-D — feed accepted decisions from the last N hours into the
+  // prompt builder's few-shot block. Cold-start guarded by
+  // minSampleSize: when fewer than the floor exist, don't emit the
+  // block at all (the prompt builder also no-ops on empty input).
+  const fewShotCfg = prefs?.frontdesk?.llm?.fewShot ?? {};
+  const fewShotEnabled = fewShotCfg.enabled !== false;
+  if (fewShotEnabled && typeof repo?.listRecentAcceptedDecisions === 'function') {
+    try {
+      const windowHours = Number(fewShotCfg.windowHours) || 168;
+      const count = Number(fewShotCfg.count) || 5;
+      const minSample = Number(fewShotCfg.minSampleSize) || 3;
+      const sinceEpoch = Math.floor(Date.now() / 1000) - windowHours * 3600;
+      const decisions = repo.listRecentAcceptedDecisions({ sinceEpoch, limit: count });
+      if (decisions.length >= minSample) {
+        state.recentAcceptedDecisions = decisions;
+      }
+    } catch { /* don't let a query failure break routing */ }
+  }
+
   // First-of-each-set pick — used both for the rules-only response and
   // as the implicit fallback shape if the LLM stage is off.
   const rulesPick = candidates.constraints?.blockedReason

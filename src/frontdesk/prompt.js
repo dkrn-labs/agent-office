@@ -21,6 +21,8 @@
  * stay in the user turn — embedding it in `system` would defeat caching.
  */
 
+import { buildFewShotBlock } from './few-shot.js';
+
 const SYSTEM_TEXT = [
   'You are the frontdesk for an agent office. You receive a task description, a set of candidate personas and providers (already filtered by deterministic rules), and the rule trace that produced them. Your job is to pick the best persona, provider, model, and supporting context for this specific task.',
   '',
@@ -218,6 +220,13 @@ export function buildPrompt({ state, task, candidates }) {
   );
   const ruleSummary = buildRuleChainSummary(candidates?.rulesApplied ?? []);
 
+  // P5-D — few-shot block from accepted decisions in the last N days.
+  // Only inserted when the runner provides decisions AND the count
+  // clears the cold-start floor (typically 3). Stays in the cached
+  // ephemeral region next to its catalog siblings so LMStudio /
+  // Anthropic keep prefix-cache hits across calls in the same day.
+  const fewShotText = buildFewShotBlock(state?.recentAcceptedDecisions ?? []);
+
   const system = [
     { type: 'text', text: SYSTEM_TEXT },
     { type: 'text', text: personaBlock,  cache_control: { type: 'ephemeral' } },
@@ -225,6 +234,13 @@ export function buildPrompt({ state, task, candidates }) {
     { type: 'text', text: providerBlock, cache_control: { type: 'ephemeral' } },
     { type: 'text', text: ruleSummary,   cache_control: { type: 'ephemeral' } },
   ];
+  if (fewShotText) {
+    // Insert just before rule summary so the LLM sees catalogs first,
+    // then "what worked recently", then the rule trace.
+    system.splice(system.length - 1, 0, {
+      type: 'text', text: fewShotText, cache_control: { type: 'ephemeral' },
+    });
+  }
 
   const messages = [
     {
